@@ -8,8 +8,12 @@ from app.admin import UserAdmin, UserBalanceAdmin, UserTaskAdmin, TaskAdminView,
 from app.auth_admin import authentication_backend
 import os
 
-# Создаем таблицы при запуске
-Base.metadata.create_all(bind=engine)
+# Создаем таблицы при запуске (с обработкой ошибок)
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as e:
+    print(f"Warning: Could not create tables: {e}")
+    # Продолжаем работу, таблицы могут быть созданы вручную
 
 app = FastAPI(title="BlackMirrowMarket API", version="1.0.0")
 
