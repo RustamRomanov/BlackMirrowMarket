@@ -454,9 +454,14 @@ class TonService:
 ton_service_singleton: Optional[TonService] = None
 
 
-def get_ton_service() -> TonService:
+def get_ton_service() -> Optional[TonService]:
+    """Получает экземпляр TON сервиса. Возвращает None, если не настроен."""
     global ton_service_singleton
     if ton_service_singleton is None:
-        ton_service_singleton = TonService()
+        try:
+            ton_service_singleton = TonService()
+        except RuntimeError:
+            # Если переменные не установлены, возвращаем None
+            return None
     return ton_service_singleton
 

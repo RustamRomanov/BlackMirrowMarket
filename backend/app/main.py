@@ -157,6 +157,10 @@ async def update_ton_transactions_periodically():
         try:
             await asyncio.sleep(30)  # Проверяем каждые 30 секунд
             service = get_ton_service()
+            if service is None:
+                # TON сервис не настроен, пропускаем
+                await asyncio.sleep(300)  # Проверяем реже, если не настроено
+                continue
             db = SessionLocal()
             try:
                 await service.update_pending_transactions(db)
@@ -171,10 +175,9 @@ async def check_deposits_periodically():
     while True:
         try:
             await asyncio.sleep(60)  # Проверяем каждую минуту
-            try:
-                service = get_ton_service()
-            except RuntimeError as e:
-                # Если TON сервис не настроен, просто пропускаем
+            service = get_ton_service()
+            if service is None:
+                # TON сервис не настроен, пропускаем
                 await asyncio.sleep(300)  # Проверяем реже, если не настроено
                 continue
             
