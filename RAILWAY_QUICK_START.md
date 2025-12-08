@@ -14,7 +14,7 @@
 
 1. Нажмите "New Project"
 2. Выберите "Deploy from GitHub repo"
-3. Выберите ваш репозиторий `my-new-project`
+3. Выберите ваш репозиторий `BlackMirrowMarket`
 4. Railway начнет деплой (пока без настроек)
 
 ---

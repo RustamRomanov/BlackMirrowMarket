@@ -24,7 +24,7 @@ cd blackmirrowmarket
 **Вариант B: Через SCP/SFTP**
 ```bash
 # На вашем компьютере
-scp -r /Users/user/my-new-project/* root@ваш_ip:/var/www/blackmirrowmarket/
+scp -r /Users/user/BlackMirrowMarket/* root@ваш_ip:/var/www/blackmirrowmarket/
 ```
 
 ### Шаг 3: Настройка Backend
