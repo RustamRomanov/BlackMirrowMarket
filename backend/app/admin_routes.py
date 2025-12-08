@@ -753,7 +753,7 @@ async def get_profit_html(request: Request):
                 {"".join([f"""
                 <tr>
                     <td>{w.created_at.strftime('%Y-%m-%d %H:%M') if w.created_at else '-'}</td>
-                    <td>{round(float(w.amount_ton or 0) / 10**9, 2):.2f}</td>
+                    <td>{f"{round(float(w.amount_ton or 0) / 10**9, 2):.2f}"}</td>
                     <td style="font-family: monospace; font-size: 12px;">{w.wallet_address[:20] if w.wallet_address else '-'}...</td>
                     <td><span class="badge {'badge-success' if w.status == 'completed' else 'badge-warning' if w.status == 'pending' else 'badge-danger'}">{w.status.upper()}</span></td>
                 </tr>
