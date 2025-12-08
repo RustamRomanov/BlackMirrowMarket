@@ -3,7 +3,7 @@ Telegram Bot для BlackMirrowMarket
 Пока базовая структура, будет расширена для валидации заданий
 """
 import os
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes
 from dotenv import load_dotenv
 
@@ -11,12 +11,21 @@ load_dotenv()
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_ADMIN_BOT_TOKEN = os.getenv("TELEGRAM_ADMIN_BOT_TOKEN")
+# URL Mini App - можно переопределить через переменную окружения
+MINI_APP_URL = os.getenv("MINI_APP_URL", "https://blackmirrowmarket-production.up.railway.app")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик команды /start"""
+    # Создаем кнопку для открытия Mini App
+    keyboard = [
+        [InlineKeyboardButton("🚀 Открыть приложение", web_app={"url": MINI_APP_URL})]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
     await update.message.reply_text(
         "Добро пожаловать в BlackMirrowMarket!\n\n"
-        "Используйте Mini App для работы с платформой."
+        "Нажмите кнопку ниже, чтобы открыть приложение:",
+        reply_markup=reply_markup
     )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
