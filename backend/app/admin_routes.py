@@ -670,6 +670,25 @@ async def get_profit_html(request: Request):
 
     sidebar_html = get_sidebar_html("profit")
     
+    # Генерируем HTML для истории выводов отдельно, чтобы избежать проблем с вложенными f-строками
+    withdrawals_html = ""
+    if withdrawals:
+        for w in withdrawals:
+            amount_ton = round(float(w.amount_ton or 0) / 10**9, 2)
+            created_at = w.created_at.strftime('%Y-%m-%d %H:%M') if w.created_at else '-'
+            wallet_addr = w.wallet_address[:20] if w.wallet_address else '-'
+            status_badge = 'badge-success' if w.status == 'completed' else 'badge-warning' if w.status == 'pending' else 'badge-danger'
+            withdrawals_html += f"""
+                <tr>
+                    <td>{created_at}</td>
+                    <td>{amount_ton:.2f}</td>
+                    <td style="font-family: monospace; font-size: 12px;">{wallet_addr}...</td>
+                    <td><span class="badge {status_badge}">{w.status.upper()}</span></td>
+                </tr>
+                """
+    else:
+        withdrawals_html = '<tr><td colspan="4" style="text-align: center; padding: 40px; color: #999;">Нет истории выводов</td></tr>'
+    
     html = f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -750,14 +769,7 @@ async def get_profit_html(request: Request):
                 </tr>
             </thead>
             <tbody>
-                {"".join([f"""
-                <tr>
-                    <td>{w.created_at.strftime('%Y-%m-%d %H:%M') if w.created_at else '-'}</td>
-                    <td>{f"{round(float(w.amount_ton or 0) / 10**9, 2):.2f}"}</td>
-                    <td style="font-family: monospace; font-size: 12px;">{w.wallet_address[:20] if w.wallet_address else '-'}...</td>
-                    <td><span class="badge {'badge-success' if w.status == 'completed' else 'badge-warning' if w.status == 'pending' else 'badge-danger'}">{w.status.upper()}</span></td>
-                </tr>
-                """ for w in withdrawals]) if withdrawals else '<tr><td colspan="4" style="text-align: center; padding: 40px; color: #999;">Нет истории выводов</td></tr>'}
+                {withdrawals_html}
             </tbody>
         </table>
         
