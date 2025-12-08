@@ -773,18 +773,18 @@ async def get_profit_html(request: Request):
             <tbody>
                 <tr>
                     <td>Подписка</td>
-                    <td>{round(float(subscription_turnover) / 10**9, 2):.2f}</td>
-                    <td>{round(float(subscription_turnover) / 10**9 * 0.05, 2):.2f}</td>
+                    <td>{f"{round(float(subscription_turnover) / 10**9, 2):.2f}"}</td>
+                    <td>{f"{round(float(subscription_turnover) / 10**9 * 0.05, 2):.2f}"}</td>
                 </tr>
                 <tr>
                     <td>Комментарий</td>
-                    <td>{round(float(comment_turnover) / 10**9, 2):.2f}</td>
-                    <td>{round(float(comment_turnover) / 10**9 * 0.05, 2):.2f}</td>
+                    <td>{f"{round(float(comment_turnover) / 10**9, 2):.2f}"}</td>
+                    <td>{f"{round(float(comment_turnover) / 10**9 * 0.05, 2):.2f}"}</td>
                 </tr>
                 <tr>
                     <td>Просмотр</td>
-                    <td>{round(float(view_turnover) / 10**9, 2):.2f}</td>
-                    <td>{round(float(view_turnover) / 10**9 * 0.05, 2):.2f}</td>
+                    <td>{f"{round(float(view_turnover) / 10**9, 2):.2f}"}</td>
+                    <td>{f"{round(float(view_turnover) / 10**9 * 0.05, 2):.2f}"}</td>
                 </tr>
             </tbody>
         </table>
@@ -801,18 +801,18 @@ async def get_profit_html(request: Request):
             <tbody>
                 <tr>
                     <td>Сегодня</td>
-                    <td>{round(float(turnover_today) / 10**9, 2):.2f}</td>
-                    <td>{round(float(turnover_today) / 10**9 * 0.05, 2):.2f}</td>
+                    <td>{f"{round(float(turnover_today) / 10**9, 2):.2f}"}</td>
+                    <td>{f"{round(float(turnover_today) / 10**9 * 0.05, 2):.2f}"}</td>
                 </tr>
                 <tr>
                     <td>За неделю</td>
-                    <td>{round(float(turnover_week) / 10**9, 2):.2f}</td>
-                    <td>{round(float(turnover_week) / 10**9 * 0.05, 2):.2f}</td>
+                    <td>{f"{round(float(turnover_week) / 10**9, 2):.2f}"}</td>
+                    <td>{f"{round(float(turnover_week) / 10**9 * 0.05, 2):.2f}"}</td>
                 </tr>
                 <tr>
                     <td>За месяц</td>
-                    <td>{round(float(turnover_month) / 10**9, 2):.2f}</td>
-                    <td>{round(float(turnover_month) / 10**9 * 0.05, 2):.2f}</td>
+                    <td>{f"{round(float(turnover_month) / 10**9, 2):.2f}"}</td>
+                    <td>{f"{round(float(turnover_month) / 10**9 * 0.05, 2):.2f}"}</td>
                 </tr>
             </tbody>
         </table>
