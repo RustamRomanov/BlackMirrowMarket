@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from app.database import engine, Base
 from app.routers import users, tasks, balance, admin, ton
 from sqladmin import Admin
@@ -11,6 +12,10 @@ import os
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="BlackMirrowMarket API", version="1.0.0")
+
+# Добавляем SessionMiddleware для работы админки (должен быть ПЕРЕД созданием admin_panel)
+secret_key = os.getenv("SECRET_KEY", "super_secret_key_change_this_in_production")
+app.add_middleware(SessionMiddleware, secret_key=secret_key)
 
 # Добавляем прямые маршруты для кастомных views ДО создания admin_panel
 # Это нужно, чтобы они имели приоритет над маршрутами sqladmin
