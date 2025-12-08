@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  # Бэкенд
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/blackmirrow
+      # Добавьте сюда другие переменные окружения, например токен бота
+      # - BOT_TOKEN=your_token_here
+    depends_on:
+      - db
+    restart: always
+
+  # База данных PostgreSQL
+  db:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=blackmirrow
+    ports:
+      - "5432:5432"
+    restart: always
+
+volumes:
+  postgres_data:
+
+
+

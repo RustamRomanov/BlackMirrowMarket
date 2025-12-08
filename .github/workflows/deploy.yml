@@ -1,0 +1,52 @@
+# GitHub Actions workflow для автоматического деплоя
+# Использовать после стабилизации проекта
+
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]  # Деплой только из main ветки
+  workflow_dispatch:     # Ручной запуск
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Deploy to server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          script: |
+            # Переход в директорию проекта
+            cd /var/www/blackmirrowmarket
+            
+            # Обновление кода
+            git pull origin main
+            
+            # Backend: обновление зависимостей
+            cd backend
+            source venv/bin/activate
+            pip install -r requirements.txt
+            
+            # Frontend: сборка
+            cd ../frontend
+            npm install
+            npm run build
+            
+            # Перезапуск сервисов
+            sudo systemctl restart blackmirrowmarket-backend
+            sudo systemctl reload nginx
+            
+            # Проверка статуса
+            sleep 5
+            sudo systemctl status blackmirrowmarket-backend --no-pager
+            
+            echo "✅ Deployment completed successfully!"
+

@@ -1,0 +1,528 @@
+.balance-page {
+  padding: 16px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.balance-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.balance-page h1 {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0; /* Убираем нижний отступ, так как он теперь у header */
+}
+
+.currency-selector {
+  display: none; /* Скрываем старый контейнер */
+}
+
+.currency-selector label {
+  font-size: 14px;
+  color: #666;
+  font-weight: 600;
+}
+
+.currency-select {
+  padding: 8px 30px 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  cursor: pointer;
+  color: #666;
+  font-family: inherit;
+  appearance: none;
+}
+
+.currency-select option {
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+/* Убеждаемся, что символ рубля такого же размера */
+.currency-select {
+  font-variant-numeric: normal;
+  font-feature-settings: normal;
+}
+
+.balance-card {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.balance-section {
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.balance-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.balance-label {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.balance-value-primary {
+  font-size: 32px;
+  font-weight: 700;
+  color: #4CAF50;
+  margin-bottom: 4px;
+}
+
+.balance-value-secondary {
+  font-size: 18px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.balance-value-tertiary {
+  font-size: 14px;
+  color: #999;
+}
+
+.balance-warning {
+  background: #fff3cd;
+  border-left: 4px solid #ffc107;
+  padding: 12px;
+  border-radius: 8px;
+  color: #856404;
+  margin-top: 16px;
+  font-size: 14px;
+}
+
+.task-stats-blocks-container {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.task-stat-block {
+  flex: 1;
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  color: white;
+}
+
+.task-stat-block-subscription {
+  background: #4CAF50;
+}
+
+.task-stat-block-comment {
+  background: #2196F3;
+}
+
+.task-stat-block-view {
+  background: #FF9800;
+}
+
+.task-stat-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  opacity: 0.95;
+}
+
+.task-stat-today {
+  font-size: 10px;
+  opacity: 0.9;
+  margin-bottom: 2px;
+}
+
+.task-stat-total {
+  font-size: 10px;
+  opacity: 0.9;
+  margin-top: 8px;
+  margin-bottom: 2px;
+}
+
+.task-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  opacity: 1;
+}
+
+.task-stats-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #666;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.task-stats-row span:first-child {
+  font-weight: 600;
+  color: #333;
+  min-width: 80px;
+}
+
+.task-stats-row span:nth-child(2) {
+  color: #666;
+  font-size: 11px;
+}
+
+.task-stats-earnings {
+  color: #4CAF50;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: auto;
+  text-align: right;
+}
+
+.balance-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.action-button {
+  flex: 1;
+  padding: 14px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.action-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.deposit-button {
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+}
+
+.withdraw-button {
+  background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+}
+
+.balance-loading {
+  text-align: center;
+  padding: 40px 20px;
+  color: #999;
+  font-size: 16px;
+}
+
+.balance-error {
+  background: white;
+  border-radius: 12px;
+  padding: 40px 20px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.balance-error p {
+  color: #666;
+  margin-bottom: 20px;
+  font-size: 16px;
+}
+
+.retry-button {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.retry-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* Информация о пополнении */
+.deposit-info-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1500;
+  padding: 16px;
+}
+
+.deposit-info-content {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+}
+
+.close-deposit-info {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.close-deposit-info:hover {
+  background: #f5f5f5;
+}
+
+.deposit-info-content h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-size: 20px;
+  color: #333;
+}
+
+.deposit-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.deposit-step {
+  display: flex;
+  gap: 12px;
+}
+
+.step-number {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.step-content {
+  flex: 1;
+}
+
+.step-content strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #333;
+}
+
+.step-content p {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.deposit-note {
+  background: #f0f7ff;
+  border-left: 4px solid #1976d2;
+  padding: 12px;
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  align-items: start;
+}
+
+.deposit-note svg {
+  color: #1976d2;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.deposit-note p {
+  margin: 0;
+  font-size: 13px;
+  color: #666;
+  line-height: 1.5;
+}
+
+/* Реферальная программа в балансе */
+.referral-section-balance {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  margin-top: 20px;
+}
+
+.referral-section-balance h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.referral-description {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 20px;
+}
+
+.referral-info-card {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.referral-link-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.referral-link-section label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #000;
+}
+
+.referral-link-input {
+  display: flex;
+  gap: 8px;
+}
+
+.referral-link-input input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #f5f5f5;
+  color: #000;
+}
+
+.copy-button {
+  padding: 10px 16px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+}
+
+.copy-button:hover {
+  background: #5568d3;
+}
+
+.referral-stats {
+  display: flex;
+  gap: 20px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.stat-item svg {
+  margin-bottom: 0;
+}
+
+.stat-value {
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #333;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #999;
+  margin-top: 2px;
+}
+
+.referrals-list {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.referrals-list h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #333;
+}
+
+.referral-item {
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.referral-name {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.referral-earnings {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.5;
+}

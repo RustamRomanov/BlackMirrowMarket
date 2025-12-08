@@ -1,0 +1,182 @@
+{% extends "sqladmin/layout.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h3">📊 Центр управления BlackMirrowMarket</h1>
+            <p class="text-muted">Добро пожаловать в админ-панель! Здесь вы можете управлять пользователями, заданиями, отслеживать прибыль и обрабатывать жалобы.</p>
+            <div class="alert alert-info" style="background: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin-top: 15px; border-radius: 4px;">
+                <strong>📖 Начало работы:</strong> Используйте меню слева для навигации. Каждый раздел имеет описание и подсказки. Если что-то непонятно - читайте инструкции в каждом разделе.
+            </div>
+        </div>
+    </div>
+
+    <!-- Основная статистика -->
+    <div class="row">
+        <div class="col-md-3 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Всего пользователей</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_users }}</div>
+                            <small class="text-muted">+{{ today_users }} сегодня</small>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-users fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Активные задания</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ active_tasks }}</div>
+                            <small class="text-muted">+{{ today_tasks }} сегодня</small>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-tasks fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Прибыль приложения</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ app_profit_ton }} TON</div>
+                            <small class="text-muted">Оборот: {{ total_turnover_ton }} TON</small>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Выполнено заданий</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ completed_tasks }}</div>
+                            <small class="text-muted">+{{ today_completed }} сегодня</small>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Быстрые действия и информация -->
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">📌 Быстрые действия</h6>
+                </div>
+                <div class="card-body">
+                    <p><strong>💡 Подсказка:</strong> Используйте меню слева для навигации по разделам админки.</p>
+                    <ul style="line-height: 2;">
+                        <li><strong><a href="/admin/profit/">💰 Прибыль</a></strong> - Детальная финансовая статистика и расчет прибыли. Показывает общий оборот, прибыль приложения (5% комиссия), статистику по типам заданий и периодам.</li>
+                        <li><strong><a href="/admin/complaints/">🚩 Жалобы</a></strong> - Обработка жалоб пользователей ({{ pending_reports }} ожидают). Здесь вы видите все жалобы на задания, можете решить их (заблокировать задание) или отклонить.</li>
+                        <li><strong><a href="/admin/ban-user/">🚫 Блокировка пользователя</a></strong> - Удобная форма для блокировки пользователей. Выберите пользователя, укажите количество дней (0 = навсегда) и причину блокировки.</li>
+                        <li><strong><a href="/admin/user/list">👥 Пользователи</a></strong> - Управление пользователями, просмотр профилей, смена ролей (пользователь/модератор/владелец). Для блокировки используйте раздел "Блокировка пользователя".</li>
+                        <li><strong><a href="/admin/task/list">📋 Задания</a></strong> - Модерация заданий, редактирование, удаление спама, изменение статуса (активно/приостановлено/завершено).</li>
+                        <li><strong><a href="/admin/userbalance/list">💳 Балансы</a></strong> - Просмотр и управление балансами пользователей. Можно вручную пополнять балансы для тестирования.</li>
+                        <li><strong><a href="/admin/user-task/list">⏱️ Выполнения</a></strong> - История выполнения заданий пользователями. Полезно для отслеживания активности и выявления проблем.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-danger">🆘 Требуют внимания</h6>
+                </div>
+                <div class="card-body">
+                    {% if pending_reports > 0 %}
+                    <div class="alert alert-warning">
+                        <strong>⚠️ Есть жалобы!</strong> {{ pending_reports }} жалоб(ы) ожидают рассмотрения.
+                        <a href="/admin/complaints/" class="btn btn-sm btn-warning mt-2">Перейти к жалобам</a>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-success">
+                        <strong>✅ Все хорошо!</strong> Нет жалоб, требующих внимания.
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mt-3">
+                        <h6>Статистика за неделю:</h6>
+                        <ul>
+                            <li>Новых пользователей: {{ week_users }}</li>
+                            <li>Создано заданий: {{ week_tasks }}</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Информация о разделах -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-info">ℹ️ О разделах админки</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h6>💰 Прибыль</h6>
+                            <p class="text-muted small">Показывает общий оборот, прибыль приложения (5% комиссия), статистику по типам заданий и периодам.</p>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>🚩 Жалобы</h6>
+                            <p class="text-muted small">Здесь отображаются все жалобы пользователей на задания. Вы можете решить жалобу (заблокировать задание) или отклонить её.</p>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>👥 Пользователи</h6>
+                            <p class="text-muted small">Управление пользователями: просмотр профилей, бан, назначение модераторов, изменение ролей.</p>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-4">
+                            <h6>📋 Задания</h6>
+                            <p class="text-muted small">Список всех заданий. Можно редактировать, удалять, менять статус (активно/приостановлено).</p>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>💳 Балансы</h6>
+                            <p class="text-muted small">Просмотр балансов всех пользователей. Можно вручную пополнять балансы для тестирования.</p>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>⏱️ Выполнения</h6>
+                            <p class="text-muted small">История выполнения заданий пользователями. Статусы: ожидает, в процессе, выполнено, провалено.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

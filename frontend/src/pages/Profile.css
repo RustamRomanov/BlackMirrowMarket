@@ -1,0 +1,335 @@
+.profile-page {
+  padding: 16px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.profile-page h1 {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+.profile-card {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.profile-info {
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.info-item label {
+  font-weight: 600;
+  color: #666;
+}
+
+.info-item span {
+  color: #333;
+}
+
+.profile-form h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.form-note {
+  font-size: 14px;
+  color: #999;
+  margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.form-group input,
+.form-group select,
+.form-select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: border-color 0.2s;
+  background: white;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 40px;
+  color: #333;
+}
+
+.form-group select:focus,
+.form-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-select option {
+  padding: 8px;
+  color: #333;
+  background: white;
+}
+
+/* Стилизация для выпадающих списков */
+.form-select {
+  max-height: none;
+}
+
+/* Возраст и пол в одну строку - одинаковой ширины */
+.form-row-age-gender {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.age-select {
+  width: 100% !important;
+  max-width: 100%;
+  min-width: 100%;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.save-button {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-top: 8px;
+}
+
+.save-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.save-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.profile-complete-badge {
+  margin-bottom: 24px;
+  padding: 12px;
+  background: #E8F5E9;
+  color: #4CAF50;
+  border-radius: 8px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.profile-filled {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.terms-section {
+  margin: 20px 0;
+  padding: 16px;
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+
+.terms-checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #333;
+  cursor: pointer;
+}
+
+.terms-checkbox-label input[type="checkbox"] {
+  margin-top: 2px;
+  cursor: pointer;
+}
+
+.terms-link {
+  background: none;
+  border: none;
+  color: #2196F3;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: inherit;
+  padding: 0;
+  font-family: inherit;
+}
+
+.terms-link:hover {
+  color: #1976D2;
+}
+
+.terms-section-filled {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #e0e0e0;
+  text-align: center;
+  font-size: 14px;
+  color: #666;
+}
+
+.referral-section {
+  margin-top: 24px;
+}
+
+.referral-section h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.referral-description {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 20px;
+}
+
+.referral-info-card {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #e0e0e0;
+}
+
+.referral-link-section {
+  margin-bottom: 20px;
+}
+
+.referral-link-section label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.referral-link-input {
+  display: flex;
+  gap: 8px;
+}
+
+.referral-link-input input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+}
+
+.copy-button {
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+}
+
+.copy-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.referral-stats {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.stat-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #333;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #666;
+  margin-top: 2px;
+}
+
+.referrals-list {
+  margin-top: 20px;
+}
+
+.referrals-list h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #333;
+}
+
+.referral-item {
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.referral-name {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.referral-earnings {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.6;
+}
+
