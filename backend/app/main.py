@@ -171,14 +171,24 @@ async def check_deposits_periodically():
     while True:
         try:
             await asyncio.sleep(60)  # Проверяем каждую минуту
-            service = get_ton_service()
+            try:
+                service = get_ton_service()
+            except RuntimeError as e:
+                # Если TON сервис не настроен, просто пропускаем
+                await asyncio.sleep(300)  # Проверяем реже, если не настроено
+                continue
+            
             db = SessionLocal()
             try:
                 await service.check_incoming_deposits(db)
             finally:
                 db.close()
         except Exception as e:
-            print(f"Error in check_deposits_periodically: {e}")
+            # Не спамим логи обычными ошибками
+            import traceback
+            error_msg = str(e)
+            if "404" not in error_msg and "not set" not in error_msg:
+                print(f"Error in check_deposits_periodically: {e}")
             await asyncio.sleep(120)  # При ошибке ждем дольше
 
 @app.on_event("startup")

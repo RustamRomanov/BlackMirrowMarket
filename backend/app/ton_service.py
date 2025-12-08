@@ -29,12 +29,14 @@ class TonService:
         self._client = None
         self._wallet = None
 
+        # Делаем переменные опциональными, чтобы приложение могло запуститься без них
+        # (TON функции просто не будут работать)
         if not self.api_key:
-            raise RuntimeError("TONAPI_KEY is not set")
+            print("⚠️ Warning: TONAPI_KEY is not set. TON API features will be disabled.")
         if not self.seed_phrase:
-            raise RuntimeError("TON_WALLET_SEED is not set")
+            print("⚠️ Warning: TON_WALLET_SEED is not set. TON wallet features will be disabled.")
         if not self.wallet_address:
-            raise RuntimeError("TON_WALLET_ADDRESS is not set")
+            print("⚠️ Warning: TON_WALLET_ADDRESS is not set. TON deposit checking will be disabled.")
 
     async def _ensure_client(self):
         """Инициализирует клиент и кошелек только при необходимости."""
@@ -276,6 +278,10 @@ class TonService:
         Проверяет входящие транзакции на сервисный кошелек и автоматически зачисляет на балансы пользователей.
         Ищет Telegram ID в комментарии транзакции.
         """
+        # Проверяем, что необходимые переменные установлены
+        if not self.api_key or not self.wallet_address:
+            return  # Пропускаем, если не настроено
+        
         try:
             ssl_context = ssl.create_default_context()
             ssl_context.check_hostname = False
@@ -294,6 +300,10 @@ class TonService:
                 async with session.get(url, headers=headers, params=params) as resp:
                     if resp.status != 200:
                         text = await resp.text()
+                        # Не спамим логи, если это обычная ошибка (404 может быть если нет транзакций)
+                        if resp.status == 404:
+                            # 404 может означать, что адрес не найден или нет транзакций - это нормально
+                            return
                         print(f"TON API error getting transactions: {resp.status} - {text}")
                         return
                     
