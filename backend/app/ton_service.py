@@ -689,7 +689,7 @@ class TonService:
                 pass
             # Пробуем через TON Center API как резервный вариант
             return await self._check_deposits_via_api(db, normalized_address)
-        """
+        # """
         except Exception as e:
             import sys
             print(f"❌ Error checking deposits: {e}", file=sys.stderr, flush=True)
