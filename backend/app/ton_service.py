@@ -41,17 +41,32 @@ class TonService:
 
     async def _ensure_client(self):
         """Инициализирует клиент и кошелек только при необходимости."""
+        if not self.seed_phrase:
+            raise Exception("TON_WALLET_SEED is not configured")
+        
         if self._client is None:
             # Публичный mainnet конфиг. Для продакшена можно поменять на собственный endpoint.
             self._client = LiteBalancer.from_mainnet_config()
             # Начинаем подключение (неблокирующее)
-            await self._client.start_up()
+            try:
+                await asyncio.wait_for(self._client.start_up(), timeout=15.0)
+            except asyncio.TimeoutError:
+                raise Exception("Timeout connecting to TON blockchain")
+            except Exception as e:
+                raise Exception(f"Failed to connect to TON blockchain: {str(e)}")
+        
         if self._wallet is None:
             # Кошелек V4R2 из сид-фразы. Ключи остаются в памяти процесса.
             # Сигнатура: from_mnemonic(provider, mnemonics, wc=0, wallet_id=None, version="v3r2")
-            self._wallet = await WalletV4R2.from_mnemonic(
-                self._client, self.seed_phrase.split()
-            )
+            try:
+                self._wallet = await asyncio.wait_for(
+                    WalletV4R2.from_mnemonic(self._client, self.seed_phrase.split()),
+                    timeout=10.0
+                )
+            except asyncio.TimeoutError:
+                raise Exception("Timeout initializing wallet")
+            except Exception as e:
+                raise Exception(f"Failed to initialize wallet: {str(e)}")
 
     async def get_wallet_balance(self) -> int:
         """Возвращает баланс сервисного кошелька в нано-TON через tonapi.io."""
@@ -116,8 +131,17 @@ class TonService:
         Создает запись о выводе и пытается отправить транзакцию.
         Возвращает (tx_record, created_new: bool).
         """
+        import traceback
+        
         if amount_nano <= 0:
             raise HTTPException(status_code=400, detail="Amount must be positive")
+
+        # Проверяем, что TON_WALLET_SEED настроен
+        if not self.seed_phrase:
+            raise HTTPException(
+                status_code=500, 
+                detail="TON wallet not configured. TON_WALLET_SEED is not set."
+            )
 
         user = db.query(models.User).filter(models.User.telegram_id == telegram_id).first()
         if not user:
@@ -138,7 +162,11 @@ class TonService:
             return existing, False
 
         if balance.ton_active_balance < amount_nano:
-            raise HTTPException(status_code=400, detail="Insufficient funds")
+            available_ton = float(balance.ton_active_balance) / 10**9
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Insufficient funds. Available: {available_ton:.4f} TON, Requested: {float(amount_nano) / 10**9:.4f} TON"
+            )
 
         tx = models.TonTransaction(
             user_id=user.id,
@@ -155,19 +183,40 @@ class TonService:
         db.refresh(tx)
 
         try:
+            # Валидация адреса
+            try:
+                Address(to_address)
+            except Exception as addr_error:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid TON address: {to_address}. Error: {str(addr_error)}"
+                )
+            
+            # Отправка транзакции
             tx_hash = await self._send_raw(to_address, int(amount_nano))
             tx.tx_hash = tx_hash
             tx.status = "pending"
             db.commit()
             db.refresh(tx)
+        except HTTPException:
+            # Пробрасываем HTTPException как есть
+            raise
         except Exception as exc:
             # Возврат средств при неуспехе
+            error_msg = str(exc)
+            error_trace = traceback.format_exc()
+            print(f"❌ Ошибка при выводе средств: {error_msg}", file=sys.stderr, flush=True)
+            print(f"❌ Traceback: {error_trace}", file=sys.stderr, flush=True)
+            
             tx.status = "failed"
-            tx.error_message = str(exc)
+            tx.error_message = error_msg[:500]  # Ограничиваем длину сообщения об ошибке
             balance.ton_active_balance += amount_nano
             db.commit()
             db.refresh(tx)
-            raise HTTPException(status_code=500, detail=f"TON send failed: {exc}")
+            raise HTTPException(
+                status_code=500, 
+                detail=f"TON send failed: {error_msg}"
+            )
 
         return tx, True
 
