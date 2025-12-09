@@ -254,6 +254,38 @@ class TonService:
                 except Exception as mnemonic_error:
                     print(f"⚠️ Mnemonic library check failed: {mnemonic_error}", file=sys.stderr, flush=True)
                 
+                # Пробуем альтернативный способ - генерируем приватный ключ из мнемоники
+                try:
+                    print("🔄 Trying alternative: generate private key from mnemonic...", file=sys.stderr, flush=True)
+                    from mnemonic import Mnemonic
+                    import hashlib
+                    from pytoniq_core.crypto.keys import PrivateKey
+                    
+                    mnemo = Mnemonic("english")
+                    seed_string = " ".join(seed_words)
+                    
+                    # Генерируем seed из мнемоники
+                    seed_bytes = mnemo.to_seed(seed_string)
+                    print(f"✅ Generated seed from mnemonic (length: {len(seed_bytes)})", file=sys.stderr, flush=True)
+                    
+                    # Генерируем приватный ключ из seed (первые 32 байта)
+                    private_key_bytes = seed_bytes[:32]
+                    private_key = PrivateKey(private_key_bytes)
+                    
+                    # Пробуем инициализировать кошелек из приватного ключа
+                    print("🔄 Initializing wallet from private key...", file=sys.stderr, flush=True)
+                    self._wallet = await asyncio.wait_for(
+                        WalletV4R2.from_private_key(self._client, private_key),
+                        timeout=10.0
+                    )
+                    print("✅ Successfully initialized wallet from private key!", file=sys.stderr, flush=True)
+                    return  # Успешно инициализировали из приватного ключа
+                except ImportError as import_err:
+                    print(f"⚠️ Cannot use private key method: {import_err}", file=sys.stderr, flush=True)
+                except Exception as pk_error:
+                    print(f"⚠️ Private key initialization failed: {pk_error}", file=sys.stderr, flush=True)
+                    print(f"⚠️ PK error type: {type(pk_error).__name__}", file=sys.stderr, flush=True)
+                
                 # Пробуем альтернативный способ - может быть проблема с версией кошелька
                 try:
                     print("🔄 Trying alternative wallet initialization (V3R2)...", file=sys.stderr, flush=True)
