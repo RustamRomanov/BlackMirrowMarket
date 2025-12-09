@@ -427,11 +427,6 @@ class TonService:
         Вызывается периодически (например, каждые 30 секунд).
         """
         pending_txs = (
-        """
-        Обновляет статусы всех pending транзакций через tonapi.
-        Вызывается периодически (например, каждые 30 секунд).
-        """
-        pending_txs = (
             db.query(models.TonTransaction)
             .filter(models.TonTransaction.status == "pending")
             .filter(models.TonTransaction.tx_hash.isnot(None))
