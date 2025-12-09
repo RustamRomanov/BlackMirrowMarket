@@ -356,65 +356,53 @@ class TonService:
                     import sys
                     print(f"📡 TON API ответ: статус {resp.status}", file=sys.stderr, flush=True)
                     
-                    if resp.status != 200:
+                    transactions = None
+                    
+                    if resp.status == 200:
+                        # Успешный ответ
+                        data = await resp.json()
+                        transactions = data.get("transactions", [])
+                        print(f"📊 Найдено транзакций: {len(transactions)}", file=sys.stderr, flush=True)
+                    elif resp.status == 404:
+                        # 404 - пробуем raw формат
                         text = await resp.text()
-                        # Не спамим логи, если это обычная ошибка (404 может быть если нет транзакций)
-                        if resp.status == 404:
-                            # 404 может означать, что адрес не найден или нет транзакций
-                            print(f"⚠️ TON API вернул 404 для user-friendly формата", file=sys.stderr, flush=True)
-                            
-                            # Если есть raw формат, пробуем его
-                            if url_v2:
-                                print(f"🔄 Пробуем raw формат адреса...", file=sys.stderr, flush=True)
-                                url = url_v2
-                                async with session.get(url, headers=headers, params=params) as resp2:
-                                    if resp2.status == 200:
-                                        print(f"✅ Raw формат сработал!", file=sys.stderr, flush=True)
-                                        data = await resp2.json()
-                                        transactions = data.get("transactions", [])
-                                        import sys
-                                        print(f"📊 Найдено транзакций: {len(transactions)}", file=sys.stderr, flush=True)
-                                        
-                                        if len(transactions) == 0:
-                                            print("ℹ️ Новых транзакций не найдено", file=sys.stderr, flush=True)
-                                            return
-                                        
-                                        # Обрабатываем транзакции (код ниже)
-                                    else:
-                                        text2 = await resp2.text()
-                                        print(f"⚠️ Raw формат тоже вернул {resp2.status}: {text2[:200]}", file=sys.stderr, flush=True)
-                                        print(f"⚠️ Возможные причины:", file=sys.stderr, flush=True)
-                                        print(f"   1. Адрес неверный или неполный в переменной окружения", file=sys.stderr, flush=True)
-                                        print(f"   2. На кошельке нет транзакций (новый кошелек)", file=sys.stderr, flush=True)
-                                        print(f"   3. Адрес не существует в сети TON", file=sys.stderr, flush=True)
-                                        print(f"ℹ️ Проверьте переменную TON_WALLET_ADDRESS на Railway", file=sys.stderr, flush=True)
-                                        return
-                            else:
-                                print(f"⚠️ Возможные причины:", file=sys.stderr, flush=True)
-                                print(f"   1. Адрес неверного формата (должен быть UQ... или EQ...)", file=sys.stderr, flush=True)
-                                print(f"   2. На кошельке нет транзакций", file=sys.stderr, flush=True)
-                                print(f"   3. Адрес не существует в сети", file=sys.stderr, flush=True)
-                                print(f"ℹ️ Ответ API: {text[:200]}", file=sys.stderr, flush=True)
-                                return
+                        print(f"⚠️ TON API вернул 404 для user-friendly формата", file=sys.stderr, flush=True)
+                        
+                        # Если есть raw формат, пробуем его
+                        if url_v2:
+                            print(f"🔄 Пробуем raw формат адреса...", file=sys.stderr, flush=True)
+                            async with session.get(url_v2, headers=headers, params=params) as resp2:
+                                if resp2.status == 200:
+                                    print(f"✅ Raw формат сработал!", file=sys.stderr, flush=True)
+                                    data = await resp2.json()
+                                    transactions = data.get("transactions", [])
+                                    print(f"📊 Найдено транзакций: {len(transactions)}", file=sys.stderr, flush=True)
+                                else:
+                                    text2 = await resp2.text()
+                                    print(f"⚠️ Raw формат тоже вернул {resp2.status}: {text2[:200]}", file=sys.stderr, flush=True)
+                                    print(f"⚠️ Возможные причины:", file=sys.stderr, flush=True)
+                                    print(f"   1. Адрес неверный или неполный в переменной окружения", file=sys.stderr, flush=True)
+                                    print(f"   2. На кошельке нет транзакций (новый кошелек)", file=sys.stderr, flush=True)
+                                    print(f"   3. Адрес не существует в сети TON", file=sys.stderr, flush=True)
+                                    print(f"ℹ️ Проверьте переменную TON_WALLET_ADDRESS на Railway", file=sys.stderr, flush=True)
+                                    return
                         else:
-                            # Если статус не 404, продолжаем обычную обработку
-                            data = await resp.json()
-                            transactions = data.get("transactions", [])
-                            import sys
-                            print(f"📊 Найдено транзакций: {len(transactions)}", file=sys.stderr, flush=True)
-                            
-                            if len(transactions) == 0:
-                                print("ℹ️ Новых транзакций не найдено", file=sys.stderr, flush=True)
-                                return
-                            
-                            for tx in transactions:
+                            print(f"⚠️ Возможные причины:", file=sys.stderr, flush=True)
+                            print(f"   1. Адрес неверного формата (должен быть UQ... или EQ...)", file=sys.stderr, flush=True)
+                            print(f"   2. На кошельке нет транзакций", file=sys.stderr, flush=True)
+                            print(f"   3. Адрес не существует в сети", file=sys.stderr, flush=True)
+                            print(f"ℹ️ Ответ API: {text[:200]}", file=sys.stderr, flush=True)
+                            return
+                    else:
+                        # Другая ошибка
+                        text = await resp.text()
                         print(f"❌ TON API error getting transactions: {resp.status} - {text[:500]}", file=sys.stderr, flush=True)
                         return
                     
-                    data = await resp.json()
-                    transactions = data.get("transactions", [])
-                    import sys
-                    print(f"📊 Найдено транзакций: {len(transactions)}", file=sys.stderr, flush=True)
+                    # Обрабатываем транзакции (если они были получены)
+                    if transactions is None:
+                        print("❌ Критическая ошибка: транзакции не были получены", file=sys.stderr, flush=True)
+                        return
                     
                     if len(transactions) == 0:
                         print("ℹ️ Новых транзакций не найдено", file=sys.stderr, flush=True)
