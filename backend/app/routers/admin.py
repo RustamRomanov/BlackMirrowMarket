@@ -293,6 +293,7 @@ async def cleanup_test_tasks(db: Session = Depends(get_db)):
     """Комплексная очистка: удаляет все тестовые задания и примеры"""
     deleted_test = 0
     deleted_examples = 0
+    deleted_by_title = 0
     
     # Удаляем тестовые задания (is_test=True)
     test_tasks = db.query(models.Task).filter(models.Task.is_test == True).all()
@@ -313,11 +314,51 @@ async def cleanup_test_tasks(db: Session = Depends(get_db)):
             db.delete(task)
             deleted_examples += 1
     
+    # Удаляем задания по характерным названиям (тестовые задания из admin.py)
+    test_titles = [
+        "Подпишитесь на канал о криптовалютах",
+        "Оставьте комментарий под постом",
+        "Просмотрите публикацию о путешествиях",
+        "Подписка на канал о технологиях",
+        "Комментарий к посту о здоровье",
+        "Просмотр видео о кулинарии",
+        "Подписка на канал о финансах",
+        "Комментарий к обзору фильма",
+        "Просмотр поста о спорте",
+        "Подписка на канал о дизайне",
+        "Комментарий к посту о музыке",
+        "Просмотр публикации о науке",
+        "Подписка на канал о бизнесе",
+        "Комментарий к посту о фотографии",
+        "Просмотр поста о модах",
+        "Подписка на канал о программировании",
+        "Комментарий к посту о путешествиях",
+        "Просмотр публикации о животных",
+        "Подписка на канал о психологии",
+        "Комментарий к посту о искусстве"
+    ]
+    
+    # Ищем задания с тестовыми названиями
+    tasks_by_title = db.query(models.Task).filter(
+        models.Task.title.in_(test_titles)
+    ).all()
+    
+    for task in tasks_by_title:
+        # Проверяем, что это действительно тестовое задание
+        # (не удаляем задания реальных пользователей с похожими названиями)
+        # Удаляем только если это задание создано давно (более 1 дня назад) или тестовым пользователем
+        from datetime import datetime, timedelta
+        if task.created_at and task.created_at < datetime.utcnow() - timedelta(days=1):
+            db.query(models.UserTask).filter(models.UserTask.task_id == task.id).delete()
+            db.delete(task)
+            deleted_by_title += 1
+    
     db.commit()
     return {
         "message": "Cleanup completed",
         "deleted_test_tasks": deleted_test,
         "deleted_example_tasks": deleted_examples,
-        "total_deleted": deleted_test + deleted_examples
+        "deleted_by_title": deleted_by_title,
+        "total_deleted": deleted_test + deleted_examples + deleted_by_title
     }
 
