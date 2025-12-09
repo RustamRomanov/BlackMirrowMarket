@@ -362,19 +362,26 @@ export default function Balance() {
               ×
             </button>
             <h3>Пополнить баланс</h3>
-            <div style={{ marginBottom: '10px', fontSize: '13px', color: '#555' }}>
+            <div style={{ marginBottom: '8px', fontSize: '13px', color: '#555' }}>
               Минимальная сумма пополнения: <strong>1 TON</strong>
             </div>
+
+            {/* Шаг 2 */}
+            <div style={{ marginTop: '10px', fontSize: '13px', color: '#333', fontWeight: 600 }}>
+              2) Отправьте TON по этому адресу:
+            </div>
             <div style={{
-              background: '#f5f5f5',
-              padding: '12px 14px',
-              borderRadius: '10px',
-              fontFamily: 'monospace',
-              fontSize: '14px',
-              lineHeight: 1.35,
+              marginTop: '8px',
+              background: '#e8f5e9',
+              border: '1px solid #c8e6c9',
+              padding: '12px',
+              borderRadius: '12px',
               display: 'flex',
               alignItems: 'center',
-              gap: '12px'
+              gap: '10px',
+              fontFamily: 'monospace',
+              fontSize: '14px',
+              lineHeight: 1.3
             }}>
               <div style={{ flex: 1, wordBreak: 'break-all' }}>
                 {depositInfo.service_wallet_address}
@@ -385,11 +392,11 @@ export default function Balance() {
                   showSuccess('Адрес скопирован!')
                 }}
                 style={{
-                  background: '#667eea',
+                  background: '#4caf50',
                   color: 'white',
                   border: 'none',
                   borderRadius: '8px',
-                  padding: '10px',
+                  padding: '8px',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -399,18 +406,58 @@ export default function Balance() {
                 <Copy size={16} />
               </button>
             </div>
-            <div style={{ marginTop: '14px', fontSize: '13px', color: '#444', lineHeight: 1.5 }}>
-              <div style={{ marginBottom: '6px', fontWeight: 600 }}>Как зачисляются средства:</div>
-              <div style={{ marginBottom: '4px' }}>1) Откройте свой TON-кошелек (Tonkeeper, MyTonWallet и т.д.).</div>
-              <div style={{ marginBottom: '4px' }}>2) Отправьте TON на адрес выше.</div>
-              <div style={{ marginBottom: '4px' }}>
-                3) В комментарии/мемо укажите ваш Telegram ID:
-                <span style={{ marginLeft: '6px', fontFamily: 'monospace', fontWeight: 700 }}>
+
+            {/* Шаг 3 */}
+            <div style={{ marginTop: '14px', fontSize: '13px', color: '#333', fontWeight: 600 }}>
+              3) Обязательно укажите Telegram ID в комментарии/мемо:
+            </div>
+            <div style={{
+              marginTop: '8px',
+              background: '#fff3cd',
+              border: '1px solid #ffe082',
+              padding: '12px',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              lineHeight: 1.4
+            }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '12px', color: '#8a6d3b', marginBottom: '6px' }}>
+                  Укажите в комментарии/мемо:
+                </div>
+                <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#bf360c' }}>
                   {user?.telegram_id}
-                </span>
-                . Это обязательно — по нему система зачислит перевод на ваш баланс.
+                </div>
+                <div style={{ fontSize: '12px', color: '#8a6d3b', marginTop: '6px' }}>
+                  Если не указать ID, зачисление может не произойти.
+                </div>
               </div>
-              <div>4) После подтверждения сети зачисление происходит автоматически.</div>
+              <button
+                onClick={() => {
+                  const telegramId = (user?.telegram_id)?.toString() || ''
+                  navigator.clipboard.writeText(telegramId)
+                  showSuccess('Telegram ID скопирован!')
+                }}
+                style={{
+                  background: '#ff9800',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '8px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <Copy size={16} />
+              </button>
+            </div>
+
+            {/* Шаг 4 */}
+            <div style={{ marginTop: '14px', fontSize: '13px', color: '#333' }}>
+              4) После подтверждения сети (обычно 1–2 минуты) зачисление происходит автоматически.
             </div>
           </div>
         </div>
