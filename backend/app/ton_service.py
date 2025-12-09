@@ -274,6 +274,133 @@ class TonService:
             # При ошибке считаем pending
             return "pending"
 
+    async def _check_deposits_via_api(self, db: Session, normalized_address: str):
+        """Резервный метод: проверка депозитов через TON Center API"""
+        import sys
+        print("🔄 Пробуем через TON Center API (toncenter.com)...", file=sys.stderr, flush=True)
+        
+        try:
+            import aiohttp
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            async with aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=10),
+                connector=connector
+            ) as session:
+                url = "https://toncenter.com/api/v2/getTransactions"
+                params = {
+                    "address": normalized_address,
+                    "limit": 50,
+                    "archival": True
+                }
+                if self.api_key:
+                    params["api_key"] = self.api_key
+                
+                async with session.get(url, params=params) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        if data.get("ok"):
+                            transactions = data.get("result", [])
+                            print(f"📊 Найдено транзакций через TON Center: {len(transactions)}", file=sys.stderr, flush=True)
+                            
+                            if len(transactions) == 0:
+                                print("ℹ️ Новых транзакций не найдено", file=sys.stderr, flush=True)
+                                return
+                            
+                            # Обрабатываем транзакции
+                            for tx in transactions:
+                                tx_hash = tx.get("transaction_id", {}).get("hash", "")
+                                if not tx_hash:
+                                    continue
+                                
+                                existing = db.query(models.Deposit).filter(
+                                    models.Deposit.tx_hash == tx_hash
+                                ).first()
+                                if existing:
+                                    continue
+                                
+                                in_msg = tx.get("in_msg")
+                                if not in_msg:
+                                    continue
+                                
+                                value = int(in_msg.get("value", 0))
+                                if value <= 0:
+                                    continue
+                                
+                                source = in_msg.get("source", "")
+                                
+                                # Получаем комментарий
+                                msg_text_str = ""
+                                msg_body = in_msg.get("message", "")
+                                if msg_body:
+                                    try:
+                                        import base64
+                                        decoded = base64.b64decode(msg_body)
+                                        msg_text_str = decoded.decode('utf-8', errors='ignore').strip()
+                                    except:
+                                        msg_text_str = str(msg_body)
+                                
+                                # Ищем Telegram ID
+                                telegram_id = None
+                                if msg_text_str:
+                                    print(f"📝 Комментарий: {msg_text_str[:100]}", file=sys.stderr, flush=True)
+                                    match_id = re.search(r'(?:tg:)?(\d{8,12})', msg_text_str)
+                                    if match_id:
+                                        telegram_id = match_id.group(1)
+                                        print(f"✅ Найден Telegram ID: {telegram_id}", file=sys.stderr, flush=True)
+                                
+                                # Создаем депозит
+                                deposit = models.Deposit(
+                                    tx_hash=tx_hash,
+                                    from_address=source,
+                                    amount_nano=value,
+                                    telegram_id_from_comment=telegram_id,
+                                    status="pending"
+                                )
+                                db.add(deposit)
+                                db.commit()
+                                
+                                # Зачисляем на баланс если нашли ID
+                                if telegram_id:
+                                    try:
+                                        user = db.query(models.User).filter(
+                                            models.User.telegram_id == int(telegram_id)
+                                        ).first()
+                                        
+                                        if user:
+                                            balance = db.query(models.UserBalance).filter(
+                                                models.UserBalance.user_id == user.id
+                                            ).first()
+                                            
+                                            if not balance:
+                                                balance = models.UserBalance(
+                                                    user_id=user.id,
+                                                    ton_active_balance=value,
+                                                    last_fiat_rate=Decimal("250"),
+                                                    fiat_currency="RUB"
+                                                )
+                                                db.add(balance)
+                                            else:
+                                                balance.ton_active_balance += value
+                                            
+                                            deposit.user_id = user.id
+                                            deposit.status = "processed"
+                                            deposit.processed_at = datetime.utcnow()
+                                            db.commit()
+                                            
+                                            print(f"✅ Автоматически зачислено {value / 10**9:.4f} TON пользователю {telegram_id}", file=sys.stderr, flush=True)
+                                    except Exception as e:
+                                        print(f"⚠️ Ошибка обработки: {e}", file=sys.stderr, flush=True)
+                        else:
+                            print(f"⚠️ TON Center API ошибка: {data.get('error', 'Unknown')}", file=sys.stderr, flush=True)
+                    else:
+                        print(f"⚠️ TON Center API статус {resp.status}", file=sys.stderr, flush=True)
+        except Exception as e:
+            print(f"❌ Ошибка TON Center API: {e}", file=sys.stderr, flush=True)
+
     async def check_incoming_deposits(self, db: Session):
         """
         Проверяет входящие транзакции на сервисный кошелек и автоматически зачисляет на балансы пользователей.
