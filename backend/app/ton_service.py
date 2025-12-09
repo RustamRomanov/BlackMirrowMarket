@@ -418,6 +418,12 @@ class TonService:
         normalized_address = self.wallet_address.strip()
         print(f"🔍 Проверка депозитов для кошелька: {normalized_address[:20]}...", file=sys.stderr, flush=True)
         
+        # Сразу используем TON Center API, так как подключение к блокчейну через pytoniq зависает
+        print("🔄 Используем TON Center API для проверки депозитов...", file=sys.stderr, flush=True)
+        return await self._check_deposits_via_api(db, normalized_address)
+        
+        # Закомментированный код для прямого подключения к блокчейну (если понадобится в будущем)
+        """
         try:
             # Создаем адрес объект
             wallet_addr = PytoniqAddress(normalized_address)
