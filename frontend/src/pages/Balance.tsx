@@ -361,13 +361,15 @@ export default function Balance() {
             >
               ×
             </button>
-            <h3>Пополнить баланс</h3>
-            <div style={{ marginBottom: '8px', fontSize: '13px', color: '#555' }}>
-              Минимальная сумма пополнения: <strong>1 TON</strong>
+            <h3 style={{ marginBottom: '12px' }}>Пополнить баланс</h3>
+
+            {/* Шаг 1 */}
+            <div style={{ marginBottom: '10px', fontSize: '14px', color: '#333', fontWeight: 600 }}>
+              1) Минимальная сумма пополнения: <span style={{ fontWeight: 700 }}>1 TON</span>
             </div>
 
             {/* Шаг 2 */}
-            <div style={{ marginTop: '10px', fontSize: '13px', color: '#333', fontWeight: 600 }}>
+            <div style={{ marginTop: '6px', fontSize: '14px', color: '#333', fontWeight: 600 }}>
               2) Отправьте TON по этому адресу:
             </div>
             <div style={{
@@ -380,7 +382,7 @@ export default function Balance() {
               alignItems: 'center',
               gap: '10px',
               fontFamily: 'monospace',
-              fontSize: '14px',
+              fontSize: '16px',
               lineHeight: 1.3
             }}>
               <div style={{ flex: 1, wordBreak: 'break-all' }}>
@@ -408,7 +410,7 @@ export default function Balance() {
             </div>
 
             {/* Шаг 3 */}
-            <div style={{ marginTop: '14px', fontSize: '13px', color: '#333', fontWeight: 600 }}>
+            <div style={{ marginTop: '12px', fontSize: '14px', color: '#333', fontWeight: 600 }}>
               3) Обязательно укажите Telegram ID в комментарии/мемо:
             </div>
             <div style={{
@@ -420,13 +422,13 @@ export default function Balance() {
               display: 'flex',
               alignItems: 'center',
               gap: '10px',
-              lineHeight: 1.4
+              lineHeight: 1.35
             }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '12px', color: '#8a6d3b', marginBottom: '6px' }}>
+                <div style={{ fontSize: '12px', color: '#8a6d3b', marginBottom: '6px', fontWeight: 600 }}>
                   Укажите в комментарии/мемо:
                 </div>
-                <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#bf360c' }}>
+                <div style={{ fontFamily: 'monospace', fontSize: '20px', fontWeight: 700, color: '#bf360c' }}>
                   {user?.telegram_id}
                 </div>
                 <div style={{ fontSize: '12px', color: '#8a6d3b', marginTop: '6px' }}>
@@ -456,7 +458,7 @@ export default function Balance() {
             </div>
 
             {/* Шаг 4 */}
-            <div style={{ marginTop: '14px', fontSize: '13px', color: '#333' }}>
+            <div style={{ marginTop: '12px', fontSize: '14px', color: '#333', fontWeight: 600 }}>
               4) После подтверждения сети (обычно 1–2 минуты) зачисление происходит автоматически.
             </div>
           </div>
