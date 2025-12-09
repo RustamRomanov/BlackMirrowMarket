@@ -14,3 +14,4 @@ itsdangerous==2.1.2
 pytoniq==0.1.43
 pytoniq-core==0.1.45
 redis==5.0.1
+mnemonic==0.20

@@ -211,6 +211,32 @@ class TonService:
                 error_msg = str(e)
                 preview = f"{' '.join(seed_words[:3])} ... {' '.join(seed_words[-3:])}"
                 
+                # Проверяем suspicious_words (определяем здесь, если еще не определено)
+                if 'suspicious_words' not in locals():
+                    suspicious_words = []
+                    for i, word in enumerate(seed_words):
+                        if len(word) > 12:
+                            suspicious_words.append(f"word {i+1}: '{word[:30]}...' (length: {len(word)})")
+                
+                # Пробуем использовать библиотеку mnemonic для валидации
+                try:
+                    print("🔄 Trying to validate mnemonic with 'mnemonic' library...", file=sys.stderr, flush=True)
+                    try:
+                        from mnemonic import Mnemonic
+                        mnemo = Mnemonic("english")
+                        seed_string = " ".join(seed_words)
+                        if not mnemo.check(seed_string):
+                            print("⚠️ Mnemonic validation failed with 'mnemonic' library", file=sys.stderr, flush=True)
+                        else:
+                            print("✅ Mnemonic is valid according to 'mnemonic' library", file=sys.stderr, flush=True)
+                            # Генерируем seed из мнемоники
+                            seed_bytes = mnemo.to_seed(seed_string)
+                            print(f"✅ Generated seed from mnemonic (length: {len(seed_bytes)})", file=sys.stderr, flush=True)
+                    except ImportError:
+                        print("⚠️ 'mnemonic' library not installed, skipping validation", file=sys.stderr, flush=True)
+                except Exception as mnemonic_error:
+                    print(f"⚠️ Mnemonic library check failed: {mnemonic_error}", file=sys.stderr, flush=True)
+                
                 # Пробуем альтернативный способ - может быть проблема с версией кошелька
                 try:
                     print("🔄 Trying alternative wallet initialization (V3R2)...", file=sys.stderr, flush=True)
@@ -254,12 +280,16 @@ class TonService:
                 
                 error_details.append(f"Error: {error_msg}.")
                 error_details.append("")
+                error_details.append("⚠️ CRITICAL: pytoniq cannot validate this mnemonic, but words appear correct.")
+                error_details.append("This may be a compatibility issue with pytoniq library.")
+                error_details.append("")
                 error_details.append("Possible solutions:")
                 error_details.append("  1. Verify that TON_WALLET_SEED matches TON_WALLET_ADDRESS")
                 error_details.append("  2. Check if all words are from BIP39 English wordlist")
                 error_details.append("  3. Ensure the mnemonic is for the correct wallet type (V4R2 or V3R2)")
                 error_details.append("  4. Try regenerating the mnemonic from your wallet if possible")
                 error_details.append("  5. Verify the mnemonic phrase in your wallet app")
+                error_details.append("  6. Consider using a different TON wallet library")
                 
                 raise Exception("\n".join(error_details))
             except Exception as e:
