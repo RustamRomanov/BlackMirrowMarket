@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from pytoniq.liteclient import LiteBalancer
 from pytoniq.contract.wallets.wallet import WalletV4R2, Address
+from pytoniq import Address as PytoniqAddress
 
 from app import models
 
@@ -284,7 +285,23 @@ class TonService:
             print("⚠️ TON API не настроен: api_key или wallet_address отсутствуют", file=sys.stderr, flush=True)
             return  # Пропускаем, если не настроено
         
-        print(f"🔍 Проверка депозитов для кошелька: {self.wallet_address[:10]}...", file=sys.stderr, flush=True)
+        # Нормализуем адрес: убираем пробелы, проверяем формат
+        normalized_address = self.wallet_address.strip()
+        
+        # Пытаемся нормализовать адрес через pytoniq
+        try:
+            # Пробуем создать Address объект и получить его в формате для API
+            addr_obj = PytoniqAddress(normalized_address)
+            # tonapi.io использует адрес в формате base64url (без дефисов, но с UQ/EQ префиксом)
+            # Получаем адрес в формате, который понимает API
+            normalized_address = addr_obj.to_str(is_user_friendly=True, is_bounceable=False)
+            print(f"✅ Адрес нормализован: {normalized_address[:30]}...", file=sys.stderr, flush=True)
+        except Exception as e:
+            # Если не получилось нормализовать, используем как есть
+            print(f"⚠️ Не удалось нормализовать адрес через pytoniq: {e}", file=sys.stderr, flush=True)
+            print(f"ℹ️ Используем адрес как есть: {normalized_address[:30]}...", file=sys.stderr, flush=True)
+        
+        print(f"🔍 Проверка депозитов для кошелька: {normalized_address[:20]}... (полная длина: {len(normalized_address)})", file=sys.stderr, flush=True)
         
         try:
             ssl_context = ssl.create_default_context()
@@ -297,7 +314,8 @@ class TonService:
                 connector=connector
             ) as session:
                 # Получаем последние транзакции на сервисный кошелек
-                url = f"https://tonapi.io/v2/accounts/{self.wallet_address}/transactions"
+                # TON API требует адрес в формате base64url (UQ... или EQ...)
+                url = f"https://tonapi.io/v2/accounts/{normalized_address}/transactions"
                 headers = {"Authorization": f"Bearer {self.api_key}"}
                 params = {"limit": 50}
                 
@@ -312,8 +330,12 @@ class TonService:
                         text = await resp.text()
                         # Не спамим логи, если это обычная ошибка (404 может быть если нет транзакций)
                         if resp.status == 404:
-                            # 404 может означать, что адрес не найден или нет транзакций - это нормально
-                            print("ℹ️ TON API вернул 404 - транзакций не найдено или адрес не найден", file=sys.stderr, flush=True)
+                            # 404 может означать, что адрес не найден или нет транзакций
+                            print(f"⚠️ TON API вернул 404 для адреса {normalized_address[:30]}...", file=sys.stderr, flush=True)
+                            print(f"⚠️ Возможные причины:", file=sys.stderr, flush=True)
+                            print(f"   1. Адрес неверного формата (должен быть UQ... или EQ...)", file=sys.stderr, flush=True)
+                            print(f"   2. На кошельке нет транзакций", file=sys.stderr, flush=True)
+                            print(f"   3. Адрес не существует в сети", file=sys.stderr, flush=True)
                             print(f"ℹ️ Ответ API: {text[:200]}", file=sys.stderr, flush=True)
                             return
                         print(f"❌ TON API error getting transactions: {resp.status} - {text[:500]}", file=sys.stderr, flush=True)
