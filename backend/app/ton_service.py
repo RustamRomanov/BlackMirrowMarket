@@ -298,24 +298,37 @@ class TonService:
             
             # Подключаемся к блокчейну напрямую
             print("🌐 Подключение к TON блокчейну...", file=sys.stderr, flush=True)
+            
+            # Подавляем предупреждения pytoniq
+            import warnings
+            import logging
+            logging.getLogger('pytoniq').setLevel(logging.ERROR)
+            warnings.filterwarnings('ignore', category=UserWarning)
+            
             client = LiteBalancer.from_mainnet_config()
             
             # Подключаемся с таймаутом
             import asyncio
             try:
-                await asyncio.wait_for(client.start_up(), timeout=10.0)
+                # Уменьшаем таймаут до 5 секунд, чтобы быстрее переключаться на альтернативу
+                await asyncio.wait_for(client.start_up(), timeout=5.0)
                 print("✅ Подключено к блокчейну", file=sys.stderr, flush=True)
             except asyncio.TimeoutError:
-                print("❌ Таймаут подключения к блокчейну (10 сек)", file=sys.stderr, flush=True)
-                await client.close_all()
-                return
-            except Exception as e:
-                print(f"❌ Ошибка подключения к блокчейну: {e}", file=sys.stderr, flush=True)
+                print("❌ Таймаут подключения к блокчейну (5 сек) - пробуем TON API", file=sys.stderr, flush=True)
                 try:
                     await client.close_all()
                 except:
                     pass
-                return
+                # Пробуем через TON API как резервный вариант
+                return await self._check_deposits_via_api(db, normalized_address)
+            except Exception as e:
+                print(f"❌ Ошибка подключения к блокчейну: {e} - пробуем TON API", file=sys.stderr, flush=True)
+                try:
+                    await client.close_all()
+                except:
+                    pass
+                # Пробуем через TON API как резервный вариант
+                return await self._check_deposits_via_api(db, normalized_address)
             
             # Получаем транзакции напрямую из блокчейна
             print("📡 Получение транзакций из блокчейна...", file=sys.stderr, flush=True)
