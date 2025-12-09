@@ -141,7 +141,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
     }
     
     if ((formData.task_type === 'comment' || formData.task_type === 'view') && !formData.telegram_post_id) {
-      newErrors.telegram_post_id = 'ID поста обязателен'
+      newErrors.telegram_post_id = 'Ссылка поста обязательна'
     }
     
     if (formData.task_type !== 'view' && !formData.telegram_channel_id) {
@@ -237,7 +237,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
             {/* Описание */}
             <div className="form-field-group">
               <label className="form-label">
-                Описание (2 строки)
+                Описание
               </label>
               <textarea
                 value={formData.description}
@@ -246,57 +246,60 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
                   if (errors.description) setErrors({ ...errors, description: '' })
                 }}
                 rows={2}
-                placeholder="Краткое описание задания в 2 строки"
+                placeholder="Краткое описание о чем пост"
                 className={`form-input ${errors.description ? 'error' : ''}`}
               />
               {errors.description && <div className="form-error">{errors.description}</div>}
             </div>
 
             {/* Цена, Слоты, Бюджет - новая логика */}
-            <div className="form-row-pricing">
-              <div className="form-field-group">
-                <label className="form-label">
-                  Цена за слот
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={formData.price_per_slot_ton}
-                  onChange={(e) => {
-                    setFormData({ ...formData, price_per_slot_ton: e.target.value })
-                    if (errors.price_per_slot_ton) setErrors({ ...errors, price_per_slot_ton: '' })
-                  }}
-                  min="0.1"
-                  placeholder="0.5" 
-                  className={`form-input ${errors.price_per_slot_ton ? 'error' : ''}`}
-                />
-                {errors.price_per_slot_ton && <div className="form-error">{errors.price_per_slot_ton}</div>}
-              </div>
+            <div className="pricing-box">
+              <div className="pricing-title">Цена за слот / количество слотов / Бюджет кампании</div>
+              <div className="form-row-pricing">
+                <div className="form-field-group">
+                  <label className="form-label">
+                    Цена за слот
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={formData.price_per_slot_ton}
+                    onChange={(e) => {
+                      setFormData({ ...formData, price_per_slot_ton: e.target.value })
+                      if (errors.price_per_slot_ton) setErrors({ ...errors, price_per_slot_ton: '' })
+                    }}
+                    min="0.1"
+                    placeholder="0.5" 
+                    className={`form-input ${errors.price_per_slot_ton ? 'error' : ''}`}
+                  />
+                  {errors.price_per_slot_ton && <div className="form-error">{errors.price_per_slot_ton}</div>}
+                </div>
 
-              <div className="form-field-group">
-                <label className="form-label">
-                  Слотов
-                </label>
-                <input
-                  type="number"
-                  value={formData.total_slots}
-                  onChange={(e) => {
-                    setFormData({ ...formData, total_slots: e.target.value })
-                    if (errors.total_slots) setErrors({ ...errors, total_slots: '' })
-                  }}
-                  min="1"
-                  placeholder={`Макс: ${maxSlots}`}
-                  className={`form-input ${errors.total_slots ? 'error' : ''}`}
-                />
-                {errors.total_slots && <div className="form-error">{errors.total_slots}</div>}
-              </div>
+                <div className="form-field-group">
+                  <label className="form-label">
+                    Количество слотов
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.total_slots}
+                    onChange={(e) => {
+                      setFormData({ ...formData, total_slots: e.target.value })
+                      if (errors.total_slots) setErrors({ ...errors, total_slots: '' })
+                    }}
+                    min="1"
+                    placeholder={`Макс: ${maxSlots}`}
+                    className={`form-input ${errors.total_slots ? 'error' : ''}`}
+                  />
+                  {errors.total_slots && <div className="form-error">{errors.total_slots}</div>}
+                </div>
 
-              <div className="form-field-group budget-group">
-                <label className="form-label">
-                  Бюджет кампании
-                </label>
-                <div className="budget-display">
-                  {campaignBudget > 0 ? campaignBudget.toFixed(2) : '0'}
+                <div className="form-field-group budget-group">
+                  <label className="form-label">
+                    Бюджет кампании
+                  </label>
+                  <div className="budget-display">
+                    {campaignBudget > 0 ? campaignBudget.toFixed(2) : '0'}
+                  </div>
                 </div>
               </div>
             </div>
