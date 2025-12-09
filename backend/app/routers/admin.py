@@ -306,6 +306,34 @@ async def list_all_tasks(db: Session = Depends(get_db)):
         })
     return {"total": len(result), "tasks": result}
 
+@router.post("/delete-all-tasks-except-real")
+async def delete_all_tasks_except_real(db: Session = Depends(get_db)):
+    """Удаляет все задания, кроме созданных реальными пользователями (telegram_id > 0)"""
+    # Находим всех реальных пользователей
+    real_users = db.query(models.User).filter(models.User.telegram_id > 0).all()
+    real_user_ids = [u.id for u in real_users]
+    
+    if not real_user_ids:
+        return {"message": "No real users found", "deleted": 0}
+    
+    # Удаляем все задания, созданные не реальными пользователями
+    tasks_to_delete = db.query(models.Task).filter(
+        ~models.Task.creator_id.in_(real_user_ids)
+    ).all()
+    
+    deleted_count = 0
+    for task in tasks_to_delete:
+        db.query(models.UserTask).filter(models.UserTask.task_id == task.id).delete()
+        db.delete(task)
+        deleted_count += 1
+    
+    db.commit()
+    return {
+        "message": "Deleted all tasks except those created by real users",
+        "deleted": deleted_count,
+        "real_users_count": len(real_user_ids)
+    }
+
 @router.post("/cleanup-test-tasks")
 async def cleanup_test_tasks(db: Session = Depends(get_db)):
     """Комплексная очистка: удаляет все тестовые задания и примеры"""
