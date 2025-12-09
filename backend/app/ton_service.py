@@ -435,9 +435,9 @@ class TonService:
         normalized_address = self.wallet_address.strip()
         print(f"🔍 Проверка депозитов для кошелька: {normalized_address[:20]}...", file=sys.stderr, flush=True)
         
-        # Сразу используем TON Center API, так как подключение к блокчейну через pytoniq зависает
-        print("🔄 Используем TON Center API для проверки депозитов...", file=sys.stderr, flush=True)
-        return await self._check_deposits_via_api(db, normalized_address)
+        # Используем tonapi.io для проверки депозитов (у нас уже есть API ключ)
+        print("🔄 Используем tonapi.io для проверки депозитов...", file=sys.stderr, flush=True)
+        return await self._check_deposits_via_tonapi(db, normalized_address)
     async def update_pending_transactions(self, db: Session):
         """
         Обновляет статусы всех pending транзакций через tonapi.
