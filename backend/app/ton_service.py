@@ -321,7 +321,7 @@ class TonService:
             print("📡 Получение транзакций из блокчейна...", file=sys.stderr, flush=True)
             try:
                 transactions = await asyncio.wait_for(
-                    client.get_transactions(wallet_addr, limit=50),
+                    client.get_transactions(wallet_addr, count=50),
                     timeout=15.0
                 )
                 print(f"📊 Найдено транзакций: {len(transactions)}", file=sys.stderr, flush=True)
