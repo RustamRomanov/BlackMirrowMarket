@@ -24,26 +24,18 @@
   border-radius: 16px;
   max-width: 500px;
   width: 100%;
-  height: 90vh;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
   animation: slideUp 0.3s ease-out;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  position: relative;
   overflow: hidden;
 }
 
 @media (max-width: 768px) {
   .create-task-modal-content {
-    height: 100vh;
     max-height: 100vh;
-    top: 0;
-    left: 0;
-    transform: none;
     border-radius: 0;
   }
 }
@@ -99,13 +91,13 @@
 
 .create-task-form-body {
   padding: 24px;
+  padding-bottom: 100px;
   overflow-y: auto;
   flex: 1;
   min-height: 0;
   scrollbar-width: none;
   -ms-overflow-style: none;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 8px;
 }
 
 .create-task-form-body::-webkit-scrollbar {
@@ -270,7 +262,7 @@ textarea.form-input {
 }
 
 .average-price-hint {
-  margin-top: 12px;
+  margin-top: 6px;
   font-size: 13px;
   color: #ff8c00;
   text-align: center;
@@ -399,10 +391,9 @@ textarea.form-input {
   background: white;
   z-index: 10;
   flex-shrink: 0;
-  position: absolute;
+  position: sticky;
   bottom: 0;
-  left: 0;
-  right: 0;
+  margin-top: auto;
 }
 
 .cancel-button,
