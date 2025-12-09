@@ -301,16 +301,22 @@ class TonService:
                 headers = {"Authorization": f"Bearer {self.api_key}"}
                 params = {"limit": 50}
                 
+                import sys
+                print(f"🌐 Запрос к TON API: {url[:50]}...", file=sys.stderr, flush=True)
+                
                 async with session.get(url, headers=headers, params=params) as resp:
-                        if resp.status != 200:
+                    import sys
+                    print(f"📡 TON API ответ: статус {resp.status}", file=sys.stderr, flush=True)
+                    
+                    if resp.status != 200:
                         text = await resp.text()
-                        import sys
                         # Не спамим логи, если это обычная ошибка (404 может быть если нет транзакций)
                         if resp.status == 404:
                             # 404 может означать, что адрес не найден или нет транзакций - это нормально
                             print("ℹ️ TON API вернул 404 - транзакций не найдено или адрес не найден", file=sys.stderr, flush=True)
+                            print(f"ℹ️ Ответ API: {text[:200]}", file=sys.stderr, flush=True)
                             return
-                        print(f"❌ TON API error getting transactions: {resp.status} - {text}", file=sys.stderr, flush=True)
+                        print(f"❌ TON API error getting transactions: {resp.status} - {text[:500]}", file=sys.stderr, flush=True)
                         return
                     
                     data = await resp.json()
