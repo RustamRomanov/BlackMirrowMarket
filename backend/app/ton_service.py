@@ -278,288 +278,196 @@ class TonService:
         """
         Проверяет входящие транзакции на сервисный кошелек и автоматически зачисляет на балансы пользователей.
         Ищет Telegram ID в комментарии транзакции.
+        Использует прямой запрос к блокчейну через pytoniq вместо TON API.
         """
-        # Проверяем, что необходимые переменные установлены
         import sys
-        if not self.api_key or not self.wallet_address:
-            print("⚠️ TON API не настроен: api_key или wallet_address отсутствуют", file=sys.stderr, flush=True)
-            return  # Пропускаем, если не настроено
         
-        # Нормализуем адрес: убираем пробелы, проверяем формат
+        # Проверяем, что wallet_address установлен
+        if not self.wallet_address:
+            print("⚠️ TON_WALLET_ADDRESS не настроен", file=sys.stderr, flush=True)
+            return
+        
+        # Нормализуем адрес
         normalized_address = self.wallet_address.strip()
-        
-        # Пытаемся нормализовать адрес через pytoniq
-        api_address = normalized_address  # По умолчанию используем исходный адрес
-        try:
-            # Пробуем создать Address объект
-            addr_obj = PytoniqAddress(normalized_address)
-            
-            # TON API может требовать адрес в raw формате (0:...) или в base64url без дефисов
-            # Пробуем несколько вариантов:
-            # 1. User-friendly формат (UQ...)
-            user_friendly = addr_obj.to_str(is_user_friendly=True, is_bounceable=False)
-            # 2. Raw формат (0:...)
-            raw_format = addr_obj.to_str(is_user_friendly=False)
-            
-            print(f"ℹ️ User-friendly адрес: {user_friendly[:30]}...", file=sys.stderr, flush=True)
-            print(f"ℹ️ Raw адрес: {raw_format[:30]}...", file=sys.stderr, flush=True)
-            
-            # TON API v2 принимает адрес в формате base64url (UQ/EQ...)
-            # ВАЖНО: НЕ убираем дефисы - они часть адреса!
-            api_address = user_friendly
-            
-            print(f"✅ Адрес для API: {api_address[:30]}... (длина: {len(api_address)})", file=sys.stderr, flush=True)
-        except Exception as e:
-            # Если не получилось нормализовать, используем как есть
-            print(f"⚠️ Не удалось нормализовать адрес через pytoniq: {e}", file=sys.stderr, flush=True)
-            print(f"ℹ️ Используем адрес как есть: {normalized_address[:30]}...", file=sys.stderr, flush=True)
-            api_address = normalized_address
-        
-        print(f"🔍 Проверка депозитов для кошелька: {api_address[:20]}... (полная длина: {len(api_address)})", file=sys.stderr, flush=True)
+        print(f"🔍 Проверка депозитов для кошелька: {normalized_address[:20]}...", file=sys.stderr, flush=True)
         
         try:
-            ssl_context = ssl.create_default_context()
-            ssl_context.check_hostname = False
-            ssl_context.verify_mode = ssl.CERT_NONE
+            # Создаем адрес объект
+            wallet_addr = PytoniqAddress(normalized_address)
+            print(f"✅ Адрес валиден: {wallet_addr.to_str(is_user_friendly=True)[:30]}...", file=sys.stderr, flush=True)
             
-            connector = aiohttp.TCPConnector(ssl=ssl_context)
-            async with aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=10),
-                connector=connector
-            ) as session:
-                # Получаем последние транзакции на сервисный кошелек
-                # TON API требует адрес в формате base64url (UQ... или EQ...)
-                # URL-encode адрес на случай специальных символов
-                import urllib.parse
-                encoded_address = urllib.parse.quote(api_address, safe='')
-                url = f"https://tonapi.io/v2/accounts/{encoded_address}/transactions"
-                
-                # Пробуем также raw формат на случай, если user-friendly не работает
-                url_v2 = None
-                url_v3 = None  # URL с кодированием
-                try:
-                    addr_obj = PytoniqAddress(normalized_address)
-                    raw_address = addr_obj.to_str(is_user_friendly=False)
-                    url_v2 = f"https://tonapi.io/v2/accounts/{raw_address}/transactions"
-                    encoded_raw = urllib.parse.quote(raw_address, safe='')
-                    url_v3 = f"https://tonapi.io/v2/accounts/{encoded_address}/transactions"  # С кодированием user-friendly
-                except:
-                    pass
-                
-                headers = {"Authorization": f"Bearer {self.api_key}"}
-                params = {"limit": 50}
-                
-                import sys
-                print(f"🌐 Запрос к TON API: {url[:50]}...", file=sys.stderr, flush=True)
-                
-                async with session.get(url, headers=headers, params=params) as resp:
-                    import sys
-                    print(f"📡 TON API ответ: статус {resp.status}", file=sys.stderr, flush=True)
-                    
-                    transactions = None
-                    
-                    if resp.status == 200:
-                        # Успешный ответ
-                        data = await resp.json()
-                        transactions = data.get("transactions", [])
-                        print(f"📊 Найдено транзакций: {len(transactions)}", file=sys.stderr, flush=True)
-                    elif resp.status == 404:
-                        # 404 - пробуем raw формат
-                        text = await resp.text()
-                        print(f"⚠️ TON API вернул 404 для user-friendly формата", file=sys.stderr, flush=True)
-                        
-                        # Пробуем альтернативные варианты
-                        # Вариант 1: URL с кодированием
-                        if url_v3:
-                            print(f"🔄 Пробуем URL с кодированием...", file=sys.stderr, flush=True)
-                            async with session.get(url_v3, headers=headers, params=params) as resp2:
-                                if resp2.status == 200:
-                                    print(f"✅ URL с кодированием сработал!", file=sys.stderr, flush=True)
-                                    data = await resp2.json()
-                                    transactions = data.get("transactions", [])
-                                    print(f"📊 Найдено транзакций: {len(transactions)}", file=sys.stderr, flush=True)
-                                else:
-                                    # Вариант 2: Raw формат
-                                    if url_v2:
-                                        print(f"🔄 Пробуем raw формат адреса...", file=sys.stderr, flush=True)
-                                        async with session.get(url_v2, headers=headers, params=params) as resp3:
-                                            if resp3.status == 200:
-                                                print(f"✅ Raw формат сработал!", file=sys.stderr, flush=True)
-                                                data = await resp3.json()
-                                                transactions = data.get("transactions", [])
-                                                print(f"📊 Найдено транзакций: {len(transactions)}", file=sys.stderr, flush=True)
-                                            else:
-                                                text3 = await resp3.text()
-                                                print(f"⚠️ Все варианты вернули ошибку", file=sys.stderr, flush=True)
-                                                print(f"⚠️ User-friendly: 404, URL-encoded: {resp2.status}, Raw: {resp3.status}", file=sys.stderr, flush=True)
-                                                print(f"⚠️ Возможные причины:", file=sys.stderr, flush=True)
-                                                print(f"   1. Проблема с TON API или endpoint изменился", file=sys.stderr, flush=True)
-                                                print(f"   2. Адрес неверный в переменной окружения", file=sys.stderr, flush=True)
-                                                print(f"   3. API ключ неверный или истек", file=sys.stderr, flush=True)
-                                                print(f"ℹ️ Проверьте TON_WALLET_ADDRESS и TONAPI_KEY на Railway", file=sys.stderr, flush=True)
-                                                return
-                                    else:
-                                        text2 = await resp2.text()
-                                        print(f"⚠️ URL с кодированием вернул {resp2.status}: {text2[:200]}", file=sys.stderr, flush=True)
-                                        print(f"⚠️ Проверьте TON_WALLET_ADDRESS и TONAPI_KEY", file=sys.stderr, flush=True)
-                                        return
-                        else:
-                            print(f"⚠️ Возможные причины:", file=sys.stderr, flush=True)
-                            print(f"   1. Адрес неверного формата (должен быть UQ... или EQ...)", file=sys.stderr, flush=True)
-                            print(f"   2. На кошельке нет транзакций", file=sys.stderr, flush=True)
-                            print(f"   3. Адрес не существует в сети", file=sys.stderr, flush=True)
-                            print(f"ℹ️ Ответ API: {text[:200]}", file=sys.stderr, flush=True)
-                            return
+            # Подключаемся к блокчейну напрямую
+            print("🌐 Подключение к TON блокчейну...", file=sys.stderr, flush=True)
+            client = LiteBalancer.from_mainnet_config()
+            await client.start_up()
+            print("✅ Подключено к блокчейну", file=sys.stderr, flush=True)
+            
+            # Получаем транзакции напрямую из блокчейна
+            print("📡 Получение транзакций из блокчейна...", file=sys.stderr, flush=True)
+            transactions = await client.get_transactions(wallet_addr, limit=50)
+            print(f"📊 Найдено транзакций: {len(transactions)}", file=sys.stderr, flush=True)
+            
+            if len(transactions) == 0:
+                print("ℹ️ Новых транзакций не найдено", file=sys.stderr, flush=True)
+                await client.close_all()
+                return
+            
+            # Обрабатываем транзакции
+            for tx in transactions:
+                # Получаем хеш транзакции
+                tx_hash = tx.hash.hex() if hasattr(tx, 'hash') and hasattr(tx.hash, 'hex') else (str(tx.hash) if hasattr(tx, 'hash') else None)
+                if not tx_hash:
+                    # Пробуем другой способ получения хеша
+                    if hasattr(tx, 'lt') and hasattr(tx, 'account'):
+                        tx_hash = f"{tx.account.address.to_str()}_{tx.lt}"
                     else:
-                        # Другая ошибка
-                        text = await resp.text()
-                        print(f"❌ TON API error getting transactions: {resp.status} - {text[:500]}", file=sys.stderr, flush=True)
-                        return
-                    
-                    # Обрабатываем транзакции (если они были получены)
-                    if transactions is None:
-                        print("❌ Критическая ошибка: транзакции не были получены", file=sys.stderr, flush=True)
-                        return
-                    
-                    if len(transactions) == 0:
-                        print("ℹ️ Новых транзакций не найдено", file=sys.stderr, flush=True)
-                        return
-                    
-                    for tx in transactions:
-                        tx_hash = tx.get("hash")
-                        if not tx_hash:
-                            continue
-                        
-                        # Проверяем, обрабатывали ли мы уже эту транзакцию
-                        existing = db.query(models.Deposit).filter(
-                            models.Deposit.tx_hash == tx_hash
-                        ).first()
-                        if existing:
-                            continue
-                        
-                        # Проверяем входящие сообщения
-                        in_msg = tx.get("in_msg")
-                        if not in_msg:
-                            continue
-                        
-                        # Получаем адрес получателя (должен быть наш кошелек)
-                        destination_addr = in_msg.get("destination", {})
-                        if isinstance(destination_addr, dict):
-                            destination = destination_addr.get("address", "")
+                        continue
+                
+                # Проверяем, обрабатывали ли мы уже эту транзакцию
+                existing = db.query(models.Deposit).filter(
+                    models.Deposit.tx_hash == tx_hash
+                ).first()
+                if existing:
+                    continue
+                
+                # Получаем входящие сообщения
+                in_msg = None
+                value = 0
+                source = ""
+                
+                # В pytoniq транзакция имеет структуру Transaction
+                if hasattr(tx, 'in_msg') and tx.in_msg:
+                    in_msg = tx.in_msg
+                    # Получаем сумму из сообщения
+                    if hasattr(in_msg, 'value'):
+                        value = int(in_msg.value)
+                    # Получаем отправителя
+                    if hasattr(in_msg, 'source'):
+                        source_addr = in_msg.source
+                        if hasattr(source_addr, 'to_str'):
+                            source = source_addr.to_str(is_user_friendly=False)
                         else:
-                            destination = str(destination_addr)
-                        
-                        # Нормализуем адрес для сравнения
-                        if destination and destination != self.wallet_address:
-                            # Проверяем, может быть это другой формат адреса
-                            continue
-                        
-                        # Получаем сумму
-                        value = int(in_msg.get("value", 0))
-                        if value <= 0:
-                            continue
-                        
-                        # Получаем отправителя
-                        source_addr = in_msg.get("source", {})
-                        if isinstance(source_addr, dict):
-                            source = source_addr.get("address", "")
-                        else:
-                            source = str(source_addr) if source_addr else ""
-                        
-                        # Пытаемся извлечь Telegram ID из комментария
-                        telegram_id = None
-                        # Комментарий может быть в разных полях
-                        msg_text = in_msg.get("msg_data", {})
-                        if isinstance(msg_text, dict):
-                            # Пробуем разные форматы данных
-                            text_data = msg_text.get("text", "") or msg_text.get("body", "") or str(msg_text)
-                        else:
-                            text_data = str(msg_text)
-                        
-                        if not text_data:
-                            text_data = in_msg.get("message", "")
-                        if not text_data:
-                            text_data = in_msg.get("decoded_body", {})
-                            if isinstance(text_data, dict):
-                                text_data = text_data.get("text", "") or str(text_data)
-                        
-                        if text_data:
-                            msg_text_str = str(text_data).strip()
-                            import sys
-                            print(f"📝 Комментарий транзакции {tx_hash[:20]}...: {msg_text_str[:100]}", file=sys.stderr, flush=True)
-                            
-                            # Ищем только Telegram ID в комментарии (формат: "123456789" или "tg:123456789")
-                            match_id = re.search(r'(?:tg:)?(\d{8,12})', msg_text_str)
-                            if match_id:
-                                telegram_id = match_id.group(1)
-                                print(f"✅ Найден Telegram ID в комментарии: {telegram_id}", file=sys.stderr, flush=True)
-                            else:
-                                print(f"⚠️ Telegram ID не найден в комментарии: {msg_text_str[:50]}", file=sys.stderr, flush=True)
-                        
-                        # Создаем запись о депозите
-                        deposit = models.Deposit(
-                            tx_hash=tx_hash,
-                            from_address=source,
-                            amount_nano=value,
-                            telegram_id_from_comment=telegram_id,
-                            status="pending"
-                        )
-                        db.add(deposit)
-                        db.commit()
-                        import sys
-                        print(f"💾 Создана запись о депозите: {tx_hash[:20]}..., сумма: {value / 10**9:.4f} TON, Telegram ID: {telegram_id or 'не указан'}", file=sys.stderr, flush=True)
-                        
-                        # Если нашли Telegram ID, зачисляем на баланс
-                        if telegram_id:
-                            print(f"🔄 Попытка зачисления депозита для Telegram ID: {telegram_id}", file=sys.stderr, flush=True)
+                            source = str(source_addr)
+                
+                if value <= 0:
+                    continue
+                
+                # Проверяем, что транзакция на наш кошелек
+                if hasattr(tx, 'account') and hasattr(tx.account, 'address'):
+                    tx_account_addr = tx.account.address.to_str(is_user_friendly=False)
+                    wallet_addr_str = wallet_addr.to_str(is_user_friendly=False)
+                    if tx_account_addr != wallet_addr_str:
+                        continue
+                
+                # Пытаемся извлечь Telegram ID из комментария
+                telegram_id = None
+                msg_text_str = ""
+                
+                if in_msg and hasattr(in_msg, 'body'):
+                    # Пробуем декодировать тело сообщения
+                    try:
+                        body = in_msg.body
+                        # Пробуем получить текст из body (это Cell в pytoniq)
+                        if hasattr(body, 'to_boc'):
+                            boc_bytes = body.to_boc()
+                            # Пробуем декодировать как текст
                             try:
-                                user = db.query(models.User).filter(
-                                    models.User.telegram_id == int(telegram_id)
-                                ).first()
-                                
-                                if user:
-                                    import sys
-                                    print(f"👤 Пользователь найден: ID={user.id}, Telegram ID={user.telegram_id}", file=sys.stderr, flush=True)
-                                    balance = db.query(models.UserBalance).filter(
-                                        models.UserBalance.user_id == user.id
-                                    ).first()
-                                    
-                                    if not balance:
-                                        print(f"💰 Создание нового баланса для пользователя {user.id}", file=sys.stderr, flush=True)
-                                        balance = models.UserBalance(
-                                            user_id=user.id,
-                                            ton_active_balance=value,
-                                            last_fiat_rate=Decimal("250"),
-                                            fiat_currency="RUB"
-                                        )
-                                        db.add(balance)
-                                    else:
-                                        old_balance = float(balance.ton_active_balance) / 10**9
-                                        balance.ton_active_balance += value
-                                        new_balance = float(balance.ton_active_balance) / 10**9
-                                        print(f"💰 Обновление баланса: {old_balance:.4f} → {new_balance:.4f} TON", file=sys.stderr, flush=True)
-                                    
-                                    deposit.user_id = user.id
-                                    deposit.status = "processed"
-                                    deposit.processed_at = datetime.utcnow()
-                                    db.commit()
-                                    
-                                    print(f"✅ Автоматически зачислено {value / 10**9:.4f} TON пользователю {telegram_id} (ID: {user.id})", file=sys.stderr, flush=True)
-                                else:
-                                    import sys
-                                    print(f"⚠️ Пользователь с Telegram ID {telegram_id} не найден в базе данных", file=sys.stderr, flush=True)
-                            except (ValueError, Exception) as e:
-                                import sys
-                                print(f"⚠️ Ошибка обработки депозита {tx_hash}: {e}", file=sys.stderr, flush=True)
-                                import traceback
-                                traceback.print_exc()
-                                deposit.status = "failed"
-                                db.commit()
+                                # Пропускаем первые 32 бита (op code для text message)
+                                if len(boc_bytes) > 4:
+                                    text_bytes = boc_bytes[4:]
+                                    msg_text_str = text_bytes.decode('utf-8', errors='ignore').strip()
+                            except:
+                                # Если не получилось, пробуем весь BOC
+                                try:
+                                    msg_text_str = boc_bytes.decode('utf-8', errors='ignore').strip()
+                                except:
+                                    msg_text_str = str(boc_bytes)[:200]
+                    except Exception as e:
+                        print(f"⚠️ Ошибка декодирования сообщения: {e}", file=sys.stderr, flush=True)
+                
+                if msg_text_str:
+                    msg_text_str = str(msg_text_str).strip()
+                    if msg_text_str:
+                        print(f"📝 Комментарий транзакции {tx_hash[:20]}...: {msg_text_str[:100]}", file=sys.stderr, flush=True)
+                        
+                        # Ищем Telegram ID в комментарии
+                        match_id = re.search(r'(?:tg:)?(\d{8,12})', msg_text_str)
+                        if match_id:
+                            telegram_id = match_id.group(1)
+                            print(f"✅ Найден Telegram ID в комментарии: {telegram_id}", file=sys.stderr, flush=True)
                         else:
-                            import sys
-                            print(f"⚠️ Депозит {tx_hash[:20]}... без Telegram ID в комментарии, требуется ручная обработка", file=sys.stderr, flush=True)
-                    
-                    print(f"✅ Обработано транзакций: {len(transactions)}", file=sys.stderr, flush=True)
+                            print(f"⚠️ Telegram ID не найден в комментарии: {msg_text_str[:50]}", file=sys.stderr, flush=True)
+                
+                # Создаем запись о депозите
+                deposit = models.Deposit(
+                    tx_hash=tx_hash,
+                    from_address=source,
+                    amount_nano=value,
+                    telegram_id_from_comment=telegram_id,
+                    status="pending"
+                )
+                db.add(deposit)
+                db.commit()
+                print(f"💾 Создана запись о депозите: {tx_hash[:20]}..., сумма: {value / 10**9:.4f} TON, Telegram ID: {telegram_id or 'не указан'}", file=sys.stderr, flush=True)
+                
+                # Если нашли Telegram ID, зачисляем на баланс
+                if telegram_id:
+                    print(f"🔄 Попытка зачисления депозита для Telegram ID: {telegram_id}", file=sys.stderr, flush=True)
+                    try:
+                        user = db.query(models.User).filter(
+                            models.User.telegram_id == int(telegram_id)
+                        ).first()
+                        
+                        if user:
+                            print(f"👤 Пользователь найден: ID={user.id}, Telegram ID={user.telegram_id}", file=sys.stderr, flush=True)
+                            balance = db.query(models.UserBalance).filter(
+                                models.UserBalance.user_id == user.id
+                            ).first()
+                            
+                            if not balance:
+                                print(f"💰 Создание нового баланса для пользователя {user.id}", file=sys.stderr, flush=True)
+                                balance = models.UserBalance(
+                                    user_id=user.id,
+                                    ton_active_balance=value,
+                                    last_fiat_rate=Decimal("250"),
+                                    fiat_currency="RUB"
+                                )
+                                db.add(balance)
+                            else:
+                                old_balance = float(balance.ton_active_balance) / 10**9
+                                balance.ton_active_balance += value
+                                new_balance = float(balance.ton_active_balance) / 10**9
+                                print(f"💰 Обновление баланса: {old_balance:.4f} → {new_balance:.4f} TON", file=sys.stderr, flush=True)
+                            
+                            deposit.user_id = user.id
+                            deposit.status = "processed"
+                            deposit.processed_at = datetime.utcnow()
+                            db.commit()
+                            
+                            print(f"✅ Автоматически зачислено {value / 10**9:.4f} TON пользователю {telegram_id} (ID: {user.id})", file=sys.stderr, flush=True)
+                        else:
+                            print(f"⚠️ Пользователь с Telegram ID {telegram_id} не найден в базе данных", file=sys.stderr, flush=True)
+                    except (ValueError, Exception) as e:
+                        print(f"⚠️ Ошибка обработки депозита {tx_hash}: {e}", file=sys.stderr, flush=True)
+                        import traceback
+                        traceback.print_exc()
+                        deposit.status = "failed"
+                        db.commit()
+                else:
+                    print(f"⚠️ Депозит {tx_hash[:20]}... без Telegram ID в комментарии, требуется ручная обработка", file=sys.stderr, flush=True)
+            
+            print(f"✅ Обработано транзакций: {len(transactions)}", file=sys.stderr, flush=True)
+            await client.close_all()
+            
+        except Exception as e:
+            import sys, traceback
+            print(f"❌ Ошибка при проверке депозитов через блокчейн: {e}", file=sys.stderr, flush=True)
+            traceback.print_exc()
+            try:
+                if 'client' in locals():
+                    await client.close_all()
+            except:
+                pass
         except Exception as e:
             import sys
             print(f"❌ Error checking deposits: {e}", file=sys.stderr, flush=True)
