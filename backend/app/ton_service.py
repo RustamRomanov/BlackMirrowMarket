@@ -114,12 +114,20 @@ class TonService:
         if self._wallet is None:
             # Кошелек V4R2 из сид-фразы. Ключи остаются в памяти процесса.
             # Сигнатура: from_mnemonic(provider, mnemonics, wc=0, wallet_id=None, version="v3r2")
+            
+            # Детальное логирование для диагностики
+            print(f"🔍 Debug: Initializing wallet with {len(seed_words)} words", file=sys.stderr, flush=True)
+            print(f"🔍 Debug: First 3 words: {seed_words[:3]}", file=sys.stderr, flush=True)
+            print(f"🔍 Debug: Last 3 words: {seed_words[-3:]}", file=sys.stderr, flush=True)
+            print(f"🔍 Debug: Word lengths: {[len(w) for w in seed_words]}", file=sys.stderr, flush=True)
+            
             try:
                 # Пробуем сначала V4R2
                 self._wallet = await asyncio.wait_for(
                     WalletV4R2.from_mnemonic(self._client, seed_words),
                     timeout=10.0
                 )
+                print("✅ Successfully initialized wallet as V4R2", file=sys.stderr, flush=True)
                 
                 # Проверяем, что адрес кошелька соответствует TON_WALLET_ADDRESS
                 if self.wallet_address:
@@ -192,6 +200,22 @@ class TonService:
                     return  # Успешно инициализировали как V3R2
                 except Exception as alt_error:
                     print(f"⚠️ Alternative initialization (V3R2) also failed: {alt_error}", file=sys.stderr, flush=True)
+                    print(f"⚠️ V3R2 error type: {type(alt_error).__name__}", file=sys.stderr, flush=True)
+                    print(f"⚠️ V3R2 error message: {str(alt_error)}", file=sys.stderr, flush=True)
+                    
+                # Пробуем еще один вариант - может быть нужно передать как строку
+                try:
+                    print("🔄 Trying alternative: passing mnemonic as string...", file=sys.stderr, flush=True)
+                    seed_string = " ".join(seed_words)
+                    # Некоторые библиотеки ожидают строку, а не список
+                    self._wallet = await asyncio.wait_for(
+                        WalletV4R2.from_mnemonic(self._client, seed_string.split()),
+                        timeout=10.0
+                    )
+                    print("✅ Successfully initialized wallet with string mnemonic", file=sys.stderr, flush=True)
+                    return
+                except Exception as str_error:
+                    print(f"⚠️ String mnemonic initialization also failed: {str_error}", file=sys.stderr, flush=True)
                 
                 # Формируем детальное сообщение об ошибке
                 error_details = []
