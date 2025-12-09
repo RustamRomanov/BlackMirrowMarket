@@ -482,7 +482,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
             <button
               type="submit"
               className="submit-button"
-              disabled={submitting || ((formData.task_type === 'subscription' || formData.task_type === 'comment') && !botAdded)}
+              disabled={submitting}
             >
               {submitting ? 'Создание...' : 'Создать'}
             </button>

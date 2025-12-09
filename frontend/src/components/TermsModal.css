@@ -10,6 +10,19 @@
   justify-content: center;
   z-index: 2000;
   padding: 16px;
+  overflow: hidden;
+}
+
+@media (max-width: 480px) {
+  .terms-modal-overlay {
+    padding: 8px;
+    align-items: flex-end;
+  }
+  
+  .terms-modal-content {
+    max-height: 90vh;
+    border-radius: 16px 16px 0 0;
+  }
 }
 
 .terms-modal-content {
@@ -17,10 +30,11 @@
   border-radius: 16px;
   max-width: 500px;
   width: 100%;
-  max-height: 80vh;
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
   animation: slideUp 0.3s ease-out;
+  overflow: hidden;
 }
 
 @keyframes slideUp {
@@ -69,11 +83,13 @@
   padding: 24px;
   overflow-y: auto;
   flex: 1;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
 }
 
 .terms-text {
-  font-size: 14px;
-  line-height: 1.8;
+  font-size: 12px;
+  line-height: 1.6;
   color: #333;
   white-space: pre-line;
 }
