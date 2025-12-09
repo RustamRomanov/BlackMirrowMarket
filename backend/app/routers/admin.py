@@ -247,3 +247,46 @@ async def init_test_tasks(db: Session = Depends(get_db)):
     db.commit()
     return {"message": f"Created {created_count} test tasks", "total": len(test_tasks)}
 
+@router.delete("/delete-test-tasks")
+async def delete_test_tasks(db: Session = Depends(get_db)):
+    """Удаление всех тестовых заданий (is_test=True)"""
+    deleted_tasks = db.query(models.Task).filter(models.Task.is_test == True).all()
+    deleted_count = len(deleted_tasks)
+    
+    for task in deleted_tasks:
+        # Удаляем связанные UserTask записи
+        db.query(models.UserTask).filter(models.UserTask.task_id == task.id).delete()
+        # Удаляем само задание
+        db.delete(task)
+    
+    db.commit()
+    return {"message": f"Deleted {deleted_count} test tasks"}
+
+@router.delete("/delete-example-tasks")
+async def delete_example_tasks(db: Session = Depends(get_db)):
+    """Удаление всех примеров заданий (созданных для демонстрации на странице 'Создать')"""
+    # Ищем задания, созданные тестовым пользователем (telegram_id=0) и не являющиеся тестовыми
+    test_creator = db.query(models.User).filter(models.User.telegram_id == 0).first()
+    if not test_creator:
+        return {"message": "No example tasks found", "deleted": 0}
+    
+    # Удаляем задания, созданные тестовым пользователем, которые не являются тестовыми
+    # (это примеры для страницы "Создать")
+    example_tasks = db.query(models.Task).filter(
+        and_(
+            models.Task.creator_id == test_creator.id,
+            models.Task.is_test == False
+        )
+    ).all()
+    
+    deleted_count = len(example_tasks)
+    
+    for task in example_tasks:
+        # Удаляем связанные UserTask записи
+        db.query(models.UserTask).filter(models.UserTask.task_id == task.id).delete()
+        # Удаляем само задание
+        db.delete(task)
+    
+    db.commit()
+    return {"message": f"Deleted {deleted_count} example tasks"}
+

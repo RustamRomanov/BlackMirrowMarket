@@ -10,7 +10,7 @@ import os
 
 # Создаем таблицы при запуске (с обработкой ошибок)
 try:
-    Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=engine)
 except Exception as e:
     print(f"Warning: Could not create tables: {e}")
     # Продолжаем работу, таблицы могут быть созданы вручную

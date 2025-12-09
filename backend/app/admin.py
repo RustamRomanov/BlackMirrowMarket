@@ -34,8 +34,8 @@ class DashboardView(BaseView):
             total_turnover_nano = db.query(func.sum(Task.price_per_slot_ton * Task.total_slots)).scalar() or 0
             total_turnover_ton = round(float(total_turnover_nano) / 10**9, 2)
             
-            # Прибыль приложения (комиссия 5% с каждого задания)
-            app_profit_ton = round(total_turnover_ton * 0.05, 2)
+            # Прибыль приложения (комиссия 10% с каждого выполненного задания)
+            app_profit_ton = round(total_turnover_ton * 0.10, 2)
             
             # Статистика за сегодня
             today = datetime.now().date()
@@ -157,7 +157,7 @@ class DashboardView(BaseView):
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 15px;">
                 <div>
                     <h4>💰 Прибыль</h4>
-                    <p style="color: #666; font-size: 14px;">Показывает общий оборот, прибыль приложения (5% комиссия), статистику по типам заданий и периодам.</p>
+                    <p style="color: #666; font-size: 14px;">Показывает общий оборот, прибыль приложения (10% комиссия), статистику по типам заданий и периодам.</p>
                 </div>
                 <div>
                     <h4>🚩 Жалобы</h4>
@@ -286,7 +286,7 @@ class ProfitView(BaseView):
         try:
             total_turnover_nano = db.query(func.sum(Task.price_per_slot_ton * Task.total_slots)).scalar() or 0
             total_turnover_ton = round(float(total_turnover_nano) / 10**9, 2)
-            app_profit_ton = round(total_turnover_ton * 0.05, 2)
+            app_profit_ton = round(total_turnover_ton * 0.10, 2)
             
             subscription_turnover = db.query(func.sum(Task.price_per_slot_ton * Task.total_slots)).filter(
                 Task.task_type == "subscription"
@@ -349,7 +349,7 @@ class ProfitView(BaseView):
         
         <div class="info-box">
             <strong>💡 Как это работает:</strong>
-            Приложение берет комиссию 5% с каждого созданного задания. Это означает, что если заказчик создал задание на 100 TON, приложение получит 5 TON прибыли.
+            Приложение берет комиссию 10% с каждого выполненного задания. Комиссия вычитается с пользователя, который выполнил задание (исполнителя). Это означает, что если исполнитель выполнил задание на 100 TON, приложение получит 10 TON прибыли, а исполнитель получит 90 TON.
         </div>
         
         <div class="stats-grid">
@@ -358,7 +358,7 @@ class ProfitView(BaseView):
                 <div class="value">{total_turnover_ton:.2f} TON</div>
             </div>
             <div class="stat-card gradient-green">
-                <h3>Прибыль приложения (5%)</h3>
+                <h3>Прибыль приложения (10%)</h3>
                 <div class="value">{app_profit_ton:.2f} TON</div>
             </div>
         </div>
@@ -369,24 +369,24 @@ class ProfitView(BaseView):
                 <tr>
                     <th>Тип задания</th>
                     <th>Оборот (TON)</th>
-                    <th>Прибыль (5%)</th>
+                    <th>Прибыль (10%)</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
                     <td>Подписка</td>
                     <td>{round(float(subscription_turnover) / 10**9, 2):.2f}</td>
-                    <td>{round(float(subscription_turnover) / 10**9 * 0.05, 2):.2f}</td>
+                    <td>{round(float(subscription_turnover) / 10**9 * 0.10, 2):.2f}</td>
                 </tr>
                 <tr>
                     <td>Комментарий</td>
                     <td>{round(float(comment_turnover) / 10**9, 2):.2f}</td>
-                    <td>{round(float(comment_turnover) / 10**9 * 0.05, 2):.2f}</td>
+                    <td>{round(float(comment_turnover) / 10**9 * 0.10, 2):.2f}</td>
                 </tr>
                 <tr>
                     <td>Просмотр</td>
                     <td>{round(float(view_turnover) / 10**9, 2):.2f}</td>
-                    <td>{round(float(view_turnover) / 10**9 * 0.05, 2):.2f}</td>
+                    <td>{round(float(view_turnover) / 10**9 * 0.10, 2):.2f}</td>
                 </tr>
             </tbody>
         </table>
@@ -397,24 +397,24 @@ class ProfitView(BaseView):
                 <tr>
                     <th>Период</th>
                     <th>Оборот (TON)</th>
-                    <th>Прибыль (5%)</th>
+                    <th>Прибыль (10%)</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
                     <td>Сегодня</td>
                     <td>{round(float(turnover_today) / 10**9, 2):.2f}</td>
-                    <td>{round(float(turnover_today) / 10**9 * 0.05, 2):.2f}</td>
+                    <td>{round(float(turnover_today) / 10**9 * 0.10, 2):.2f}</td>
                 </tr>
                 <tr>
                     <td>За неделю</td>
                     <td>{round(float(turnover_week) / 10**9, 2):.2f}</td>
-                    <td>{round(float(turnover_week) / 10**9 * 0.05, 2):.2f}</td>
+                    <td>{round(float(turnover_week) / 10**9 * 0.10, 2):.2f}</td>
                 </tr>
                 <tr>
                     <td>За месяц</td>
                     <td>{round(float(turnover_month) / 10**9, 2):.2f}</td>
-                    <td>{round(float(turnover_month) / 10**9 * 0.05, 2):.2f}</td>
+                    <td>{round(float(turnover_month) / 10**9 * 0.10, 2):.2f}</td>
                 </tr>
             </tbody>
         </table>

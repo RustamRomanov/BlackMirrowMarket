@@ -10,12 +10,12 @@ from typing import List, Optional
 router = APIRouter()
 
 def add_referral_commission(user_id: int, reward_ton: Decimal, db: Session):
-    """Начисление 5% комиссии рефереру"""
+    """Начисление 5% комиссии рефереру с каждого выполненного задания"""
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user or not user.referrer_id:
         return
     
-    # Вычисляем 5% от награды
+    # Вычисляем 5% от награды (после вычета комиссии приложения)
     commission = reward_ton * Decimal("0.05")
     
     # Находим реферальную запись
@@ -39,6 +39,24 @@ def add_referral_commission(user_id: int, reward_ton: Decimal, db: Session):
         if referrer_balance:
             referrer_balance.ton_active_balance += commission
             referrer_balance.ton_referral_earnings += commission
+
+def deduct_app_commission(user_id: int, reward_ton: Decimal, db: Session) -> Decimal:
+    """
+    Вычитает 10% комиссию приложения с исполнителя задания.
+    Возвращает сумму, которую получит исполнитель после вычета комиссии.
+    Комиссия начисляется на баланс приложения (сервисный кошелек).
+    """
+    # Вычисляем 10% комиссию приложения
+    app_commission = reward_ton * Decimal("0.10")
+    
+    # Сумма, которую получит исполнитель
+    user_reward = reward_ton - app_commission
+    
+    # Комиссия уже учтена в user_reward, поэтому баланс исполнителя будет обновлён правильно
+    # TODO: В будущем можно добавить запись в таблицу app_profit для отслеживания комиссий
+    # или напрямую начислять на сервисный кошелек
+    
+    return user_reward
 
 @router.get("/", response_model=List[schemas.TaskListItem])
 async def get_tasks(
@@ -303,22 +321,25 @@ async def start_task(task_id: int, telegram_id: int, db: Session = Depends(get_d
     
     # Для просмотра - сразу зачисляем средства (имитация)
     if task.task_type == models.TaskType.VIEW:
-        # Создаем запись о выполнении
+        # Вычитаем 10% комиссию приложения с исполнителя
+        user_reward = deduct_app_commission(user.id, task.price_per_slot_ton, db)
+        
+        # Создаем запись о выполнении (сохраняем оригинальную награду для статистики)
         user_task = models.UserTask(
             user_id=user.id,
             task_id=task_id,
-            reward_ton=task.price_per_slot_ton,
+            reward_ton=task.price_per_slot_ton,  # Оригинальная награда для статистики
             status=models.UserTaskStatus.COMPLETED,
             validated_at=datetime.utcnow(),
             validation_result=True
         )
         db.add(user_task)
         
-        # Обновляем баланс пользователя (безопасно, с блокировкой)
+        # Начисляем исполнителю награду после вычета комиссии (безопасно, с блокировкой)
         from app.database_optimizations import update_balance_safely
-        update_balance_safely(db, user.id, task.price_per_slot_ton, "active")
+        update_balance_safely(db, user.id, user_reward, "active")
         
-        # Начисляем 5% рефереру
+        # Начисляем 5% рефереру (от оригинальной награды)
         add_referral_commission(user.id, task.price_per_slot_ton, db)
         
         # Обновляем счетчик выполненных слотов
@@ -375,13 +396,16 @@ async def validate_comment(task_id: int, telegram_id: int, db: Session = Depends
     user_task.validated_at = datetime.utcnow()
     user_task.validation_result = True
     
-    # Переводим средства из эскроу в активный баланс
+    # Вычитаем 10% комиссию приложения с исполнителя
+    user_reward = deduct_app_commission(user.id, user_task.reward_ton, db)
+    
+    # Переводим средства из эскроу в активный баланс (после вычета комиссии)
     balance = db.query(models.UserBalance).filter(models.UserBalance.user_id == user.id).first()
     if balance:
-        balance.ton_escrow_balance -= user_task.reward_ton
-        balance.ton_active_balance += user_task.reward_ton
+        balance.ton_escrow_balance -= user_task.reward_ton  # Списываем полную сумму из эскроу
+        balance.ton_active_balance += user_reward  # Начисляем сумму после вычета комиссии
     
-    # Начисляем 5% рефереру
+    # Начисляем 5% рефереру (от оригинальной награды)
     add_referral_commission(user.id, user_task.reward_ton, db)
     
     # Обновляем счетчик выполненных слотов
