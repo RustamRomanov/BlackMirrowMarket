@@ -56,15 +56,15 @@
 
 .balance-card {
   background: white;
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  margin-bottom: 20px;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  margin-bottom: 14px;
 }
 
 .balance-section {
-  margin-bottom: 24px;
-  padding-bottom: 24px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
   border-bottom: 1px solid #e0e0e0;
 }
 
@@ -82,20 +82,20 @@
 }
 
 .balance-value-primary {
-  font-size: 32px;
+  font-size: 26px;
   font-weight: 700;
   color: #4CAF50;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .balance-value-secondary {
-  font-size: 18px;
+  font-size: 15px;
   color: #666;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .balance-value-tertiary {
-  font-size: 14px;
+  font-size: 12px;
   color: #999;
 }
 
@@ -393,10 +393,10 @@
 /* Реферальная программа в балансе */
 .referral-section-balance {
   background: white;
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  margin-top: 20px;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  margin-top: 14px;
 }
 
 .referral-section-balance h2 {
@@ -415,7 +415,7 @@
 .referral-info-card {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
 }
 
 .referral-link-section {
@@ -432,21 +432,21 @@
 
 .referral-link-input {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .referral-link-input input {
   flex: 1;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border: 1px solid #ddd;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 13px;
   background: #f5f5f5;
   color: #000;
 }
 
 .copy-button {
-  padding: 10px 16px;
+  padding: 8px 12px;
   background: #667eea;
   color: white;
   border: none;
@@ -464,7 +464,7 @@
 
 .referral-stats {
   display: flex;
-  gap: 20px;
+  gap: 12px;
 }
 
 .stat-item {

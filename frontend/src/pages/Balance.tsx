@@ -352,7 +352,6 @@ export default function Balance() {
       </div>
 
 
-      {/* Информация о пополнении */}
       {showDepositInfo && depositInfo && (
         <div className="deposit-info-modal">
           <div className="deposit-info-content">
@@ -362,98 +361,43 @@ export default function Balance() {
             >
               ×
             </button>
-            <h3>💰 Пополнить баланс</h3>
-            <div className="deposit-steps">
-              <div className="deposit-step">
-                <div className="step-number">1</div>
-                <div className="step-content">
-                  <strong>Откройте ваш кошелек TON</strong>
-                  <p>Используйте Tonkeeper, MyTonWallet или другой кошелек TON</p>
-                </div>
-              </div>
-              <div className="deposit-step">
-                <div className="step-number">2</div>
-                <div className="step-content">
-                  <strong>Переведите TON на сервисный кошелек</strong>
-                  <p style={{marginTop: '8px', marginBottom: '12px'}}>Скопируйте адрес сервисного кошелька и переведите TON с вашего внешнего кошелька (Tonkeeper, HTX и т.д.)</p>
-                  <div style={{background: '#f5f5f5', padding: '12px', borderRadius: '8px', marginTop: '8px', fontFamily: 'monospace', fontSize: '12px', wordBreak: 'break-all'}}>
-                    {depositInfo.service_wallet_address}
-                  </div>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(depositInfo.service_wallet_address)
-                      showSuccess('Адрес скопирован!')
-                    }}
-                    style={{marginTop: '8px', padding: '6px 12px', background: '#667eea', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer'}}
-                  >
-                    <Copy size={14} style={{display: 'inline', marginRight: '4px'}} />
-                    Копировать адрес
-                  </button>
-                </div>
-              </div>
-              <div className="deposit-step">
-                <div className="step-number">3</div>
-                <div className="step-content">
-                  <strong>⚠️ ВАЖНО: Укажите Telegram ID в комментарии</strong>
-                  <p style={{marginTop: '8px', marginBottom: '12px'}}>При переводе в поле "Тег/Мемо" (комментарий к транзакции) обязательно укажите ваш Telegram ID:</p>
-                  <div style={{
-                    marginTop: '10px',
-                    padding: '15px',
-                    background: '#fff3cd',
-                    border: '2px solid #ffc107',
-                    borderRadius: '8px',
-                    textAlign: 'center'
-                  }}>
-                    <div style={{fontSize: '12px', color: '#666', marginBottom: '8px'}}>Ваш Telegram ID:</div>
-                    <div style={{
-                      fontFamily: 'monospace',
-                      fontSize: '24px',
-                      fontWeight: 'bold',
-                      color: '#d32f2f',
-                      marginBottom: '12px'
-                    }}>
-                      {depositInfo.telegram_id || user?.telegram_id || 'не найден'}
-                    </div>
-                    <button
-                      onClick={() => {
-                        const telegramId = (depositInfo.telegram_id || user?.telegram_id)?.toString() || ''
-                        navigator.clipboard.writeText(telegramId)
-                        showSuccess('Telegram ID скопирован!')
-                      }}
-                      style={{
-                        padding: '10px 20px',
-                        background: '#ff9800',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        fontWeight: '600',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                      }}
-                    >
-                      <Copy size={16} />
-                      Копировать Telegram ID
-                    </button>
-                    <div style={{marginTop: '12px', padding: '10px', background: '#e3f2fd', borderRadius: '6px', fontSize: '12px', color: '#1976d2', textAlign: 'left'}}>
-                      💡 <strong>Как найти Telegram ID:</strong> Напишите боту <strong>@userinfobot</strong> в Telegram. Также ваш ID отображается в разделе "Профиль".
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="deposit-step">
-                <div className="step-number">4</div>
-                <div className="step-content">
-                  <strong>Автоматическое зачисление</strong>
-                  <p>После подтверждения транзакции в блокчейне (обычно 1-2 минуты) система автоматически найдет ваш Telegram ID в комментарии и зачислит средства на ваш баланс. Обновите страницу для проверки.</p>
-                </div>
-              </div>
+            <h3>Пополнить баланс</h3>
+            <div style={{ marginBottom: '10px', fontSize: '13px', color: '#555' }}>
+              Минимальная сумма пополнения: <strong>1 TON</strong>
             </div>
-            <div className="deposit-note">
-              <Info size={18} />
-              <p>Минимальная сумма пополнения: 0.01 TON. Не забудьте указать ваш Telegram ID в комментарии к транзакции для автоматического зачисления!</p>
+            <div style={{
+              background: '#f5f5f5',
+              padding: '12px 14px',
+              borderRadius: '10px',
+              fontFamily: 'monospace',
+              fontSize: '14px',
+              lineHeight: 1.35,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px'
+            }}>
+              <div style={{ flex: 1, wordBreak: 'break-all' }}>
+                {depositInfo.service_wallet_address}
+              </div>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(depositInfo.service_wallet_address)
+                  showSuccess('Адрес скопирован!')
+                }}
+                style={{
+                  background: '#667eea',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '10px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <Copy size={16} />
+              </button>
             </div>
           </div>
         </div>
