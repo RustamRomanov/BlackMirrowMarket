@@ -106,16 +106,21 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
   function validateForm(): boolean {
     const newErrors: Record<string, string> = {}
     
-    if (!formData.title.trim()) {
+    const titleTrim = formData.title.trim()
+    if (!titleTrim) {
       newErrors.title = 'Название задания обязательно'
-    } else if (formData.title.length < 10) {
-      newErrors.title = 'Название должно быть не менее 10 символов'
+    } else if (titleTrim.length < 3) {
+      newErrors.title = 'Минимум 3 символа'
     }
     
-    if (!formData.description.trim()) {
+    const descTrim = formData.description.trim()
+    if (!descTrim) {
       newErrors.description = 'Описание обязательно'
-    } else if (formData.description.length < 20) {
-      newErrors.description = 'Описание должно быть не менее 20 символов'
+    } else {
+      const words = descTrim.split(/\s+/).filter(Boolean)
+      if (words.length < 3) {
+        newErrors.description = 'Минимум 3 слова'
+      }
     }
     
     if (!formData.price_per_slot_ton || price <= 0) {
@@ -315,20 +320,28 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
               </div>
             )}
 
-            {/* ID поста */}
+            {/* Ссылка на пост */}
             {(formData.task_type === 'comment' || formData.task_type === 'view') && (
               <div className="form-field-group">
                 <label className="form-label">
-                  ID поста
+                  Ссылка на пост{' '}
+                  <a
+                    href="https://t.me/share/url"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="helper-link"
+                  >
+                    инструкция
+                  </a>
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   value={formData.telegram_post_id}
                   onChange={(e) => {
                     setFormData({ ...formData, telegram_post_id: e.target.value })
                     if (errors.telegram_post_id) setErrors({ ...errors, telegram_post_id: '' })
                   }}
-                  placeholder="123"
+                  placeholder="Ссылка на пост"
                   className={`form-input ${errors.telegram_post_id ? 'error' : ''}`}
                 />
                 {errors.telegram_post_id && <div className="form-error">{errors.telegram_post_id}</div>}

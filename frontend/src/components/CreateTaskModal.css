@@ -205,16 +205,20 @@ textarea.form-input {
 .form-row-pricing {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 12px;
+  gap: 10px;
   align-items: start;
+}
+
+.form-row-pricing .form-field-group .form-label {
+  font-size: 12px;
 }
 
 .budget-display {
   background: #f5f5f5;
   border: 1px solid #ddd;
   border-radius: 8px;
-  padding: 12px;
-  font-size: 16px;
+  padding: 10px;
+  font-size: 14px;
   font-weight: 600;
   color: #333;
   height: 45px; /* Чтобы совпадало с инпутами */
@@ -257,6 +261,12 @@ textarea.form-input {
   font-size: 14px;
   padding: 0;
   margin-left: 4px;
+}
+
+.helper-link {
+  font-size: 12px;
+  color: #667eea;
+  text-decoration: underline;
 }
 
 .rules-link:hover {
