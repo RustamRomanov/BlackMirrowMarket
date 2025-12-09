@@ -234,7 +234,7 @@ export default function Profile() {
             <div className="value mono">{user.telegram_id}</div>
           </div>
           {profileFilled ? (
-            <div className="profile-status ok">Профиль заполнен ✓</div>
+            <div className="profile-status ok">Профиль заполнен</div>
           ) : (
             <div className="profile-status muted">Заполните профиль, чтобы получить задания</div>
           )}
@@ -289,11 +289,11 @@ export default function Profile() {
       <div className="profile-card">
         <div className="profile-info">
           <div className="info-item">
-            <label>Имя:</label>
-            <span>{user?.first_name || 'Не указано'}</span>
+            <label>ID</label>
+            <span>{user?.telegram_id}</span>
           </div>
           <div className="info-item">
-            <label>Username:</label>
+            <label>Username</label>
             <span>@{user?.username || 'Не указано'}</span>
           </div>
         </div>
@@ -388,25 +388,7 @@ export default function Profile() {
           </div>
         ) : (
           <div className="profile-filled">
-            <div className="terms-section-filled">
-              <p>
-                <button
-                  type="button"
-                  className="terms-link"
-                  onClick={() => setShowTermsModal(true)}
-                >
-                  Правила пользования приложением
-                </button>
-                {' '}и{' '}
-                <button
-                  type="button"
-                  className="terms-link"
-                  onClick={() => setShowAgreementModal(true)}
-                >
-                  Пользовательское соглашение
-                </button>
-              </p>
-            </div>
+            <div className="profile-status ok">Профиль заполнен</div>
           </div>
         )}
       </div>

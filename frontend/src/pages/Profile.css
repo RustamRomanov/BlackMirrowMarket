@@ -11,14 +11,15 @@
 }
 
 .profile-compact-card {
-  background: #e3f2fd;
-  border: 1px solid #2196f3;
+  background: #e8f2ff;
+  border: none;
   border-radius: 12px;
   padding: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
 }
 
 .profile-row {
@@ -49,9 +50,10 @@
 }
 
 .profile-status.ok {
-  background: #E8F5E9;
-  color: #2E7D32;
-  border: 1px solid #C8E6C9;
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #c8e6c9;
+  font-weight: 600;
 }
 
 .profile-status.muted {
