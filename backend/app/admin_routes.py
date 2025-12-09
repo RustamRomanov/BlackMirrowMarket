@@ -12,6 +12,7 @@ from app.models import (
     TaskReport,
     TaskReportStatus,
     TonTransaction,
+    Deposit,
 )
 from sqlalchemy import func, and_
 from app.database import SessionLocal
