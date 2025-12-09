@@ -300,20 +300,20 @@ export default function Balance() {
         <div className="balance-section">
           <div className="balance-label">В эскроу (в проверке)</div>
           <div className="balance-value-secondary">
-            {displayTonEscrow.toFixed(4)} TON
+            {(displayTonEscrow * fiatRate).toFixed(2)} {fiatCurrency}
           </div>
           <div className="balance-value-tertiary">
-            {(displayTonEscrow * fiatRate).toFixed(2)} {fiatCurrency}
+            {displayTonEscrow.toFixed(4)} TON
           </div>
         </div>
 
         <div className="balance-section">
           <div className="balance-label">Доступно для вывода</div>
           <div className="balance-value-secondary">
-            {displayTonActive.toFixed(4)} TON
+            {displayFiatActive.toFixed(2)} {fiatCurrency}
           </div>
           <div className="balance-value-tertiary">
-            {displayFiatActive.toFixed(2)} {fiatCurrency}
+            {displayTonActive.toFixed(4)} TON
           </div>
         </div>
 
