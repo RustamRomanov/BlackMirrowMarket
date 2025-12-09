@@ -338,20 +338,16 @@ async def cleanup_test_tasks(db: Session = Depends(get_db)):
         "Комментарий к посту о искусстве"
     ]
     
-    # Ищем задания с тестовыми названиями
+    # Ищем и удаляем все задания с тестовыми названиями (независимо от создателя и даты)
     tasks_by_title = db.query(models.Task).filter(
         models.Task.title.in_(test_titles)
     ).all()
     
     for task in tasks_by_title:
-        # Проверяем, что это действительно тестовое задание
-        # (не удаляем задания реальных пользователей с похожими названиями)
-        # Удаляем только если это задание создано давно (более 1 дня назад) или тестовым пользователем
-        from datetime import datetime, timedelta
-        if task.created_at and task.created_at < datetime.utcnow() - timedelta(days=1):
-            db.query(models.UserTask).filter(models.UserTask.task_id == task.id).delete()
-            db.delete(task)
-            deleted_by_title += 1
+        # Удаляем все задания с тестовыми названиями
+        db.query(models.UserTask).filter(models.UserTask.task_id == task.id).delete()
+        db.delete(task)
+        deleted_by_title += 1
     
     db.commit()
     return {
