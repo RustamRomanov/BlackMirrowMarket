@@ -254,11 +254,10 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
 
             {/* Цена, Слоты, Бюджет - новая логика */}
             <div className="pricing-box">
-              <div className="pricing-title">Цена за слот / количество слотов / Бюджет кампании</div>
               <div className="form-row-pricing">
                 <div className="form-field-group">
                   <label className="form-label">
-                    Цена за слот
+                    Стоимость слота
                   </label>
                   <input
                     type="number"
