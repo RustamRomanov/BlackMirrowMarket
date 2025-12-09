@@ -296,10 +296,20 @@ class TonService:
                     "limit": 50,
                     "archival": "true"  # TON Center API требует строку, а не булево значение
                 }
+                
+                # TON Center API может работать без ключа для публичных запросов
+                # Но если ключ есть, используем его
                 if self.api_key:
                     params["api_key"] = self.api_key
+                    print(f"🔑 Используем API ключ для TON Center", file=sys.stderr, flush=True)
+                else:
+                    print(f"ℹ️ API ключ не установлен, пробуем публичный запрос", file=sys.stderr, flush=True)
+                
+                print(f"🌐 Запрос к TON Center: {url} с адресом {normalized_address[:20]}...", file=sys.stderr, flush=True)
                 
                 async with session.get(url, params=params) as resp:
+                    print(f"📡 TON Center API ответ: статус {resp.status}", file=sys.stderr, flush=True)
+                    
                     if resp.status == 200:
                         data = await resp.json()
                         if data.get("ok"):
@@ -395,9 +405,16 @@ class TonService:
                                     except Exception as e:
                                         print(f"⚠️ Ошибка обработки: {e}", file=sys.stderr, flush=True)
                         else:
-                            print(f"⚠️ TON Center API ошибка: {data.get('error', 'Unknown')}", file=sys.stderr, flush=True)
+                            error_msg = data.get('error', 'Unknown')
+                            print(f"⚠️ TON Center API ошибка: {error_msg}", file=sys.stderr, flush=True)
+                    elif resp.status == 401:
+                        # 401 - Unauthorized, возможно API ключ неверный или не требуется
+                        text = await resp.text()
+                        print(f"⚠️ TON Center API 401 Unauthorized. Ответ: {text[:200]}", file=sys.stderr, flush=True)
+                        print(f"💡 Попробуйте проверить TONAPI_KEY в Railway или оставьте его пустым для публичных запросов", file=sys.stderr, flush=True)
                     else:
-                        print(f"⚠️ TON Center API статус {resp.status}", file=sys.stderr, flush=True)
+                        text = await resp.text()
+                        print(f"⚠️ TON Center API статус {resp.status}. Ответ: {text[:200]}", file=sys.stderr, flush=True)
         except Exception as e:
             print(f"❌ Ошибка TON Center API: {e}", file=sys.stderr, flush=True)
 
