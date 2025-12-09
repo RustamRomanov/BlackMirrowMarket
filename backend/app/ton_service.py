@@ -426,7 +426,7 @@ class TonService:
         Обновляет статусы всех pending транзакций через tonapi.
         Вызывается периодически (например, каждые 30 секунд).
         """
-            wallet_addr = PytoniqAddress(normalized_address)
+        pending_txs = (
             print(f"✅ Адрес валиден: {wallet_addr.to_str(is_user_friendly=True)[:30]}...", file=sys.stderr, flush=True)
             
             # Подключаемся к блокчейну напрямую
