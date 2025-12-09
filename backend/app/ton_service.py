@@ -279,11 +279,12 @@ class TonService:
         Ищет Telegram ID в комментарии транзакции.
         """
         # Проверяем, что необходимые переменные установлены
+        import sys
         if not self.api_key or not self.wallet_address:
-            print("⚠️ TON API не настроен: api_key или wallet_address отсутствуют")
+            print("⚠️ TON API не настроен: api_key или wallet_address отсутствуют", file=sys.stderr, flush=True)
             return  # Пропускаем, если не настроено
         
-        print(f"🔍 Проверка депозитов для кошелька: {self.wallet_address[:10]}...")
+        print(f"🔍 Проверка депозитов для кошелька: {self.wallet_address[:10]}...", file=sys.stderr, flush=True)
         
         try:
             ssl_context = ssl.create_default_context()
@@ -312,7 +313,8 @@ class TonService:
                     
                     data = await resp.json()
                     transactions = data.get("transactions", [])
-                    print(f"📊 Найдено транзакций: {len(transactions)}")
+                    import sys
+                    print(f"📊 Найдено транзакций: {len(transactions)}", file=sys.stderr, flush=True)
                     
                     for tx in transactions:
                         tx_hash = tx.get("hash")
@@ -374,15 +376,16 @@ class TonService:
                         
                         if text_data:
                             msg_text_str = str(text_data).strip()
-                            print(f"📝 Комментарий транзакции {tx_hash[:20]}...: {msg_text_str[:100]}")
+                            import sys
+                            print(f"📝 Комментарий транзакции {tx_hash[:20]}...: {msg_text_str[:100]}", file=sys.stderr, flush=True)
                             
                             # Ищем только Telegram ID в комментарии (формат: "123456789" или "tg:123456789")
                             match_id = re.search(r'(?:tg:)?(\d{8,12})', msg_text_str)
                             if match_id:
                                 telegram_id = match_id.group(1)
-                                print(f"✅ Найден Telegram ID в комментарии: {telegram_id}")
+                                print(f"✅ Найден Telegram ID в комментарии: {telegram_id}", file=sys.stderr, flush=True)
                             else:
-                                print(f"⚠️ Telegram ID не найден в комментарии: {msg_text_str[:50]}")
+                                print(f"⚠️ Telegram ID не найден в комментарии: {msg_text_str[:50]}", file=sys.stderr, flush=True)
                         
                         # Создаем запись о депозите
                         deposit = models.Deposit(
@@ -394,24 +397,26 @@ class TonService:
                         )
                         db.add(deposit)
                         db.commit()
-                        print(f"💾 Создана запись о депозите: {tx_hash[:20]}..., сумма: {value / 10**9:.4f} TON, Telegram ID: {telegram_id or 'не указан'}")
+                        import sys
+                        print(f"💾 Создана запись о депозите: {tx_hash[:20]}..., сумма: {value / 10**9:.4f} TON, Telegram ID: {telegram_id or 'не указан'}", file=sys.stderr, flush=True)
                         
                         # Если нашли Telegram ID, зачисляем на баланс
                         if telegram_id:
-                            print(f"🔄 Попытка зачисления депозита для Telegram ID: {telegram_id}")
+                            print(f"🔄 Попытка зачисления депозита для Telegram ID: {telegram_id}", file=sys.stderr, flush=True)
                             try:
                                 user = db.query(models.User).filter(
                                     models.User.telegram_id == int(telegram_id)
                                 ).first()
                                 
                                 if user:
-                                    print(f"👤 Пользователь найден: ID={user.id}, Telegram ID={user.telegram_id}")
+                                    import sys
+                                    print(f"👤 Пользователь найден: ID={user.id}, Telegram ID={user.telegram_id}", file=sys.stderr, flush=True)
                                     balance = db.query(models.UserBalance).filter(
                                         models.UserBalance.user_id == user.id
                                     ).first()
                                     
                                     if not balance:
-                                        print(f"💰 Создание нового баланса для пользователя {user.id}")
+                                        print(f"💰 Создание нового баланса для пользователя {user.id}", file=sys.stderr, flush=True)
                                         balance = models.UserBalance(
                                             user_id=user.id,
                                             ton_active_balance=value,
@@ -423,26 +428,30 @@ class TonService:
                                         old_balance = float(balance.ton_active_balance) / 10**9
                                         balance.ton_active_balance += value
                                         new_balance = float(balance.ton_active_balance) / 10**9
-                                        print(f"💰 Обновление баланса: {old_balance:.4f} → {new_balance:.4f} TON")
+                                        print(f"💰 Обновление баланса: {old_balance:.4f} → {new_balance:.4f} TON", file=sys.stderr, flush=True)
                                     
                                     deposit.user_id = user.id
                                     deposit.status = "processed"
                                     deposit.processed_at = datetime.utcnow()
                                     db.commit()
                                     
-                                    print(f"✅ Автоматически зачислено {value / 10**9:.4f} TON пользователю {telegram_id} (ID: {user.id})")
+                                    print(f"✅ Автоматически зачислено {value / 10**9:.4f} TON пользователю {telegram_id} (ID: {user.id})", file=sys.stderr, flush=True)
                                 else:
-                                    print(f"⚠️ Пользователь с Telegram ID {telegram_id} не найден в базе данных")
+                                    import sys
+                                    print(f"⚠️ Пользователь с Telegram ID {telegram_id} не найден в базе данных", file=sys.stderr, flush=True)
                             except (ValueError, Exception) as e:
-                                print(f"⚠️ Ошибка обработки депозита {tx_hash}: {e}")
+                                import sys
+                                print(f"⚠️ Ошибка обработки депозита {tx_hash}: {e}", file=sys.stderr, flush=True)
                                 import traceback
                                 traceback.print_exc()
                                 deposit.status = "failed"
                                 db.commit()
                         else:
-                            print(f"⚠️ Депозит {tx_hash[:20]}... без Telegram ID в комментарии, требуется ручная обработка")
+                            import sys
+                            print(f"⚠️ Депозит {tx_hash[:20]}... без Telegram ID в комментарии, требуется ручная обработка", file=sys.stderr, flush=True)
         except Exception as e:
-            print(f"Error checking deposits: {e}")
+            import sys
+            print(f"❌ Error checking deposits: {e}", file=sys.stderr, flush=True)
             import traceback
             traceback.print_exc()
 

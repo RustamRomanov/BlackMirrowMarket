@@ -174,18 +174,20 @@ async def update_ton_transactions_periodically():
 
 async def check_deposits_periodically():
     """Периодически проверяет входящие депозиты и автоматически зачисляет на балансы."""
-    print("🔄 Фоновая задача проверки депозитов запущена")
+    import sys
+    print("🔄 Фоновая задача проверки депозитов запущена", file=sys.stderr, flush=True)
     while True:
         try:
             await asyncio.sleep(60)  # Проверяем каждую минуту
+            import sys
             service = get_ton_service()
             if service is None:
                 # TON сервис не настроен, пропускаем
-                print("⚠️ TON сервис не настроен, пропускаем проверку депозитов")
+                print("⚠️ TON сервис не настроен, пропускаем проверку депозитов", file=sys.stderr, flush=True)
                 await asyncio.sleep(300)  # Проверяем реже, если не настроено
                 continue
             
-            print("🔍 Проверка входящих депозитов...")
+            print("🔍 Проверка входящих депозитов...", file=sys.stderr, flush=True)
             db = SessionLocal()
             try:
                 await service.check_incoming_deposits(db)
@@ -193,17 +195,20 @@ async def check_deposits_periodically():
                 db.close()
         except Exception as e:
             # Не спамим логи обычными ошибками
-            import traceback
+            import sys, traceback
             error_msg = str(e)
             if "404" not in error_msg and "not set" not in error_msg:
-                print(f"❌ Error in check_deposits_periodically: {e}")
+                print(f"❌ Error in check_deposits_periodically: {e}", file=sys.stderr, flush=True)
                 traceback.print_exc()
             await asyncio.sleep(120)  # При ошибке ждем дольше
 
 @app.on_event("startup")
 async def startup_event():
     """Запускаем фоновые задачи при старте приложения."""
+    print("🚀 Запуск приложения...")
+    print("🔄 Запуск фоновых задач...")
     asyncio.create_task(update_ton_transactions_periodically())
     asyncio.create_task(check_deposits_periodically())
+    print("✅ Фоновые задачи запущены")
 
 
