@@ -35,12 +35,13 @@
   animation: slideUp 0.3s ease-out;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   position: relative;
+  overflow: hidden;
 }
 
 @media (max-width: 768px) {
   .create-task-modal-content {
     max-height: 95vh;
-    border-radius: 16px 16px 0 0;
+    border-radius: 16px;
   }
 }
 
@@ -96,7 +97,6 @@
 
 .create-task-form-body {
   padding: 24px;
-  padding-bottom: 100px;
   overflow-y: auto;
   overflow-x: hidden;
   flex: 1;
@@ -310,15 +310,16 @@ textarea.form-input {
 .copy-bot-button,
 .rules-button {
   flex: 1;
-  padding: 10px 16px;
+  padding: 8px 12px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
   border: 1px solid #4caf50;
   background: #66bb6a;
   color: white;
+  white-space: nowrap;
 }
 
 .copy-bot-button:hover,
