@@ -102,13 +102,28 @@ class TonService:
         
         if self._client is None:
             # Публичный mainnet конфиг. Для продакшена можно поменять на собственный endpoint.
-            self._client = LiteBalancer.from_mainnet_config()
-            # Начинаем подключение (неблокирующее)
+            # Используем более надежные настройки для Railway
             try:
-                await asyncio.wait_for(self._client.start_up(), timeout=15.0)
+                self._client = LiteBalancer.from_mainnet_config()
+                # Увеличиваем таймаут для Railway (может быть медленное подключение)
+                print("🔄 Connecting to TON blockchain...", file=sys.stderr, flush=True)
+                await asyncio.wait_for(self._client.start_up(), timeout=30.0)
+                print("✅ Connected to TON blockchain", file=sys.stderr, flush=True)
             except asyncio.TimeoutError:
-                raise Exception("Timeout connecting to TON blockchain. Please check your internet connection.")
+                print("❌ Timeout connecting to TON blockchain", file=sys.stderr, flush=True)
+                # Пробуем альтернативный способ - используем другой endpoint
+                try:
+                    print("🔄 Trying alternative connection method...", file=sys.stderr, flush=True)
+                    # Используем более простой способ подключения
+                    from pytoniq.liteclient import LiteClient
+                    # Пробуем подключиться к публичным серверам напрямую
+                    self._client = LiteBalancer.from_mainnet_config()
+                    await asyncio.wait_for(self._client.start_up(), timeout=45.0)
+                    print("✅ Connected via alternative method", file=sys.stderr, flush=True)
+                except Exception as alt_e:
+                    raise Exception(f"Failed to connect to TON blockchain. Timeout and alternative method failed: {str(alt_e)}")
             except Exception as e:
+                print(f"❌ Error connecting to TON blockchain: {e}", file=sys.stderr, flush=True)
                 raise Exception(f"Failed to connect to TON blockchain: {str(e)}")
         
         if self._wallet is None:
