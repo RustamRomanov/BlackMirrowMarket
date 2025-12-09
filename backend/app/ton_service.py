@@ -105,10 +105,36 @@ class TonService:
             # Кошелек V4R2 из сид-фразы. Ключи остаются в памяти процесса.
             # Сигнатура: from_mnemonic(provider, mnemonics, wc=0, wallet_id=None, version="v3r2")
             try:
+                # Пробуем сначала V4R2
                 self._wallet = await asyncio.wait_for(
                     WalletV4R2.from_mnemonic(self._client, seed_words),
                     timeout=10.0
                 )
+                
+                # Проверяем, что адрес кошелька соответствует TON_WALLET_ADDRESS
+                if self.wallet_address:
+                    wallet_addr = await self._wallet.get_address()
+                    wallet_addr_str = str(wallet_addr)
+                    expected_addr = self.wallet_address.strip()
+                    
+                    # Нормализуем адреса для сравнения
+                    try:
+                        wallet_addr_normalized = str(Address(wallet_addr_str))
+                        expected_addr_normalized = str(Address(expected_addr))
+                        
+                        # Сравниваем без учета формата (UQ vs EQ)
+                        if wallet_addr_normalized != expected_addr_normalized:
+                            # Пробуем сравнить в разных форматах
+                            wallet_addr_user = wallet_addr.to_str(is_user_friendly=True, is_bounceable=True)
+                            expected_addr_user = Address(expected_addr).to_str(is_user_friendly=True, is_bounceable=True)
+                            
+                            if wallet_addr_user != expected_addr_user:
+                                print(f"⚠️ Warning: Wallet address mismatch!", file=sys.stderr, flush=True)
+                                print(f"  Expected: {expected_addr}", file=sys.stderr, flush=True)
+                                print(f"  Got from mnemonic: {wallet_addr_str}", file=sys.stderr, flush=True)
+                                print(f"  This mnemonic may not match TON_WALLET_ADDRESS", file=sys.stderr, flush=True)
+                    except Exception as addr_check_error:
+                        print(f"⚠️ Could not verify wallet address match: {addr_check_error}", file=sys.stderr, flush=True)
             except asyncio.TimeoutError:
                 raise Exception("Timeout initializing wallet. Please try again.")
             except ValueError as e:
@@ -144,6 +170,19 @@ class TonService:
                 error_msg = str(e)
                 preview = f"{' '.join(seed_words[:3])} ... {' '.join(seed_words[-3:])}"
                 
+                # Пробуем альтернативный способ - может быть проблема с версией кошелька
+                try:
+                    print("🔄 Trying alternative wallet initialization (V3R2)...", file=sys.stderr, flush=True)
+                    from pytoniq.contract.wallets.wallet import WalletV3R2
+                    self._wallet = await asyncio.wait_for(
+                        WalletV3R2.from_mnemonic(self._client, seed_words),
+                        timeout=10.0
+                    )
+                    print("✅ Successfully initialized wallet as V3R2", file=sys.stderr, flush=True)
+                    return  # Успешно инициализировали как V3R2
+                except Exception as alt_error:
+                    print(f"⚠️ Alternative initialization (V3R2) also failed: {alt_error}", file=sys.stderr, flush=True)
+                
                 # Формируем детальное сообщение об ошибке
                 error_details = []
                 error_details.append(f"Invalid mnemonic phrase (AssertionError).")
@@ -157,12 +196,13 @@ class TonService:
                     error_details.append("Please check if words are separated by spaces. Each word should be 3-8 characters long.")
                 
                 error_details.append(f"Error: {error_msg}.")
-                error_details.append("Make sure:")
-                error_details.append("  1. All 24 words are from BIP39 wordlist (English)")
-                error_details.append("  2. Words are separated by SINGLE spaces (no multiple spaces)")
-                error_details.append("  3. No words are merged together (check for words longer than 12 characters)")
-                error_details.append("  4. No quotes around the mnemonic phrase")
-                error_details.append("  5. The mnemonic phrase matches your TON wallet")
+                error_details.append("")
+                error_details.append("Possible solutions:")
+                error_details.append("  1. Verify that TON_WALLET_SEED matches TON_WALLET_ADDRESS")
+                error_details.append("  2. Check if all words are from BIP39 English wordlist")
+                error_details.append("  3. Ensure the mnemonic is for the correct wallet type (V4R2 or V3R2)")
+                error_details.append("  4. Try regenerating the mnemonic from your wallet if possible")
+                error_details.append("  5. Verify the mnemonic phrase in your wallet app")
                 
                 raise Exception("\n".join(error_details))
             except Exception as e:
