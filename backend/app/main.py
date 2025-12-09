@@ -125,9 +125,11 @@ if os.getenv("ENVIRONMENT") != "production":
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
+    allow_origin_regex=".*",  # запасной вариант: разрешаем любые origins, чтобы не падал preflight
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    max_age=3600,
 )
 
 # Подключаем роутеры
