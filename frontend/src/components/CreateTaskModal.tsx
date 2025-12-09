@@ -75,6 +75,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
     male: true,
     female: true
   })
+  const [showPostHelp, setShowPostHelp] = useState(false)
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
@@ -325,14 +326,13 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
               <div className="form-field-group">
                 <label className="form-label">
                   Ссылка на пост{' '}
-                  <a
-                    href="https://t.me/share/url"
-                    target="_blank"
-                    rel="noreferrer"
+                  <button
+                    type="button"
                     className="helper-link"
+                    onClick={() => setShowPostHelp(true)}
                   >
                     инструкция
-                  </a>
+                  </button>
                 </label>
                 <input
                   type="text"
@@ -437,6 +437,14 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
                   />
                 </div>
               </div>
+
+      {showPostHelp && (
+        <TermsModal
+          title="Как получить ссылку на пост"
+          content={`1) Откройте публикацию в Telegram.\n2) Нажмите «Поделиться».\n3) Выберите «Копировать ссылку».\n4) Вставьте ссылку в поле «Ссылка на пост».`}
+          onClose={() => setShowPostHelp(false)}
+        />
+      )}
             </div>
 
             {/* Информация о боте */}
