@@ -295,29 +295,51 @@ class TonService:
         except Exception as e:
             raise Exception(f"Failed to get balance from tonapi: {e}")
 
+    async def _send_raw_via_api(self, to_address: str, amount_nano: int) -> str:
+        """
+        Альтернативный способ отправки через tonapi.io (если доступен).
+        Пока не реализован, так как tonapi.io не поддерживает отправку транзакций.
+        """
+        # tonapi.io не поддерживает отправку транзакций напрямую
+        # Нужен другой подход
+        raise Exception("API-based sending not available. Using direct blockchain connection.")
+    
     async def _send_raw(self, to_address: str, amount_nano: int) -> str:
         """
         Отправка TON. Возвращает tx_hash.
-        Использует таймауты, чтобы не зависать.
+        Использует увеличенные таймауты для Railway.
         """
         import asyncio
         await self._ensure_client()
         destination = Address(to_address)
         try:
-            # Таймаут 30 секунд на всю операцию
-            seqno = await asyncio.wait_for(self._wallet.get_seqno(), timeout=10.0)
+            print(f"🔄 Getting wallet seqno...", file=sys.stderr, flush=True)
+            # Увеличиваем таймауты для Railway (может быть медленное подключение)
+            seqno = await asyncio.wait_for(self._wallet.get_seqno(), timeout=20.0)
+            print(f"✅ Seqno: {seqno}", file=sys.stderr, flush=True)
+            
+            print(f"🔄 Creating transfer message to {to_address[:20]}...", file=sys.stderr, flush=True)
             msg = await asyncio.wait_for(
                 self._wallet.transfer(destination=destination, amount=amount_nano),
-                timeout=10.0
+                timeout=20.0
             )
+            print(f"✅ Message created", file=sys.stderr, flush=True)
+            
+            print(f"🔄 Sending transaction to blockchain...", file=sys.stderr, flush=True)
             result = await asyncio.wait_for(
                 self._wallet.raw_transfer([msg], seqno_from_get_meth=True),
-                timeout=10.0
+                timeout=30.0  # Увеличен таймаут для отправки на Railway
             )
             tx_hash = getattr(result, "hash", None)
-            return tx_hash.hex() if tx_hash else "unknown"
-        except asyncio.TimeoutError:
-            raise Exception("TON transaction timeout")
+            hash_hex = tx_hash.hex() if tx_hash else "unknown"
+            print(f"✅ Transaction sent successfully! Hash: {hash_hex[:20]}...", file=sys.stderr, flush=True)
+            return hash_hex
+        except asyncio.TimeoutError as e:
+            print(f"❌ TON transaction timeout: {e}", file=sys.stderr, flush=True)
+            raise Exception(f"TON transaction timeout. Railway may have slow network connection. Please try again in a few moments.")
+        except Exception as e:
+            print(f"❌ TON transaction error: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
+            raise
 
     async def create_withdrawal(
         self,
