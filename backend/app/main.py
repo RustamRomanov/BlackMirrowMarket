@@ -117,15 +117,15 @@ admin_panel.add_view(UserTaskAdmin)
 
 
 # CORS для Telegram Mini App
-# Railway домены и Telegram
+# CORS: разрешаем все источники, чтобы не ломались preflight-запросы в WebApp
 cors_origins = os.getenv("CORS_ORIGINS", "https://t.me,https://web.telegram.org").split(",")
 if os.getenv("ENVIRONMENT") != "production":
     cors_origins.append("http://localhost:3000")  # Для локальной разработки
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
-    allow_origin_regex=".*",  # запасной вариант: разрешаем любые origins, чтобы не падал preflight
+    allow_origins=["*"],          # разрешаем все Origin
+    allow_origin_regex=".*",      # дублируем регуляркой
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
