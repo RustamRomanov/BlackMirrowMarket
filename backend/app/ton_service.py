@@ -299,13 +299,42 @@ class TonService:
             # Подключаемся к блокчейну напрямую
             print("🌐 Подключение к TON блокчейну...", file=sys.stderr, flush=True)
             client = LiteBalancer.from_mainnet_config()
-            await client.start_up()
-            print("✅ Подключено к блокчейну", file=sys.stderr, flush=True)
+            
+            # Подключаемся с таймаутом
+            import asyncio
+            try:
+                await asyncio.wait_for(client.start_up(), timeout=10.0)
+                print("✅ Подключено к блокчейну", file=sys.stderr, flush=True)
+            except asyncio.TimeoutError:
+                print("❌ Таймаут подключения к блокчейну (10 сек)", file=sys.stderr, flush=True)
+                await client.close_all()
+                return
+            except Exception as e:
+                print(f"❌ Ошибка подключения к блокчейну: {e}", file=sys.stderr, flush=True)
+                try:
+                    await client.close_all()
+                except:
+                    pass
+                return
             
             # Получаем транзакции напрямую из блокчейна
             print("📡 Получение транзакций из блокчейна...", file=sys.stderr, flush=True)
-            transactions = await client.get_transactions(wallet_addr, limit=50)
-            print(f"📊 Найдено транзакций: {len(transactions)}", file=sys.stderr, flush=True)
+            try:
+                transactions = await asyncio.wait_for(
+                    client.get_transactions(wallet_addr, limit=50),
+                    timeout=15.0
+                )
+                print(f"📊 Найдено транзакций: {len(transactions)}", file=sys.stderr, flush=True)
+            except asyncio.TimeoutError:
+                print("❌ Таймаут получения транзакций (15 сек)", file=sys.stderr, flush=True)
+                await client.close_all()
+                return
+            except Exception as e:
+                print(f"❌ Ошибка получения транзакций: {e}", file=sys.stderr, flush=True)
+                import traceback
+                traceback.print_exc()
+                await client.close_all()
+                return
             
             if len(transactions) == 0:
                 print("ℹ️ Новых транзакций не найдено", file=sys.stderr, flush=True)
