@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { initData } from '@twa-dev/sdk'
 import axios from 'axios'
+import * as TwaSDK from '@twa-dev/sdk'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -32,12 +32,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [autoFilled, setAutoFilled] = useState(false)
 
+  const getTelegramUser = () => {
+    const tg = (window as any)?.Telegram?.WebApp
+    // В Telegram WebApp данные в initDataUnsafe
+    const initDataUnsafe = tg?.initDataUnsafe
+    if (initDataUnsafe?.user) return initDataUnsafe.user
+    // Пробуем взять из SDK
+    const sdkInitData = (TwaSDK as any)?.initDataUnsafe || (TwaSDK as any)?.initData
+    return sdkInitData?.user
+  }
+
   useEffect(() => {
     async function initUser() {
       try {
-        // Production: инициализация из Telegram Mini App
-        if (initData?.user) {
-          const telegramUser = initData.user
+        // Production: инициализация из Telegram Mini App (читаем из window.Telegram.WebApp)
+        const telegramUser = getTelegramUser()
+        if (telegramUser) {
           const telegramId = telegramUser.id
 
           // 1) Пытаемся получить пользователя
@@ -153,27 +163,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateUser = async (userData: Partial<User> | User) => {
     // Если пользователя нет, пытаемся создать/получить его перед обновлением
-    if (!user && initData?.user) {
-      try {
-        const telegramUser = initData.user
-        const resp = await axios.post(`${API_URL}/api/users/`, {
-          telegram_id: telegramUser.id,
-          username: telegramUser.username,
-          first_name: telegramUser.firstName,
-          last_name: telegramUser.lastName
-        })
-        setUser(resp.data)
-      } catch (err: any) {
-        // если уже есть — пробуем получить
-        if (err?.response?.status === 400 || err?.response?.status === 422) {
-          try {
-            const getResp = await axios.get(`${API_URL}/api/users/${initData.user.id}`)
-            setUser(getResp.data)
-          } catch (getErr) {
-            console.error('Error getting user during update:', getErr)
+    if (!user) {
+      const telegramUser = getTelegramUser()
+      if (telegramUser) {
+        try {
+          const resp = await axios.post(`${API_URL}/api/users/`, {
+              telegram_id: telegramUser.id,
+              username: telegramUser.username,
+              first_name: telegramUser.firstName,
+              last_name: telegramUser.lastName
+            })
+          setUser(resp.data)
+        } catch (err: any) {
+          // если уже есть — пробуем получить
+          if (err?.response?.status === 400 || err?.response?.status === 422) {
+            try {
+              const getResp = await axios.get(`${API_URL}/api/users/${telegramUser.id}`)
+              setUser(getResp.data)
+            } catch (getErr) {
+              console.error('Error getting user during update:', getErr)
+            }
+          } else {
+            console.error('Error creating user during update:', err)
           }
-        } else {
-          console.error('Error creating user during update:', err)
         }
       }
     }
