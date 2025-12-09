@@ -487,7 +487,7 @@ async def get_deposits_html(request: Request):
 
 
 async def check_deposit_manually(request: Request):
-    """Ручная проверка транзакции через tonapi.io"""
+    """Ручная проверка транзакции через tonapi.io с автоматической обработкой"""
     if request.method != "POST":
         return HTMLResponse(content="<h1>Метод не поддерживается</h1>", status_code=405)
 
@@ -501,11 +501,19 @@ async def check_deposit_manually(request: Request):
     try:
         existing = db.query(Deposit).filter(Deposit.tx_hash == tx_hash).first()
         if existing:
+            user_info = ""
+            if existing.user_id:
+                user = db.query(User).filter(User.id == existing.user_id).first()
+                if user:
+                    user_info = f"Пользователь: @{user.username or 'user'} (Telegram ID: {user.telegram_id})"
+            
             return HTMLResponse(content=f"""
                 <h1>Транзакция уже существует в базе</h1>
-                <p>TX Hash: {tx_hash}</p>
-                <p>Статус: {existing.status}</p>
-                <p>Сумма: {float(existing.amount_nano) / 10**9:.4f} TON</p>
+                <p><strong>TX Hash:</strong> {tx_hash}</p>
+                <p><strong>Статус:</strong> {existing.status}</p>
+                <p><strong>Сумма:</strong> {float(existing.amount_nano) / 10**9:.4f} TON</p>
+                {f'<p><strong>{user_info}</strong></p>' if user_info else ''}
+                <p><strong>Telegram ID из комментария:</strong> {existing.telegram_id_from_comment or 'не найден'}</p>
                 <p><a href="/admin/deposits">← Назад к депозитам</a></p>
             """)
 
@@ -515,6 +523,8 @@ async def check_deposit_manually(request: Request):
 
         import aiohttp
         import ssl
+        import re
+        from datetime import datetime
 
         ssl_context = ssl.create_default_context()
         ssl_context.check_hostname = False
@@ -522,7 +532,7 @@ async def check_deposit_manually(request: Request):
 
         connector = aiohttp.TCPConnector(ssl=ssl_context)
         async with aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=10),
+            timeout=aiohttp.ClientTimeout(total=15),
             connector=connector
         ) as session:
             url = f"https://tonapi.io/v2/blockchain/transactions/{tx_hash}"
@@ -530,11 +540,130 @@ async def check_deposit_manually(request: Request):
             async with session.get(url, headers=headers) as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    return HTMLResponse(content=f"""
-                        <h1>Транзакция найдена!</h1>
-                        <pre>{str(data)[:1000]}</pre>
-                        <p><a href="/admin/deposits">← Назад к депозитам</a></p>
-                    """)
+                    
+                    # Парсим транзакцию
+                    in_msg = data.get("in_msg")
+                    if not in_msg:
+                        return HTMLResponse(content=f"""
+                            <h1>Транзакция найдена, но нет входящего сообщения</h1>
+                            <p>TX Hash: {tx_hash}</p>
+                            <p>Это может быть исходящая транзакция или транзакция без сообщения.</p>
+                            <pre>{str(data)[:2000]}</pre>
+                            <p><a href="/admin/deposits">← Назад к депозитам</a></p>
+                        """)
+                    
+                    # Получаем сумму
+                    value = int(in_msg.get("value", 0))
+                    source = in_msg.get("source", {}).get("address", "") or in_msg.get("source", "")
+                    
+                    # Получаем комментарий
+                    msg_body = in_msg.get("msg_data", {})
+                    telegram_id = None
+                    msg_text_str = ""
+                    
+                    if isinstance(msg_body, dict):
+                        msg_text_str = msg_body.get("text", "") or msg_body.get("comment", "")
+                    elif isinstance(msg_body, str):
+                        msg_text_str = msg_body
+                    
+                    if not msg_text_str:
+                        decoded = in_msg.get("decoded_body", {})
+                        if isinstance(decoded, dict):
+                            msg_text_str = decoded.get("text", "") or decoded.get("comment", "")
+                    
+                    if not msg_text_str:
+                        body_b64 = in_msg.get("body", "")
+                        if body_b64:
+                            try:
+                                import base64
+                                decoded_bytes = base64.b64decode(body_b64)
+                                if len(decoded_bytes) > 4:
+                                    msg_text_str = decoded_bytes[4:].decode('utf-8', errors='ignore').strip()
+                            except:
+                                pass
+                    
+                    # Ищем Telegram ID
+                    if msg_text_str:
+                        match_id = re.search(r'(?:tg:)?(\d{8,12})', msg_text_str)
+                        if match_id:
+                            telegram_id = match_id.group(1)
+                    
+                    # Создаем депозит
+                    deposit = Deposit(
+                        tx_hash=tx_hash,
+                        from_address=source,
+                        amount_nano=value,
+                        telegram_id_from_comment=telegram_id,
+                        status="pending"
+                    )
+                    db.add(deposit)
+                    db.commit()
+                    
+                    result_html = f"""
+                        <h1>✅ Транзакция обработана!</h1>
+                        <p><strong>TX Hash:</strong> {tx_hash}</p>
+                        <p><strong>Сумма:</strong> {value / 10**9:.4f} TON</p>
+                        <p><strong>Отправитель:</strong> {source[:30]}...</p>
+                        <p><strong>Комментарий:</strong> {msg_text_str[:100] if msg_text_str else 'нет'}</p>
+                        <p><strong>Telegram ID из комментария:</strong> {telegram_id or 'не найден'}</p>
+                    """
+                    
+                    # Зачисляем на баланс если нашли ID
+                    if telegram_id:
+                        try:
+                            user = db.query(User).filter(User.telegram_id == int(telegram_id)).first()
+                            
+                            if user:
+                                balance = db.query(UserBalance).filter(UserBalance.user_id == user.id).first()
+                                
+                                if not balance:
+                                    balance = UserBalance(
+                                        user_id=user.id,
+                                        ton_active_balance=value,
+                                        last_fiat_rate=Decimal("250"),
+                                        fiat_currency="RUB"
+                                    )
+                                    db.add(balance)
+                                else:
+                                    balance.ton_active_balance += value
+                                
+                                deposit.user_id = user.id
+                                deposit.status = "processed"
+                                deposit.processed_at = datetime.utcnow()
+                                db.commit()
+                                
+                                result_html += f"""
+                                    <div style="background: #e8f5e9; border-left: 4px solid #4caf50; padding: 15px; margin: 15px 0; border-radius: 4px;">
+                                        <h2>✅ Средства зачислены!</h2>
+                                        <p><strong>Пользователь:</strong> @{user.username or 'user'} (Telegram ID: {user.telegram_id})</p>
+                                        <p><strong>Зачислено:</strong> {value / 10**9:.4f} TON</p>
+                                        <p><strong>Новый баланс:</strong> {float(balance.ton_active_balance) / 10**9:.4f} TON</p>
+                                    </div>
+                                """
+                            else:
+                                result_html += f"""
+                                    <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0; border-radius: 4px;">
+                                        <p>⚠️ Пользователь с Telegram ID {telegram_id} не найден в базе данных.</p>
+                                        <p>Депозит создан со статусом "pending". Средства будут зачислены автоматически, когда пользователь зарегистрируется.</p>
+                                    </div>
+                                """
+                        except Exception as e:
+                            result_html += f"""
+                                <div style="background: #ffebee; border-left: 4px solid #f44336; padding: 15px; margin: 15px 0; border-radius: 4px;">
+                                    <p>❌ Ошибка при зачислении средств: {str(e)}</p>
+                                </div>
+                            """
+                    else:
+                        result_html += """
+                            <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0; border-radius: 4px;">
+                                <p>⚠️ Telegram ID не найден в комментарии транзакции.</p>
+                                <p>Депозит создан со статусом "pending". Средства не будут зачислены автоматически.</p>
+                            </div>
+                        """
+                    
+                    result_html += '<p><a href="/admin/deposits">← Назад к депозитам</a></p>'
+                    return HTMLResponse(content=result_html)
+                    
                 elif resp.status == 404:
                     return HTMLResponse(content=f"""
                         <h1>Транзакция не найдена</h1>
