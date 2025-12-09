@@ -9,26 +9,29 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const ADMIN_BOT = '@BlackMirrowAdminBot'
 
 const BOT_RULES_TEXT = `
-Для работы заданий в вашем канале необходимо добавить бота @BlackMirrowAdminBot администратором.
+🔐 Правила для работы бота с заданиями
 
-**Почему это нужно:**
-• Бот мониторит выполнение заданий пользователями
-• Проверяет, что пользователи действительно подписались, оставили комментарий или просмотрели пост
-• Бот не влияет на работу вашего канала
-• Бот не публикует сообщения и не управляет каналом
-• Бот только читает информацию для проверки выполнения заданий
+Добавьте бота @BlackMirrowAdminBot администратором вашего канала и отключите ему все права.
 
-**Что делает бот:**
-• Отслеживает подписки пользователей на ваш канал
-• Проверяет комментарии под постами
-• Подтверждает просмотры публикаций
-• Автоматически начисляет награды исполнителям
+Что сможет бот
+✅ Основная задача: Проверять задания, запрашивая у Telegram:
+• Факт подписки конкретного пользователя на канал
+• Факт публикации комментария
+✅ Контроль контента: Автоматически отслеживать комментарии на наличие:
+• Нормативной лексики
+• Запрещённого контента
+• Спама и оскорблений
 
-**Безопасность:**
-• Бот имеет только права на чтение информации
-• Бот не может удалять сообщения или пользователей
-• Бот не может изменять настройки канала
-• Все данные обрабатываются автоматически и безопасно
+Что не сможет бот
+❌ Отправлять или удалять сообщения в вашем канале
+❌ Изменять профиль канала
+❌ Управлять подписчиками
+❌ Назначать администраторов
+
+Система модерации и уведомлений
+• При нарушении правил пользователь автоматически блокируется в приложении
+• Вам приходит уведомление в профиль с деталями нарушения
+• Канал защищён от некачественных и рисковых активностей
 `
 
 interface CreateTaskModalProps {
@@ -107,13 +110,6 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
   function validateForm(): boolean {
     const newErrors: Record<string, string> = {}
     
-    const titleTrim = formData.title.trim()
-    if (!titleTrim) {
-      newErrors.title = 'Название задания обязательно'
-    } else if (titleTrim.length < 3) {
-      newErrors.title = 'Минимум 3 символа'
-    }
-    
     const descTrim = formData.description.trim()
     if (!descTrim) {
       newErrors.description = 'Описание обязательно'
@@ -145,7 +141,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
     }
     
     if (formData.task_type !== 'view' && !formData.telegram_channel_id) {
-      newErrors.telegram_channel_id = 'ID канала обязателен'
+      newErrors.telegram_channel_id = 'Ссылка на канал обязательна'
     }
 
     if (!genderSelection.male && !genderSelection.female) {
@@ -170,6 +166,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
 
     const submissionData = {
       ...formData,
+      title: formData.title.trim() || 'Задание',
       target_gender: finalGender
     }
 
@@ -216,24 +213,6 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
               </select>
             </div>
 
-            {/* Название */}
-            <div className="form-field-group">
-              <label className="form-label">
-                Название задания
-              </label>
-              <input
-                type="text"
-                value={formData.title}
-                onChange={(e) => {
-                  setFormData({ ...formData, title: e.target.value })
-                  if (errors.title) setErrors({ ...errors, title: '' })
-                }}
-                placeholder="Краткое и понятное название задания"
-                className={`form-input ${errors.title ? 'error' : ''}`}
-              />
-              {errors.title && <div className="form-error">{errors.title}</div>}
-            </div>
-
             {/* Описание */}
             <div className="form-field-group">
               <label className="form-label">
@@ -246,7 +225,11 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
                   if (errors.description) setErrors({ ...errors, description: '' })
                 }}
                 rows={2}
-                placeholder="Краткое описание о чем пост"
+                placeholder={
+                  formData.task_type === 'subscription'
+                    ? 'Краткое описание о чем канал'
+                    : 'Краткое описание о чем пост'
+                }
                 className={`form-input ${errors.description ? 'error' : ''}`}
               />
               {errors.description && <div className="form-error">{errors.description}</div>}
@@ -303,11 +286,11 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
               </div>
             </div>
 
-            {/* ID канала */}
+            {/* Ссылка на канал */}
             {(formData.task_type === 'subscription' || formData.task_type === 'comment') && (
               <div className="form-field-group">
                 <label className="form-label">
-                  ID канала Telegram
+                  Ссылка на канал
                 </label>
                 <input
                   type="text"
@@ -316,7 +299,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
                     setFormData({ ...formData, telegram_channel_id: e.target.value })
                     if (errors.telegram_channel_id) setErrors({ ...errors, telegram_channel_id: '' })
                   }}
-                  placeholder="@channelname"
+                  placeholder="https://t.me/yourchannel"
                   className={`form-input ${errors.telegram_channel_id ? 'error' : ''}`}
                 />
                 {errors.telegram_channel_id && <div className="form-error">{errors.telegram_channel_id}</div>}
@@ -440,26 +423,29 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
                 </div>
               </div>
 
-      {showPostHelp && (
-        <TermsModal
-          title="Как получить ссылку на пост"
-          content={`1) Откройте публикацию в Telegram.\n2) Нажмите «Поделиться».\n3) Выберите «Копировать ссылку».\n4) Вставьте ссылку в поле «Ссылка на пост».`}
-          onClose={() => setShowPostHelp(false)}
-        />
-      )}
             </div>
+
+            {showPostHelp && (
+              <TermsModal
+                title="Как получить ссылку на пост"
+                content={`1) Откройте публикацию в Telegram.\n2) Нажмите «Поделиться».\n3) Выберите «Копировать ссылку».\n4) Вставьте ссылку в поле «Ссылка на пост».`}
+                onClose={() => setShowPostHelp(false)}
+              />
+            )}
 
             {/* Информация о боте */}
             {(formData.task_type === 'subscription' || formData.task_type === 'comment') && (
-              <div className="admin-bot-info-end">
-                <label className="bot-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={botAdded}
-                    onChange={(e) => setBotAdded(e.target.checked)}
-                  />
-                  <span>
-                    Бот-администратор добавлен в группу{' '}
+              <div className="admin-bot-info-end bot-box">
+                <div className="bot-box-header">
+                  <span>Добавьте @BlackMirrowAdminBot админом (без прав)</span>
+                  <div className="bot-actions">
+                    <button
+                      type="button"
+                      className="copy-bot"
+                      onClick={() => navigator.clipboard.writeText(ADMIN_BOT)}
+                    >
+                      Скопировать бота
+                    </button>
                     <button
                       type="button"
                       className="rules-link"
@@ -470,7 +456,15 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
                     >
                       Правила
                     </button>
-                  </span>
+                  </div>
+                </div>
+                <label className="bot-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={botAdded}
+                    onChange={(e) => setBotAdded(e.target.checked)}
+                  />
+                  <span>Бот добавлен</span>
                 </label>
               </div>
             )}

@@ -258,6 +258,45 @@ textarea.form-input {
   border-top: 1px solid #e0e0e0;
 }
 
+.bot-box {
+  border: 1px solid #ffcdd2;
+  background: #fff5f5;
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 16px;
+}
+
+.bot-box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #b71c1c;
+  margin-bottom: 8px;
+}
+
+.bot-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.copy-bot {
+  background: #ef9a9a;
+  border: 1px solid #e57373;
+  color: #b71c1c;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.copy-bot:hover {
+  background: #e57373;
+  color: white;
+}
+
 .bot-checkbox-label {
   display: flex;
   align-items: center;
