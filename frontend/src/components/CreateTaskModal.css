@@ -378,15 +378,6 @@ textarea.form-input {
   color: white;
 }
 
-.create-task-modal-footer {
-  display: flex;
-  gap: 12px;
-  padding: 16px 24px;
-  border-top: 1px solid #e0e0e0;
-  background: white;
-  flex-shrink: 0;
-  /* Footer всегда внизу модального окна благодаря flex структуре */
-}
 
 .submit-button-full {
   width: 100%;
