@@ -302,19 +302,25 @@ class TonService:
                 params = {"limit": 50}
                 
                 async with session.get(url, headers=headers, params=params) as resp:
-                    if resp.status != 200:
+                        if resp.status != 200:
                         text = await resp.text()
+                        import sys
                         # Не спамим логи, если это обычная ошибка (404 может быть если нет транзакций)
                         if resp.status == 404:
                             # 404 может означать, что адрес не найден или нет транзакций - это нормально
+                            print("ℹ️ TON API вернул 404 - транзакций не найдено или адрес не найден", file=sys.stderr, flush=True)
                             return
-                        print(f"TON API error getting transactions: {resp.status} - {text}")
+                        print(f"❌ TON API error getting transactions: {resp.status} - {text}", file=sys.stderr, flush=True)
                         return
                     
                     data = await resp.json()
                     transactions = data.get("transactions", [])
                     import sys
                     print(f"📊 Найдено транзакций: {len(transactions)}", file=sys.stderr, flush=True)
+                    
+                    if len(transactions) == 0:
+                        print("ℹ️ Новых транзакций не найдено", file=sys.stderr, flush=True)
+                        return
                     
                     for tx in transactions:
                         tx_hash = tx.get("hash")
@@ -449,6 +455,8 @@ class TonService:
                         else:
                             import sys
                             print(f"⚠️ Депозит {tx_hash[:20]}... без Telegram ID в комментарии, требуется ручная обработка", file=sys.stderr, flush=True)
+                    
+                    print(f"✅ Обработано транзакций: {len(transactions)}", file=sys.stderr, flush=True)
         except Exception as e:
             import sys
             print(f"❌ Error checking deposits: {e}", file=sys.stderr, flush=True)
