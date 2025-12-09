@@ -288,6 +288,24 @@ async def delete_example_tasks(db: Session = Depends(get_db)):
     db.commit()
     return {"message": f"Deleted {deleted_count} example tasks"}
 
+@router.get("/list-all-tasks")
+async def list_all_tasks(db: Session = Depends(get_db)):
+    """Показывает все задания для диагностики"""
+    tasks = db.query(models.Task).all()
+    result = []
+    for task in tasks:
+        creator = db.query(models.User).filter(models.User.id == task.creator_id).first()
+        result.append({
+            "id": task.id,
+            "title": task.title,
+            "is_test": task.is_test,
+            "creator_telegram_id": creator.telegram_id if creator else None,
+            "creator_username": creator.username if creator else None,
+            "status": task.status.value if task.status else None,
+            "created_at": str(task.created_at) if task.created_at else None
+        })
+    return {"total": len(result), "tasks": result}
+
 @router.post("/cleanup-test-tasks")
 async def cleanup_test_tasks(db: Session = Depends(get_db)):
     """Комплексная очистка: удаляет все тестовые задания и примеры"""
@@ -315,39 +333,37 @@ async def cleanup_test_tasks(db: Session = Depends(get_db)):
             deleted_examples += 1
     
     # Удаляем задания по характерным названиям (тестовые задания из admin.py)
-    test_titles = [
-        "Подпишитесь на канал о криптовалютах",
-        "Оставьте комментарий под постом",
-        "Просмотрите публикацию о путешествиях",
-        "Подписка на канал о технологиях",
-        "Комментарий к посту о здоровье",
-        "Просмотр видео о кулинарии",
-        "Подписка на канал о финансах",
-        "Комментарий к обзору фильма",
-        "Просмотр поста о спорте",
-        "Подписка на канал о дизайне",
-        "Комментарий к посту о музыке",
-        "Просмотр публикации о науке",
-        "Подписка на канал о бизнесе",
-        "Комментарий к посту о фотографии",
-        "Просмотр поста о модах",
-        "Подписка на канал о программировании",
-        "Комментарий к посту о путешествиях",
-        "Просмотр публикации о животных",
-        "Подписка на канал о психологии",
-        "Комментарий к посту о искусстве"
+    # Используем частичное совпадение для более надёжного поиска
+    from sqlalchemy import or_
+    test_title_patterns = [
+        "Подпишитесь на канал о",
+        "Оставьте комментарий под",
+        "Просмотрите публикацию о",
+        "Подписка на канал о",
+        "Комментарий к посту о",
+        "Просмотр видео о",
+        "Комментарий к обзору",
+        "Просмотр поста о",
+        "Комментарий к посту о",
+        "Просмотр публикации о"
     ]
     
-    # Ищем и удаляем все задания с тестовыми названиями (независимо от создателя и даты)
-    tasks_by_title = db.query(models.Task).filter(
-        models.Task.title.in_(test_titles)
-    ).all()
+    # Ищем и удаляем все задания, которые начинаются с тестовых паттернов
+    from sqlalchemy import func
+    conditions = []
+    for pattern in test_title_patterns:
+        conditions.append(models.Task.title.like(f"{pattern}%"))
     
-    for task in tasks_by_title:
-        # Удаляем все задания с тестовыми названиями
-        db.query(models.UserTask).filter(models.UserTask.task_id == task.id).delete()
-        db.delete(task)
-        deleted_by_title += 1
+    if conditions:
+        tasks_by_title = db.query(models.Task).filter(
+            or_(*conditions)
+        ).all()
+        
+        for task in tasks_by_title:
+            # Удаляем все задания с тестовыми названиями
+            db.query(models.UserTask).filter(models.UserTask.task_id == task.id).delete()
+            db.delete(task)
+            deleted_by_title += 1
     
     db.commit()
     return {
