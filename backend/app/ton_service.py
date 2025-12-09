@@ -27,7 +27,14 @@ class TonService:
 
     def __init__(self):
         self.api_key = os.getenv("TONAPI_KEY")
-        self.seed_phrase = os.getenv("TON_WALLET_SEED")
+        # Читаем seed phrase и сразу убираем кавычки, если они есть
+        raw_seed = os.getenv("TON_WALLET_SEED", "").strip()
+        # Убираем кавычки в начале и конце, если они есть
+        if raw_seed.startswith('"') and raw_seed.endswith('"'):
+            raw_seed = raw_seed[1:-1].strip()
+        if raw_seed.startswith("'") and raw_seed.endswith("'"):
+            raw_seed = raw_seed[1:-1].strip()
+        self.seed_phrase = raw_seed
         self.wallet_address = os.getenv("TON_WALLET_ADDRESS")
         self._client = None
         self._wallet = None
