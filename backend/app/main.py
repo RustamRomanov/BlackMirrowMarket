@@ -220,6 +220,48 @@ async def check_deposits_periodically():
 async def startup_event():
     """Запускаем фоновые задачи при старте приложения."""
     print("🚀 Запуск приложения...")
+    
+    # Удаляем тестовые задания и примеры при старте
+    from app.database import SessionLocal
+    from app.models import Task, User, UserTask
+    db = SessionLocal()
+    try:
+        # Удаляем тестовые задания (is_test=True)
+        test_tasks = db.query(Task).filter(Task.is_test == True).all()
+        test_count = len(test_tasks)
+        for task in test_tasks:
+            # Удаляем связанные UserTask записи
+            db.query(UserTask).filter(UserTask.task_id == task.id).delete()
+            db.delete(task)
+        
+        # Удаляем примеры заданий (созданные тестовым пользователем)
+        test_creator = db.query(User).filter(User.telegram_id == 0).first()
+        if test_creator:
+            example_tasks = db.query(Task).filter(
+                Task.creator_id == test_creator.id,
+                Task.is_test == False
+            ).all()
+            example_count = len(example_tasks)
+            for task in example_tasks:
+                # Удаляем связанные UserTask записи
+                db.query(UserTask).filter(UserTask.task_id == task.id).delete()
+                db.delete(task)
+            if example_count > 0:
+                print(f"🗑️ Удалено {example_count} примеров заданий")
+        else:
+            example_count = 0
+        
+        db.commit()
+        if test_count > 0:
+            print(f"🗑️ Удалено {test_count} тестовых заданий")
+        if test_count == 0 and example_count == 0:
+            print("ℹ️ Тестовые задания и примеры не найдены (уже удалены)")
+    except Exception as e:
+        print(f"⚠️ Ошибка при удалении тестовых заданий: {e}")
+        db.rollback()
+    finally:
+        db.close()
+    
     print("🔄 Запуск фоновых задач...")
     asyncio.create_task(update_ton_transactions_periodically())
     asyncio.create_task(check_deposits_periodically())
