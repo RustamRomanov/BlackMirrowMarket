@@ -114,8 +114,15 @@ def get_base_styles():
         .badge-info { background: #2196f3; color: white; }
         .badge-secondary { background: #9e9e9e; color: white; }
         .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin: 20px 0; }
+        .card h2 { margin-bottom: 15px; color: #333; }
         .card h3 { margin-bottom: 10px; }
         .muted { color: #777; font-size: 14px; }
+        .content-header { margin-bottom: 20px; }
+        .content-header h1 { font-size: 28px; color: #333; }
+        .data-table { width: 100%; background: white; border-collapse: collapse; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .data-table th { background: #667eea; color: white; font-weight: 600; padding: 12px 15px; text-align: left; }
+        .data-table td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #eee; }
+        .data-table tr:hover { background: #f5f5f5; }
     """
 
 async def get_dashboard_html(request: Request):
