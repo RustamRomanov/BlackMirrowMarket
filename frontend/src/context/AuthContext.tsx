@@ -35,69 +35,76 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     async function initUser() {
       try {
-        // Режим разработки: если нет initData, создаем тестового пользователя
+        // Production: инициализация из Telegram Mini App
         if (initData?.user) {
           const telegramUser = initData.user
-          
-          // Создаем или получаем пользователя
-          const response = await axios.post(`${API_URL}/api/users/`, {
-            telegram_id: telegramUser.id,
+          const telegramId = telegramUser.id
+
+          // 1) Пытаемся получить пользователя
+          try {
+            const getResp = await axios.get(`${API_URL}/api/users/${telegramId}`)
+            setUser(getResp.data)
+            return
+          } catch (getErr: any) {
+            if (getErr?.response?.status !== 404) {
+              throw getErr
+            }
+          }
+
+          // 2) Если 404 — создаем
+          const createResp = await axios.post(`${API_URL}/api/users/`, {
+            telegram_id: telegramId,
             username: telegramUser.username,
             first_name: telegramUser.firstName,
             last_name: telegramUser.lastName
           })
-          
+          setUser(createResp.data)
+          return
+        }
+
+        // Dev fallback: тестовый пользователь
+        const testTelegramId = 123456789
+        console.log('Development mode: creating test user')
+        try {
+          const urlParams = new URLSearchParams(window.location.search)
+          const referrerCode = urlParams.get('start') || urlParams.get('ref')
+
+          const response = await axios.post(`${API_URL}/api/users/`, {
+            telegram_id: testTelegramId,
+            username: 'test_user',
+            first_name: 'Test',
+            last_name: 'User',
+            referrer_code: referrerCode || undefined,
+            age: 25,
+            gender: 'male',
+            country: 'Россия',
+            terms_accepted: true
+          })
           setUser(response.data)
-        } else {
-          // Режим разработки: создаем тестового пользователя для локальной разработки
-          console.log('Development mode: creating test user')
-          const testTelegramId = 123456789 // Тестовый ID
-          try {
-            // Проверяем, есть ли referrer_code в URL
-            const urlParams = new URLSearchParams(window.location.search)
-            const referrerCode = urlParams.get('start') || urlParams.get('ref')
-            
-            const response = await axios.post(`${API_URL}/api/users/`, {
-              telegram_id: testTelegramId,
-              username: 'test_user',
-              first_name: 'Test',
-              last_name: 'User',
-              referrer_code: referrerCode || undefined,
-              // Автоматически заполняем обязательные поля для тестового пользователя
-              age: 25,
-              gender: 'male',
-              country: 'Россия',
-              terms_accepted: true
-            })
-            setUser(response.data)
-          } catch (error: any) {
-            // Если пользователь уже существует или ошибка, пытаемся получить его
-            if (error.response?.status === 422 || error.response?.status === 400 || error.response?.status === 500) {
+        } catch (error: any) {
+          if (error.response?.status === 422 || error.response?.status === 400 || error.response?.status === 500) {
+            try {
+              const response = await axios.get(`${API_URL}/api/users/${testTelegramId}`)
+              setUser(response.data)
+            } catch (getError) {
+              console.error('Error getting user:', getError)
               try {
-                const response = await axios.get(`${API_URL}/api/users/${testTelegramId}`)
-                setUser(response.data)
-              } catch (getError) {
-                console.error('Error getting user:', getError)
-                // Создаем пользователя с минимальными данными
-                try {
-                  const createResponse = await axios.post(`${API_URL}/api/users/`, {
-                    telegram_id: testTelegramId,
-                    username: 'test_user',
-                    first_name: 'Test',
-                    // Автоматически заполняем обязательные поля
-                    age: 25,
-                    gender: 'male',
-                    country: 'Россия',
-                    terms_accepted: true
-                  })
-                  setUser(createResponse.data)
-                } catch (createError) {
-                  console.error('Error creating user:', createError)
-                }
+                const createResponse = await axios.post(`${API_URL}/api/users/`, {
+                  telegram_id: testTelegramId,
+                  username: 'test_user',
+                  first_name: 'Test',
+                  age: 25,
+                  gender: 'male',
+                  country: 'Россия',
+                  terms_accepted: true
+                })
+                setUser(createResponse.data)
+              } catch (createError) {
+                console.error('Error creating user:', createError)
               }
-            } else {
-              console.error('Error initializing user:', error)
             }
+          } else {
+            console.error('Error initializing user:', error)
           }
         }
       } catch (error) {
@@ -145,8 +152,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, loading])
 
   const updateUser = async (userData: Partial<User> | User) => {
+    // Если пользователя нет, пытаемся создать/получить его перед обновлением
+    if (!user && initData?.user) {
+      try {
+        const telegramUser = initData.user
+        const resp = await axios.post(`${API_URL}/api/users/`, {
+          telegram_id: telegramUser.id,
+          username: telegramUser.username,
+          first_name: telegramUser.firstName,
+          last_name: telegramUser.lastName
+        })
+        setUser(resp.data)
+      } catch (err: any) {
+        // если уже есть — пробуем получить
+        if (err?.response?.status === 400 || err?.response?.status === 422) {
+          try {
+            const getResp = await axios.get(`${API_URL}/api/users/${initData.user.id}`)
+            setUser(getResp.data)
+          } catch (getErr) {
+            console.error('Error getting user during update:', getErr)
+          }
+        } else {
+          console.error('Error creating user during update:', err)
+        }
+      }
+    }
+
     if (!user && !('telegram_id' in userData)) return
-    
+
     try {
       const telegramId = user?.telegram_id || (userData as User).telegram_id
       if ('telegram_id' in userData && !user) {
