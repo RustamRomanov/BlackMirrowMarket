@@ -46,13 +46,34 @@ class TonService:
         if not self.seed_phrase:
             raise Exception("TON_WALLET_SEED is not configured. Please set TON_WALLET_SEED environment variable with your 24-word mnemonic phrase.")
         
-        # Проверяем формат мнемоники (должно быть 24 слова)
-        seed_words = self.seed_phrase.strip().split()
-        if len(seed_words) != 24:
+        # Очищаем мнемонику от лишних символов и пробелов
+        cleaned_seed = self.seed_phrase.strip()
+        # Убираем кавычки, если они есть
+        if cleaned_seed.startswith('"') and cleaned_seed.endswith('"'):
+            cleaned_seed = cleaned_seed[1:-1].strip()
+        if cleaned_seed.startswith("'") and cleaned_seed.endswith("'"):
+            cleaned_seed = cleaned_seed[1:-1].strip()
+        
+        # Разбиваем на слова, убирая множественные пробелы
+        seed_words = [w.strip() for w in cleaned_seed.split() if w.strip()]
+        
+        # Детальная диагностика
+        word_count = len(seed_words)
+        if word_count != 24:
+            # Показываем первые и последние слова для диагностики (без раскрытия всей мнемоники)
+            preview = f"{' '.join(seed_words[:3])} ... {''.join(seed_words[-3:])}" if word_count > 6 else ' '.join(seed_words)
             raise Exception(
-                f"Invalid mnemonic format. Expected 24 words, got {len(seed_words)}. "
+                f"Invalid mnemonic format. Expected 24 words, got {word_count}. "
                 f"Please check TON_WALLET_SEED environment variable. "
-                f"Make sure it contains exactly 24 words separated by spaces."
+                f"Make sure it contains exactly 24 words separated by single spaces. "
+                f"Preview (first 3 and last 3 words): {preview}"
+            )
+        
+        # Проверяем, что слова не пустые
+        if any(not word for word in seed_words):
+            raise Exception(
+                "Invalid mnemonic: contains empty words. "
+                "Please check TON_WALLET_SEED - there might be multiple spaces or invalid characters."
             )
         
         if self._client is None:
@@ -80,19 +101,40 @@ class TonService:
                 # ValueError обычно означает неверную мнемонику
                 error_msg = str(e)
                 if "mnemonics" in error_msg.lower() or "invalid" in error_msg.lower():
+                    # Показываем количество слов и первые/последние слова для диагностики
+                    preview = f"{' '.join(seed_words[:3])} ... {''.join(seed_words[-3:])}"
                     raise Exception(
-                        "Invalid mnemonic phrase. Please check TON_WALLET_SEED. "
-                        "The mnemonic phrase must be exactly 24 valid BIP39 words. "
-                        f"Error details: {error_msg}"
+                        f"Invalid mnemonic phrase. Please check TON_WALLET_SEED. "
+                        f"The mnemonic phrase must be exactly 24 valid BIP39 words. "
+                        f"Current word count: {word_count}. "
+                        f"Preview (first 3 and last 3 words): {preview}. "
+                        f"Error details: {error_msg}. "
+                        f"Make sure all words are from the BIP39 wordlist (English)."
                     )
                 raise Exception(f"Failed to initialize wallet: {error_msg}")
+            except AssertionError as e:
+                # AssertionError от pytoniq означает невалидную мнемонику
+                error_msg = str(e)
+                preview = f"{' '.join(seed_words[:3])} ... {''.join(seed_words[-3:])}"
+                raise Exception(
+                    f"Invalid mnemonic phrase (AssertionError). Please check TON_WALLET_SEED. "
+                    f"The mnemonic phrase must be exactly 24 valid BIP39 words. "
+                    f"Current word count: {word_count}. "
+                    f"Preview (first 3 and last 3 words): {preview}. "
+                    f"Error: {error_msg}. "
+                    f"Make sure all words are from the BIP39 wordlist (English) and the mnemonic is correct."
+                )
             except Exception as e:
                 error_msg = str(e)
                 if "mnemonics" in error_msg.lower() or "invalid" in error_msg.lower():
+                    preview = f"{' '.join(seed_words[:3])} ... {''.join(seed_words[-3:])}"
                     raise Exception(
-                        "Invalid mnemonic phrase. Please check TON_WALLET_SEED. "
-                        "The mnemonic phrase must be exactly 24 valid BIP39 words. "
-                        f"Error details: {error_msg}"
+                        f"Invalid mnemonic phrase. Please check TON_WALLET_SEED. "
+                        f"The mnemonic phrase must be exactly 24 valid BIP39 words. "
+                        f"Current word count: {word_count}. "
+                        f"Preview (first 3 and last 3 words): {preview}. "
+                        f"Error details: {error_msg}. "
+                        f"Make sure all words are from the BIP39 wordlist (English)."
                     )
                 raise Exception(f"Failed to initialize wallet: {error_msg}")
 
