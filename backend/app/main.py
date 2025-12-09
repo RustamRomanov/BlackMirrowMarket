@@ -174,15 +174,18 @@ async def update_ton_transactions_periodically():
 
 async def check_deposits_periodically():
     """Периодически проверяет входящие депозиты и автоматически зачисляет на балансы."""
+    print("🔄 Фоновая задача проверки депозитов запущена")
     while True:
         try:
             await asyncio.sleep(60)  # Проверяем каждую минуту
             service = get_ton_service()
             if service is None:
                 # TON сервис не настроен, пропускаем
+                print("⚠️ TON сервис не настроен, пропускаем проверку депозитов")
                 await asyncio.sleep(300)  # Проверяем реже, если не настроено
                 continue
             
+            print("🔍 Проверка входящих депозитов...")
             db = SessionLocal()
             try:
                 await service.check_incoming_deposits(db)
@@ -193,7 +196,8 @@ async def check_deposits_periodically():
             import traceback
             error_msg = str(e)
             if "404" not in error_msg and "not set" not in error_msg:
-                print(f"Error in check_deposits_periodically: {e}")
+                print(f"❌ Error in check_deposits_periodically: {e}")
+                traceback.print_exc()
             await asyncio.sleep(120)  # При ошибке ждем дольше
 
 @app.on_event("startup")
