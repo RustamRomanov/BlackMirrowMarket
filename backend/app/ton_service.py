@@ -44,7 +44,16 @@ class TonService:
     async def _ensure_client(self):
         """Инициализирует клиент и кошелек только при необходимости."""
         if not self.seed_phrase:
-            raise Exception("TON_WALLET_SEED is not configured")
+            raise Exception("TON_WALLET_SEED is not configured. Please set TON_WALLET_SEED environment variable with your 24-word mnemonic phrase.")
+        
+        # Проверяем формат мнемоники (должно быть 24 слова)
+        seed_words = self.seed_phrase.strip().split()
+        if len(seed_words) != 24:
+            raise Exception(
+                f"Invalid mnemonic format. Expected 24 words, got {len(seed_words)}. "
+                f"Please check TON_WALLET_SEED environment variable. "
+                f"Make sure it contains exactly 24 words separated by spaces."
+            )
         
         if self._client is None:
             # Публичный mainnet конфиг. Для продакшена можно поменять на собственный endpoint.
@@ -53,7 +62,7 @@ class TonService:
             try:
                 await asyncio.wait_for(self._client.start_up(), timeout=15.0)
             except asyncio.TimeoutError:
-                raise Exception("Timeout connecting to TON blockchain")
+                raise Exception("Timeout connecting to TON blockchain. Please check your internet connection.")
             except Exception as e:
                 raise Exception(f"Failed to connect to TON blockchain: {str(e)}")
         
@@ -62,13 +71,30 @@ class TonService:
             # Сигнатура: from_mnemonic(provider, mnemonics, wc=0, wallet_id=None, version="v3r2")
             try:
                 self._wallet = await asyncio.wait_for(
-                    WalletV4R2.from_mnemonic(self._client, self.seed_phrase.split()),
+                    WalletV4R2.from_mnemonic(self._client, seed_words),
                     timeout=10.0
                 )
             except asyncio.TimeoutError:
-                raise Exception("Timeout initializing wallet")
+                raise Exception("Timeout initializing wallet. Please try again.")
+            except ValueError as e:
+                # ValueError обычно означает неверную мнемонику
+                error_msg = str(e)
+                if "mnemonics" in error_msg.lower() or "invalid" in error_msg.lower():
+                    raise Exception(
+                        "Invalid mnemonic phrase. Please check TON_WALLET_SEED. "
+                        "The mnemonic phrase must be exactly 24 valid BIP39 words. "
+                        f"Error details: {error_msg}"
+                    )
+                raise Exception(f"Failed to initialize wallet: {error_msg}")
             except Exception as e:
-                raise Exception(f"Failed to initialize wallet: {str(e)}")
+                error_msg = str(e)
+                if "mnemonics" in error_msg.lower() or "invalid" in error_msg.lower():
+                    raise Exception(
+                        "Invalid mnemonic phrase. Please check TON_WALLET_SEED. "
+                        "The mnemonic phrase must be exactly 24 valid BIP39 words. "
+                        f"Error details: {error_msg}"
+                    )
+                raise Exception(f"Failed to initialize wallet: {error_msg}")
 
     async def get_wallet_balance(self) -> int:
         """Возвращает баланс сервисного кошелька в нано-TON через tonapi.io."""
