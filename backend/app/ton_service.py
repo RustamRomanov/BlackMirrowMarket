@@ -414,12 +414,39 @@ class TonService:
                     detail=f"Invalid TON address: {to_address}. Error: {str(addr_error)}"
                 )
             
-            # Отправка транзакции
-            tx_hash = await self._send_raw(to_address, int(amount_nano))
-            tx.tx_hash = tx_hash
-            tx.status = "pending"
-            db.commit()
-            db.refresh(tx)
+            # Отправка транзакции с несколькими попытками
+            max_retries = 3
+            last_error = None
+            
+            for attempt in range(1, max_retries + 1):
+                try:
+                    print(f"🔄 Attempt {attempt}/{max_retries} to send transaction...", file=sys.stderr, flush=True)
+                    tx_hash = await self._send_raw(to_address, int(amount_nano))
+                    tx.tx_hash = tx_hash
+                    tx.status = "pending"
+                    db.commit()
+                    db.refresh(tx)
+                    print(f"✅ Transaction sent successfully on attempt {attempt}", file=sys.stderr, flush=True)
+                    break  # Успешно отправили
+                except Exception as send_error:
+                    last_error = send_error
+                    error_msg = str(send_error)
+                    print(f"⚠️ Attempt {attempt} failed: {error_msg}", file=sys.stderr, flush=True)
+                    
+                    # Если это не таймаут, не повторяем
+                    if "timeout" not in error_msg.lower() and "connection" not in error_msg.lower():
+                        raise
+                    
+                    # Если это последняя попытка, выбрасываем ошибку
+                    if attempt == max_retries:
+                        raise HTTPException(
+                            status_code=500,
+                            detail=f"Failed to send transaction after {max_retries} attempts. Last error: {error_msg}. "
+                                   f"This may be due to network issues on Railway. Please try again later."
+                        )
+                    
+                    # Ждем перед следующей попыткой
+                    await asyncio.sleep(2)
         except HTTPException:
             # Пробрасываем HTTPException как есть
             raise
