@@ -289,19 +289,35 @@ class TonService:
         normalized_address = self.wallet_address.strip()
         
         # Пытаемся нормализовать адрес через pytoniq
+        api_address = normalized_address  # По умолчанию используем исходный адрес
         try:
-            # Пробуем создать Address объект и получить его в формате для API
+            # Пробуем создать Address объект
             addr_obj = PytoniqAddress(normalized_address)
-            # tonapi.io использует адрес в формате base64url (без дефисов, но с UQ/EQ префиксом)
-            # Получаем адрес в формате, который понимает API
-            normalized_address = addr_obj.to_str(is_user_friendly=True, is_bounceable=False)
-            print(f"✅ Адрес нормализован: {normalized_address[:30]}...", file=sys.stderr, flush=True)
+            
+            # TON API может требовать адрес в raw формате (0:...) или в base64url без дефисов
+            # Пробуем несколько вариантов:
+            # 1. User-friendly формат (UQ...)
+            user_friendly = addr_obj.to_str(is_user_friendly=True, is_bounceable=False)
+            # 2. Raw формат (0:...)
+            raw_format = addr_obj.to_str(is_user_friendly=False)
+            
+            print(f"ℹ️ User-friendly адрес: {user_friendly[:30]}...", file=sys.stderr, flush=True)
+            print(f"ℹ️ Raw адрес: {raw_format[:30]}...", file=sys.stderr, flush=True)
+            
+            # TON API v2 обычно принимает адрес в формате base64url (UQ/EQ...)
+            # Но иногда требуется raw формат. Попробуем user-friendly сначала
+            api_address = user_friendly
+            # Убираем дефисы, если есть (некоторые API не принимают дефисы)
+            api_address = api_address.replace('-', '').replace('_', '')
+            
+            print(f"✅ Адрес для API: {api_address[:30]}... (длина: {len(api_address)})", file=sys.stderr, flush=True)
         except Exception as e:
             # Если не получилось нормализовать, используем как есть
             print(f"⚠️ Не удалось нормализовать адрес через pytoniq: {e}", file=sys.stderr, flush=True)
             print(f"ℹ️ Используем адрес как есть: {normalized_address[:30]}...", file=sys.stderr, flush=True)
+            api_address = normalized_address
         
-        print(f"🔍 Проверка депозитов для кошелька: {normalized_address[:20]}... (полная длина: {len(normalized_address)})", file=sys.stderr, flush=True)
+        print(f"🔍 Проверка депозитов для кошелька: {api_address[:20]}... (полная длина: {len(api_address)})", file=sys.stderr, flush=True)
         
         try:
             ssl_context = ssl.create_default_context()
@@ -315,7 +331,10 @@ class TonService:
             ) as session:
                 # Получаем последние транзакции на сервисный кошелек
                 # TON API требует адрес в формате base64url (UQ... или EQ...)
-                url = f"https://tonapi.io/v2/accounts/{normalized_address}/transactions"
+                # URL-encode адрес на случай специальных символов
+                import urllib.parse
+                encoded_address = urllib.parse.quote(api_address, safe='')
+                url = f"https://tonapi.io/v2/accounts/{encoded_address}/transactions"
                 headers = {"Authorization": f"Bearer {self.api_key}"}
                 params = {"limit": 50}
                 
@@ -331,7 +350,8 @@ class TonService:
                         # Не спамим логи, если это обычная ошибка (404 может быть если нет транзакций)
                         if resp.status == 404:
                             # 404 может означать, что адрес не найден или нет транзакций
-                            print(f"⚠️ TON API вернул 404 для адреса {normalized_address[:30]}...", file=sys.stderr, flush=True)
+                            print(f"⚠️ TON API вернул 404 для адреса {api_address[:30]}...", file=sys.stderr, flush=True)
+                            print(f"⚠️ Попробовали URL: {url[:80]}...", file=sys.stderr, flush=True)
                             print(f"⚠️ Возможные причины:", file=sys.stderr, flush=True)
                             print(f"   1. Адрес неверного формата (должен быть UQ... или EQ...)", file=sys.stderr, flush=True)
                             print(f"   2. На кошельке нет транзакций", file=sys.stderr, flush=True)
