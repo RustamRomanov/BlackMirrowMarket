@@ -144,6 +144,23 @@ class TonService:
             print(f"🔍 Debug: Last 3 words: {seed_words[-3:]}", file=sys.stderr, flush=True)
             print(f"🔍 Debug: Word lengths: {[len(w) for w in seed_words]}", file=sys.stderr, flush=True)
             
+            # Пробуем сначала валидировать через библиотеку mnemonic
+            try:
+                from mnemonic import Mnemonic
+                mnemo = Mnemonic("english")
+                seed_string = " ".join(seed_words)
+                if not mnemo.check(seed_string):
+                    print("⚠️ WARNING: Mnemonic validation failed with 'mnemonic' library", file=sys.stderr, flush=True)
+                else:
+                    print("✅ Mnemonic is valid according to BIP39 standard", file=sys.stderr, flush=True)
+                    # Генерируем seed из мнемоники
+                    seed_bytes = mnemo.to_seed(seed_string)
+                    print(f"✅ Generated seed from mnemonic (length: {len(seed_bytes)})", file=sys.stderr, flush=True)
+            except ImportError:
+                print("⚠️ 'mnemonic' library not installed, skipping BIP39 validation", file=sys.stderr, flush=True)
+            except Exception as mnemonic_error:
+                print(f"⚠️ Mnemonic library check error: {mnemonic_error}", file=sys.stderr, flush=True)
+            
             try:
                 # Пробуем сначала V4R2
                 self._wallet = await asyncio.wait_for(
