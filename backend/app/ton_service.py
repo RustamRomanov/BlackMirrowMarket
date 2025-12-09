@@ -453,22 +453,42 @@ class TonService:
         try:
             # Нормализуем адрес: конвертируем user-friendly (UQ...) в raw (EQ...)
             clean_address = normalized_address.strip()
-            raw_address = clean_address
             
-            # Пробуем конвертировать адрес через pytoniq
+            # Собираем все возможные варианты адреса
+            addresses_to_try = []
+            
+            # 1. Исходный адрес
+            addresses_to_try.append(clean_address)
+            
+            # 2. Пробуем конвертировать через pytoniq
             try:
                 from pytoniq import Address as PytoniqAddress
                 addr_obj = PytoniqAddress(clean_address)
                 # Получаем raw формат (EQ...)
-                raw_address = addr_obj.to_str(is_user_friendly=False, is_bounceable=True)
-                print(f"✅ Адрес нормализован: {clean_address[:20]}... → {raw_address[:20]}...", file=sys.stderr, flush=True)
+                raw_bounceable = addr_obj.to_str(is_user_friendly=False, is_bounceable=True)
+                raw_non_bounceable = addr_obj.to_str(is_user_friendly=False, is_bounceable=False)
+                if raw_bounceable not in addresses_to_try:
+                    addresses_to_try.append(raw_bounceable)
+                if raw_non_bounceable not in addresses_to_try:
+                    addresses_to_try.append(raw_non_bounceable)
+                print(f"✅ Адрес нормализован через pytoniq: {clean_address[:20]}... → {raw_bounceable[:20]}...", file=sys.stderr, flush=True)
             except Exception as addr_error:
-                print(f"⚠️ Не удалось нормализовать адрес через pytoniq: {addr_error}. Используем исходный адрес.", file=sys.stderr, flush=True)
-                # Если не получилось, пробуем конвертировать вручную
-                if clean_address.startswith("UQ"):
-                    # Пробуем заменить UQ на EQ (это не всегда работает, но попробуем)
-                    raw_address = "EQ" + clean_address[2:]
-                    print(f"🔄 Попытка конвертации: {clean_address[:20]}... → {raw_address[:20]}...", file=sys.stderr, flush=True)
+                print(f"⚠️ Не удалось нормализовать адрес через pytoniq: {addr_error}", file=sys.stderr, flush=True)
+            
+            # 3. Простая конвертация UQ -> EQ
+            if clean_address.startswith("UQ"):
+                eq_address = "EQ" + clean_address[2:]
+                if eq_address not in addresses_to_try:
+                    addresses_to_try.append(eq_address)
+                    print(f"🔄 Добавлен вариант адреса: {eq_address[:30]}...", file=sys.stderr, flush=True)
+            
+            # 4. Пробуем без дефисов (URL encoding может требовать)
+            for addr in addresses_to_try[:]:  # Копируем список
+                addr_no_dash = addr.replace("-", "")
+                if addr_no_dash not in addresses_to_try:
+                    addresses_to_try.append(addr_no_dash)
+            
+            print(f"📋 Всего вариантов адреса для проверки: {len(addresses_to_try)}", file=sys.stderr, flush=True)
             
             ssl_context = ssl.create_default_context()
             ssl_context.check_hostname = False
@@ -479,48 +499,66 @@ class TonService:
                 timeout=aiohttp.ClientTimeout(total=15),
                 connector=connector
             ) as session:
-                # Пробуем несколько вариантов адреса
-                addresses_to_try = [raw_address, clean_address]
-                if clean_address.startswith("UQ"):
-                    addresses_to_try.append("EQ" + clean_address[2:])
-                
                 success = False
                 transactions = []
                 
-                for addr in addresses_to_try:
-                    url = f"https://tonapi.io/v2/accounts/{addr}/transactions"
-                    headers = {
-                        "Authorization": f"Bearer {self.api_key}",
-                        "Accept": "application/json"
-                    }
+                # Пробуем разные endpoints и форматы адресов
+                endpoints_to_try = [
+                    "/v2/accounts/{}/transactions",
+                    "/v2/blockchain/accounts/{}/transactions",
+                ]
+                
+                for endpoint_template in endpoints_to_try:
+                    if success:
+                        break
                     
-                    params = {
-                        "limit": 100,  # Получаем последние 100 транзакций
-                        "min_lt": 0  # Можно добавить фильтр по логическому времени
-                    }
-                    
-                    print(f"🌐 Запрос к tonapi.io: {url}", file=sys.stderr, flush=True)
-                    print(f"🔑 Используем TONAPI_KEY: {'*' * (len(self.api_key) - 4) + self.api_key[-4:] if len(self.api_key) > 4 else '***'}", file=sys.stderr, flush=True)
-                    
-                    async with session.get(url, headers=headers, params=params) as resp:
-                        print(f"📡 tonapi.io ответ: статус {resp.status} для адреса {addr[:30]}...", file=sys.stderr, flush=True)
-                        
-                        if resp.status == 200:
-                            data = await resp.json()
-                            transactions = data.get("transactions", [])
-                            print(f"✅ Успешно получены транзакции через адрес {addr[:30]}...", file=sys.stderr, flush=True)
-                            success = True
+                    for addr in addresses_to_try:
+                        if success:
                             break
-                        elif resp.status == 404:
-                            print(f"⚠️ 404 для адреса {addr[:30]}..., пробуем следующий формат...", file=sys.stderr, flush=True)
-                            continue
-                        else:
-                            text = await resp.text()
-                            print(f"⚠️ tonapi.io ошибка: статус {resp.status}. Ответ: {text[:200]}", file=sys.stderr, flush=True)
+                            
+                        url = f"https://tonapi.io{endpoint_template.format(addr)}"
+                        headers = {
+                            "Authorization": f"Bearer {self.api_key}",
+                            "Accept": "application/json"
+                        }
+                        
+                        params = {
+                            "limit": 100,  # Получаем последние 100 транзакций
+                            "min_lt": 0  # Можно добавить фильтр по логическому времени
+                        }
+                        
+                        print(f"🌐 Запрос к tonapi.io: {url}", file=sys.stderr, flush=True)
+                        print(f"🔑 Используем TONAPI_KEY: {'*' * (len(self.api_key) - 4) + self.api_key[-4:] if len(self.api_key) > 4 else '***'}", file=sys.stderr, flush=True)
+                        
+                        try:
+                            async with session.get(url, headers=headers, params=params) as resp:
+                                print(f"📡 tonapi.io ответ: статус {resp.status} для адреса {addr[:30]}... (endpoint: {endpoint_template})", file=sys.stderr, flush=True)
+                                
+                                if resp.status == 200:
+                                    data = await resp.json()
+                                    transactions = data.get("transactions", [])
+                                    if transactions:
+                                        print(f"✅✅✅ УСПЕШНО получены транзакции через адрес {addr[:30]}... (endpoint: {endpoint_template})", file=sys.stderr, flush=True)
+                                        success = True
+                                        break
+                                    else:
+                                        print(f"⚠️ Ответ 200, но транзакций нет. Пробуем следующий вариант...", file=sys.stderr, flush=True)
+                                elif resp.status == 404:
+                                    print(f"⚠️ 404 для адреса {addr[:30]}... (endpoint: {endpoint_template}), пробуем следующий вариант...", file=sys.stderr, flush=True)
+                                    continue
+                                else:
+                                    text = await resp.text()
+                                    print(f"⚠️ tonapi.io ошибка: статус {resp.status}. Ответ: {text[:200]}", file=sys.stderr, flush=True)
+                                    continue
+                        except Exception as req_error:
+                            print(f"⚠️ Ошибка запроса к tonapi.io: {req_error}. Пробуем следующий вариант...", file=sys.stderr, flush=True)
                             continue
                 
                 if not success:
-                    print(f"❌ Не удалось получить транзакции ни для одного формата адреса", file=sys.stderr, flush=True)
+                    print(f"❌❌❌ Не удалось получить транзакции через tonapi.io ни для одного формата адреса/endpoint", file=sys.stderr, flush=True)
+                    print(f"🔄 Пробуем fallback через TON Center API...", file=sys.stderr, flush=True)
+                    # Fallback на TON Center API
+                    await self._check_deposits_via_api(db, clean_address)
                     return
                 
                 if len(transactions) == 0:
