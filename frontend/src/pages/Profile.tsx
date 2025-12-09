@@ -222,25 +222,6 @@ export default function Profile() {
     <div className="profile-page">
       <h1>Профиль</h1>
       
-      {/* Компактный блок: Username и ID */}
-      {user && (
-        <div className="profile-compact-card">
-          <div className="profile-row">
-            <div className="label">Username</div>
-            <div className="value">@{user.username || 'не указан'}</div>
-          </div>
-          <div className="profile-row">
-            <div className="label">ID</div>
-            <div className="value mono">{user.telegram_id}</div>
-          </div>
-          {profileFilled ? (
-            <div className="profile-status ok">Профиль заполнен</div>
-          ) : (
-            <div className="profile-status muted">Заполните профиль, чтобы получить задания</div>
-          )}
-        </div>
-      )}
-
       {/* Блок информации о блокировке */}
       {isBanned && (
         <div className="ban-notice" style={{
