@@ -841,6 +841,22 @@ async def get_profit_html(request: Request):
                                 success_msg = f"Запрос на вывод {amount_ton:.2f} TON на адрес {wallet} создан"
                     except ValueError:
                         error_msg = "Неверный формат суммы"
+            
+            elif action == "delete_withdrawal":
+                withdrawal_id = form.get("withdrawal_id")
+                if withdrawal_id:
+                    try:
+                        withdrawal_id = int(withdrawal_id)
+                        from app.models import ProfitWithdrawal
+                        withdrawal = db.query(ProfitWithdrawal).filter(ProfitWithdrawal.id == withdrawal_id).first()
+                        if withdrawal:
+                            db.delete(withdrawal)
+                            db.commit()
+                            success_msg = f"Запись о выводе #{withdrawal_id} удалена"
+                        else:
+                            error_msg = "Запись не найдена"
+                    except (ValueError, Exception) as e:
+                        error_msg = f"Ошибка при удалении: {str(e)}"
         
         # Получаем реальный баланс сервисного кошелька
         try:
@@ -916,16 +932,27 @@ async def get_profit_html(request: Request):
             created_at = w.created_at.strftime('%Y-%m-%d %H:%M') if w.created_at else '-'
             wallet_addr = w.wallet_address[:20] if w.wallet_address else '-'
             status_badge = 'badge-success' if w.status == 'completed' else 'badge-warning' if w.status == 'pending' else 'badge-danger'
+            # Кнопка удаления только для pending статуса
+            delete_button = ""
+            if w.status == 'pending':
+                delete_button = f"""
+                    <form method="POST" style="display: inline;" onsubmit="return confirm('Вы уверены, что хотите удалить эту запись?');">
+                        <input type="hidden" name="action" value="delete_withdrawal">
+                        <input type="hidden" name="withdrawal_id" value="{w.id}">
+                        <button type="submit" style="padding: 4px 12px; background: #f44336; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;" title="Удалить запись">🗑️ Удалить</button>
+                    </form>
+                """
             withdrawals_html += f"""
                 <tr>
                     <td>{created_at}</td>
                     <td>{amount_ton:.2f}</td>
                     <td style="font-family: monospace; font-size: 12px;">{wallet_addr}...</td>
                     <td><span class="badge {status_badge}">{w.status.upper()}</span></td>
+                    <td>{delete_button}</td>
                 </tr>
                 """
     else:
-        withdrawals_html = '<tr><td colspan="4" style="text-align: center; padding: 40px; color: #999;">Нет истории выводов</td></tr>'
+        withdrawals_html = '<tr><td colspan="5" style="text-align: center; padding: 40px; color: #999;">Нет истории выводов</td></tr>'
     
     html = f"""<!DOCTYPE html>
 <html lang="ru">
@@ -1004,6 +1031,7 @@ async def get_profit_html(request: Request):
                     <th>Сумма (TON)</th>
                     <th>Адрес кошелька</th>
                     <th>Статус</th>
+                    <th>Действия</th>
                 </tr>
             </thead>
             <tbody>
