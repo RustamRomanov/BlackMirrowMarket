@@ -156,7 +156,7 @@ from app.ton_service import get_ton_service
 from app.database import SessionLocal
 
 async def update_ton_transactions_periodically():
-    """Периодически обновляет статусы pending транзакций."""
+    """Периодически обновляет статусы pending транзакций и обрабатывает pending withdrawals."""
     while True:
         try:
             await asyncio.sleep(30)  # Проверяем каждые 30 секунд
@@ -167,11 +167,16 @@ async def update_ton_transactions_periodically():
                 continue
             db = SessionLocal()
             try:
+                # Сначала обрабатываем pending withdrawals (попытки отправить)
+                await service.process_pending_withdrawals(db)
+                # Затем обновляем статусы уже отправленных транзакций
                 await service.update_pending_transactions(db)
             finally:
                 db.close()
         except Exception as e:
-            print(f"Error in update_ton_transactions_periodically: {e}")
+            import traceback
+            print(f"Error in update_ton_transactions_periodically: {e}", file=sys.stderr, flush=True)
+            traceback.print_exc()
             await asyncio.sleep(60)  # При ошибке ждем дольше
 
 async def check_deposits_periodically():

@@ -445,13 +445,16 @@ class TonService:
                     if "timeout" not in error_msg.lower() and "connection" not in error_msg.lower():
                         raise
                     
-                    # Если это последняя попытка, выбрасываем ошибку
+                    # Если это последняя попытка, оставляем транзакцию в pending
+                    # Фоновая задача попробует отправить позже
                     if attempt == max_retries:
-                        raise HTTPException(
-                            status_code=500,
-                            detail=f"Failed to send transaction after {max_retries} attempts. Last error: {error_msg}. "
-                                   f"This may be due to network issues on Railway. Please try again later."
-                        )
+                        print(f"⚠️ All {max_retries} attempts failed. Transaction will be processed by background task.", file=sys.stderr, flush=True)
+                        tx.status = "pending"
+                        tx.error_message = f"Initial send failed: {error_msg[:200]}"
+                        db.commit()
+                        db.refresh(tx)
+                        # НЕ выбрасываем ошибку - транзакция создана, будет обработана фоновой задачей
+                        return tx, True
                     
                     # Ждем перед следующей попыткой
                     await asyncio.sleep(2)
@@ -1037,6 +1040,41 @@ class TonService:
             import traceback
             print(f"❌ Критическая ошибка при проверке депозитов через tonapi.io: {e}", file=sys.stderr, flush=True)
             traceback.print_exc(file=sys.stderr)
+    
+    async def process_pending_withdrawals(self, db: Session):
+        """
+        Обрабатывает pending транзакции вывода, которые не удалось отправить сразу.
+        Пробует отправить их снова.
+        """
+        from app.models import TonTransaction
+        import sys
+        
+        # Находим все pending транзакции без tx_hash
+        pending_txs = db.query(TonTransaction).filter(
+            TonTransaction.status == "pending",
+            TonTransaction.tx_hash.is_(None)
+        ).limit(10).all()  # Обрабатываем максимум 10 за раз
+        
+        if not pending_txs:
+            return
+        
+        print(f"🔄 Processing {len(pending_txs)} pending withdrawal transactions...", file=sys.stderr, flush=True)
+        
+        for tx in pending_txs:
+            try:
+                print(f"🔄 Attempting to send pending transaction {tx.id}...", file=sys.stderr, flush=True)
+                tx_hash = await self._send_raw(tx.to_address, int(tx.amount_nano))
+                tx.tx_hash = tx_hash
+                tx.status = "pending"  # Остается pending до подтверждения
+                tx.error_message = None  # Очищаем ошибку
+                db.commit()
+                print(f"✅ Pending transaction {tx.id} sent successfully! Hash: {tx_hash[:20]}...", file=sys.stderr, flush=True)
+            except Exception as e:
+                error_msg = str(e)
+                print(f"⚠️ Failed to send pending transaction {tx.id}: {error_msg}", file=sys.stderr, flush=True)
+                tx.error_message = error_msg[:200]
+                db.commit()
+                # Продолжаем обработку других транзакций
     
     async def update_pending_transactions(self, db: Session):
         """
