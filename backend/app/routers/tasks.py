@@ -78,10 +78,19 @@ async def get_tasks(
     # Получаем курс валют
     fiat_rate = float(balance.last_fiat_rate) if balance and balance.last_fiat_rate else 250.0
     
+    # Исключаем тестового пользователя (telegram_id=0) - это примеры заданий
+    test_creator = db.query(models.User).filter(models.User.telegram_id == 0).first()
+    test_creator_id = test_creator.id if test_creator else None
+    
     # Формируем запрос
     query = db.query(models.Task).filter(
-        models.Task.status == models.TaskStatus.ACTIVE
+        models.Task.status == models.TaskStatus.ACTIVE,
+        models.Task.is_test == False  # Исключаем тестовые задания
     )
+    
+    # Исключаем примеры заданий (созданные тестовым пользователем)
+    if test_creator_id:
+        query = query.filter(models.Task.creator_id != test_creator_id)
     
     # Фильтр по типу задания
     if task_type:
@@ -155,7 +164,11 @@ async def get_my_tasks(telegram_id: int = Query(..., description="Telegram ID п
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    tasks = db.query(models.Task).filter(models.Task.creator_id == user.id).order_by(models.Task.created_at.desc()).all()
+    # Исключаем тестовые задания из списка "моих заданий"
+    tasks = db.query(models.Task).filter(
+        models.Task.creator_id == user.id,
+        models.Task.is_test == False  # Исключаем тестовые задания
+    ).order_by(models.Task.created_at.desc()).all()
     return tasks
 
 @router.get("/{task_id}", response_model=schemas.TaskResponse)
