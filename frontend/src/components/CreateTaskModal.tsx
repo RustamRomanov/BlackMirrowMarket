@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
+import { X, Copy } from 'lucide-react'
 import TermsModal from './TermsModal'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
@@ -106,6 +106,16 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
   const slots = parseInt(formData.total_slots) || 0
   const campaignBudget = price * slots
   const maxSlots = price > 0 ? Math.floor(userBalance / price) : 0
+
+  // Средняя стоимость за слот по типу задания
+  const getAveragePrice = (taskType: string): string => {
+    const averages: Record<string, string> = {
+      'view': '0.3',
+      'subscription': '0.5',
+      'comment': '0.7'
+    }
+    return averages[taskType] || '0.5'
+  }
 
   function validateForm(): boolean {
     const newErrors: Record<string, string> = {}
@@ -251,7 +261,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
                       if (errors.price_per_slot_ton) setErrors({ ...errors, price_per_slot_ton: '' })
                     }}
                     min="0.1"
-                    placeholder="0.5" 
+                    placeholder="" 
                     className={`form-input ${errors.price_per_slot_ton ? 'error' : ''}`}
                   />
                   {errors.price_per_slot_ton && <div className="form-error">{errors.price_per_slot_ton}</div>}
@@ -269,7 +279,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
                       if (errors.total_slots) setErrors({ ...errors, total_slots: '' })
                     }}
                     min="1"
-                    placeholder={`Макс: ${maxSlots}`}
+                    placeholder=""
                     className={`form-input ${errors.total_slots ? 'error' : ''}`}
                   />
                   {errors.total_slots && <div className="form-error">{errors.total_slots}</div>}
@@ -283,6 +293,9 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
                     {campaignBudget > 0 ? campaignBudget.toFixed(2) : '0'}
                   </div>
                 </div>
+              </div>
+              <div className="average-price-hint">
+                Средняя стоимость за слот: {getAveragePrice(formData.task_type)} TON
               </div>
             </div>
 
@@ -425,38 +438,20 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
 
             </div>
 
-            {showPostHelp && (
-              <TermsModal
-                title="Как получить ссылку на пост"
-                content={`1) Откройте публикацию в Telegram.\n2) Нажмите «Поделиться».\n3) Выберите «Копировать ссылку».\n4) Вставьте ссылку в поле «Ссылка на пост».`}
-                onClose={() => setShowPostHelp(false)}
-              />
-            )}
 
             {/* Информация о боте */}
             {(formData.task_type === 'subscription' || formData.task_type === 'comment') && (
               <div className="admin-bot-info-end bot-box">
                 <div className="bot-box-header">
-                  <span>Добавьте @BlackMirrowAdminBot админом (без прав)</span>
-                  <div className="bot-actions">
-                    <button
-                      type="button"
-                      className="copy-bot"
-                      onClick={() => navigator.clipboard.writeText(ADMIN_BOT)}
-                    >
-                      Скопировать бота
-                    </button>
-                    <button
-                      type="button"
-                      className="rules-link"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        setShowBotRules(true)
-                      }}
-                    >
-                      Правила
-                    </button>
-                  </div>
+                  <span>Добавьте @BlackMirrowAdminBot админом в свой канал</span>
+                  <button
+                    type="button"
+                    className="copy-bot-icon"
+                    onClick={() => navigator.clipboard.writeText(ADMIN_BOT)}
+                    title="Скопировать бота"
+                  >
+                    <Copy size={18} />
+                  </button>
                 </div>
                 <label className="bot-checkbox-label">
                   <input
@@ -464,7 +459,19 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
                     checked={botAdded}
                     onChange={(e) => setBotAdded(e.target.checked)}
                   />
-                  <span>Бот добавлен</span>
+                  <span>
+                    Бот добавлен{' '}
+                    <button
+                      type="button"
+                      className="rules-text-link"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        setShowBotRules(true)
+                      }}
+                    >
+                      Правила
+                    </button>
+                  </span>
                 </label>
               </div>
             )}
@@ -489,6 +496,14 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
           </div>
         </form>
       </div>
+
+      {showPostHelp && (
+        <TermsModal
+          title="Как получить ссылку на пост"
+          content={`1) Откройте публикацию в Telegram.\n2) Нажмите «Поделиться».\n3) Выберите «Копировать ссылку».\n4) Вставьте ссылку в поле «Ссылка на пост».`}
+          onClose={() => setShowPostHelp(false)}
+        />
+      )}
 
       {showBotRules && (
         <TermsModal

@@ -15,9 +15,7 @@
 @media (max-width: 768px) {
   .create-task-modal-overlay {
     align-items: flex-start;
-  }
-  .create-task-modal-content {
-    margin-top: 20px;
+    padding: 0;
   }
 }
 
@@ -26,12 +24,28 @@
   border-radius: 16px;
   max-width: 500px;
   width: 100%;
+  height: 90vh;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
   animation: slideUp 0.3s ease-out;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  position: relative;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .create-task-modal-content {
+    height: 100vh;
+    max-height: 100vh;
+    top: 0;
+    left: 0;
+    transform: none;
+    border-radius: 0;
+  }
 }
 
 @keyframes slideUp {
@@ -87,7 +101,7 @@
   padding: 24px;
   overflow-y: auto;
   flex: 1;
-  max-height: calc(90vh - 200px);
+  min-height: 0;
   scrollbar-width: none;
   -ms-overflow-style: none;
   -webkit-overflow-scrolling: touch;
@@ -255,6 +269,14 @@ textarea.form-input {
   text-overflow: ellipsis;
 }
 
+.average-price-hint {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #ff8c00;
+  text-align: center;
+  font-weight: 500;
+}
+
 /* Информация о боте админе в конце */
 .admin-bot-info-end {
   margin-top: 24px;
@@ -279,8 +301,8 @@ textarea.form-input {
   align-items: center;
   gap: 12px;
   font-size: 14px;
-  font-weight: 600;
-  color: #b71c1c;
+  font-weight: 500;
+  color: #333;
   flex-wrap: wrap;
 }
 
@@ -289,28 +311,25 @@ textarea.form-input {
   min-width: 200px;
 }
 
-.bot-actions {
+
+.copy-bot-icon {
+  background: transparent;
+  border: 1px solid #ddd;
+  color: #666;
+  border-radius: 6px;
+  padding: 8px;
+  cursor: pointer;
   display: flex;
-  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
   flex-shrink: 0;
 }
 
-.copy-bot {
-  background: #ef9a9a;
-  border: 1px solid #e57373;
-  color: #b71c1c;
-  border-radius: 6px;
-  padding: 8px 12px;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  transition: all 0.2s;
-}
-
-.copy-bot:hover {
-  background: #e57373;
-  color: white;
+.copy-bot-icon:hover {
+  background: #f5f5f5;
+  border-color: #999;
+  color: #333;
 }
 
 .bot-checkbox-label {
@@ -333,15 +352,6 @@ textarea.form-input {
   .bot-box-header > span {
     text-align: center;
     min-width: auto;
-  }
-  
-  .bot-actions {
-    justify-content: center;
-    width: 100%;
-  }
-  
-  .bot-actions button {
-    flex: 1;
   }
 }
 
@@ -386,11 +396,13 @@ textarea.form-input {
   gap: 12px;
   padding: 16px 24px;
   border-top: 1px solid #e0e0e0;
-  position: sticky;
-  bottom: 0;
   background: white;
   z-index: 10;
   flex-shrink: 0;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
 }
 
 .cancel-button,
