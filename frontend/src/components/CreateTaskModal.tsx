@@ -102,6 +102,39 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
     fetchBalance()
   }, [user])
 
+  // Фиксация footer при открытии клавиатуры
+  useEffect(() => {
+    const handleResize = () => {
+      const footer = document.querySelector('.create-task-modal-footer') as HTMLElement
+      if (footer) {
+        const viewportHeight = window.visualViewport?.height || window.innerHeight
+        const modalContent = document.querySelector('.create-task-modal-content') as HTMLElement
+        if (modalContent && viewportHeight < window.innerHeight) {
+          // Клавиатура открыта - фиксируем footer
+          footer.style.position = 'fixed'
+          footer.style.bottom = '0'
+        } else {
+          // Клавиатура закрыта - возвращаем sticky
+          footer.style.position = 'sticky'
+        }
+      }
+    }
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize)
+    } else {
+      window.addEventListener('resize', handleResize)
+    }
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleResize)
+      } else {
+        window.removeEventListener('resize', handleResize)
+      }
+    }
+  }, [])
+
   // Расчет бюджета и макс слотов
   const price = parseFloat(formData.price_per_slot_ton) || 0
   const slots = parseInt(formData.total_slots) || 0
@@ -193,7 +226,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
   }
 
   return (
-    <div className="create-task-modal-overlay" onClick={onClose}>
+    <div className="create-task-modal-overlay">
       <div className="create-task-modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="create-task-modal-header">
           <h2>Создать задание</h2>

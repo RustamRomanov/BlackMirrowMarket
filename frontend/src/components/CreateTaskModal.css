@@ -14,24 +14,13 @@
 
 @media (max-width: 768px) {
   .create-task-modal-overlay {
-    align-items: flex-end;
-    padding: 0;
+    align-items: center;
+    padding: 16px;
   }
   
   .create-task-modal-content {
-    max-height: 90vh;
-    height: 90vh;
-    border-radius: 16px 16px 0 0;
-  }
-  
-  .create-task-modal-footer {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    width: 100%;
-    max-width: 500px;
-    margin: 0 auto;
+    max-height: 85vh;
+    border-radius: 16px;
   }
 }
 
@@ -40,13 +29,12 @@
   border-radius: 16px;
   max-width: 500px;
   width: 100%;
-  max-height: 90vh;
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
   animation: slideUp 0.3s ease-out;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   position: relative;
-  height: 90vh;
 }
 
 @media (max-width: 768px) {
@@ -104,7 +92,6 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  height: 100%;
 }
 
 .create-task-form-body {
@@ -118,6 +105,8 @@
   -ms-overflow-style: none;
   -webkit-overflow-scrolling: touch;
   position: relative;
+  /* Предотвращаем изменение layout при открытии клавиатуры */
+  overscroll-behavior: contain;
 }
 
 .create-task-form-body::-webkit-scrollbar {
@@ -327,19 +316,19 @@ textarea.form-input {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
-  border: 1px solid #e57373;
-  background: #ef9a9a;
-  color: #b71c1c;
+  border: 1px solid #4caf50;
+  background: #66bb6a;
+  color: white;
 }
 
 .copy-bot-button:hover,
 .rules-button:hover {
-  background: #e57373;
-  color: white;
+  background: #4caf50;
+  border-color: #388e3c;
 }
 
 .copy-bot-button:active {
-  background: #c62828;
+  background: #388e3c;
 }
 
 .bot-checkbox-label {
@@ -406,12 +395,13 @@ textarea.form-input {
   background: white;
   z-index: 10;
   flex-shrink: 0;
-  position: absolute;
+  position: sticky;
   bottom: 0;
-  left: 0;
-  right: 0;
-  width: 100%;
-  box-sizing: border-box;
+  margin-top: auto;
+  /* Предотвращаем поднятие при открытии клавиатуры */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform;
 }
 
 .cancel-button,
