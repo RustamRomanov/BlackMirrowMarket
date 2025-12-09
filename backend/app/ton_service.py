@@ -103,28 +103,36 @@ class TonService:
         if self._client is None:
             # Публичный mainnet конфиг. Для продакшена можно поменять на собственный endpoint.
             # Используем более надежные настройки для Railway
-            try:
-                self._client = LiteBalancer.from_mainnet_config()
-                # Увеличиваем таймаут для Railway (может быть медленное подключение)
-                print("🔄 Connecting to TON blockchain...", file=sys.stderr, flush=True)
-                await asyncio.wait_for(self._client.start_up(), timeout=30.0)
-                print("✅ Connected to TON blockchain", file=sys.stderr, flush=True)
-            except asyncio.TimeoutError:
-                print("❌ Timeout connecting to TON blockchain", file=sys.stderr, flush=True)
-                # Пробуем альтернативный способ - используем другой endpoint
+            # Пробуем подключиться несколько раз с увеличенными таймаутами
+            max_connection_attempts = 3
+            last_conn_error = None
+            
+            for conn_attempt in range(1, max_connection_attempts + 1):
                 try:
-                    print("🔄 Trying alternative connection method...", file=sys.stderr, flush=True)
-                    # Используем более простой способ подключения
-                    from pytoniq.liteclient import LiteClient
-                    # Пробуем подключиться к публичным серверам напрямую
+                    print(f"🔄 Connection attempt {conn_attempt}/{max_connection_attempts} to TON blockchain...", file=sys.stderr, flush=True)
                     self._client = LiteBalancer.from_mainnet_config()
+                    # Увеличиваем таймаут для Railway (может быть медленное подключение)
                     await asyncio.wait_for(self._client.start_up(), timeout=45.0)
-                    print("✅ Connected via alternative method", file=sys.stderr, flush=True)
-                except Exception as alt_e:
-                    raise Exception(f"Failed to connect to TON blockchain. Timeout and alternative method failed: {str(alt_e)}")
-            except Exception as e:
-                print(f"❌ Error connecting to TON blockchain: {e}", file=sys.stderr, flush=True)
-                raise Exception(f"Failed to connect to TON blockchain: {str(e)}")
+                    print("✅ Connected to TON blockchain", file=sys.stderr, flush=True)
+                    break  # Успешно подключились
+                except asyncio.TimeoutError:
+                    last_conn_error = "Timeout connecting to TON blockchain"
+                    print(f"❌ Attempt {conn_attempt} failed: {last_conn_error}", file=sys.stderr, flush=True)
+                    if conn_attempt < max_connection_attempts:
+                        print(f"🔄 Retrying connection in 3 seconds...", file=sys.stderr, flush=True)
+                        await asyncio.sleep(3)
+                    else:
+                        raise Exception(f"Failed to connect to TON blockchain after {max_connection_attempts} attempts. "
+                                      f"This may be due to network restrictions on Railway. "
+                                      f"Please check Railway network settings or try again later.")
+                except Exception as e:
+                    last_conn_error = str(e)
+                    print(f"❌ Attempt {conn_attempt} failed: {last_conn_error}", file=sys.stderr, flush=True)
+                    if conn_attempt < max_connection_attempts:
+                        print(f"🔄 Retrying connection in 3 seconds...", file=sys.stderr, flush=True)
+                        await asyncio.sleep(3)
+                    else:
+                        raise Exception(f"Failed to connect to TON blockchain after {max_connection_attempts} attempts: {last_conn_error}")
         
         if self._wallet is None:
             # Кошелек V4R2 из сид-фразы. Ключи остаются в памяти процесса.
