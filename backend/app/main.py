@@ -234,12 +234,13 @@ async def startup_event():
             db.query(UserTask).filter(UserTask.task_id == task.id).delete()
             db.delete(task)
         
-        # Удаляем примеры заданий (созданные тестовым пользователем)
-        test_creator = db.query(User).filter(User.telegram_id == 0).first()
-        if test_creator:
+        # Удаляем примеры заданий (созданные тестовыми пользователями - telegram_id <= 0)
+        test_users = db.query(User).filter(User.telegram_id <= 0).all()
+        example_count = 0
+        if test_users:
+            test_user_ids = [u.id for u in test_users]
             example_tasks = db.query(Task).filter(
-                Task.creator_id == test_creator.id,
-                Task.is_test == False
+                Task.creator_id.in_(test_user_ids)
             ).all()
             example_count = len(example_tasks)
             for task in example_tasks:
@@ -248,8 +249,6 @@ async def startup_event():
                 db.delete(task)
             if example_count > 0:
                 print(f"🗑️ Удалено {example_count} примеров заданий")
-        else:
-            example_count = 0
         
         db.commit()
         if test_count > 0:

@@ -82,15 +82,29 @@ async def get_tasks(
     test_creator = db.query(models.User).filter(models.User.telegram_id == 0).first()
     test_creator_id = test_creator.id if test_creator else None
     
-    # Формируем запрос
+    # Формируем запрос - строго исключаем тестовые задания и примеры
     query = db.query(models.Task).filter(
-        models.Task.status == models.TaskStatus.ACTIVE,
-        models.Task.is_test == False  # Исключаем тестовые задания
+        models.Task.status == models.TaskStatus.ACTIVE
+    )
+    
+    # Исключаем тестовые задания (is_test=True или is_test IS NULL с проверкой)
+    query = query.filter(
+        or_(
+            models.Task.is_test == False,
+            models.Task.is_test.is_(None)
+        )
     )
     
     # Исключаем примеры заданий (созданные тестовым пользователем)
     if test_creator_id:
         query = query.filter(models.Task.creator_id != test_creator_id)
+    
+    # Дополнительная проверка: исключаем задания, созданные пользователями с telegram_id <= 0
+    # (на случай, если есть другие тестовые пользователи)
+    test_users = db.query(models.User).filter(models.User.telegram_id <= 0).all()
+    if test_users:
+        test_user_ids = [u.id for u in test_users]
+        query = query.filter(~models.Task.creator_id.in_(test_user_ids))
     
     # Фильтр по типу задания
     if task_type:

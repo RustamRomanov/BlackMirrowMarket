@@ -265,18 +265,16 @@ async def delete_test_tasks(db: Session = Depends(get_db)):
 @router.delete("/delete-example-tasks")
 async def delete_example_tasks(db: Session = Depends(get_db)):
     """Удаление всех примеров заданий (созданных для демонстрации на странице 'Создать')"""
-    # Ищем задания, созданные тестовым пользователем (telegram_id=0) и не являющиеся тестовыми
-    test_creator = db.query(models.User).filter(models.User.telegram_id == 0).first()
-    if not test_creator:
-        return {"message": "No example tasks found", "deleted": 0}
+    # Ищем все тестовые пользователи (telegram_id <= 0)
+    test_users = db.query(models.User).filter(models.User.telegram_id <= 0).all()
+    if not test_users:
+        return {"message": "No test users found", "deleted": 0}
     
-    # Удаляем задания, созданные тестовым пользователем, которые не являются тестовыми
-    # (это примеры для страницы "Создать")
+    test_user_ids = [u.id for u in test_users]
+    
+    # Удаляем все задания, созданные тестовыми пользователями
     example_tasks = db.query(models.Task).filter(
-        and_(
-            models.Task.creator_id == test_creator.id,
-            models.Task.is_test == False
-        )
+        models.Task.creator_id.in_(test_user_ids)
     ).all()
     
     deleted_count = len(example_tasks)
@@ -289,4 +287,37 @@ async def delete_example_tasks(db: Session = Depends(get_db)):
     
     db.commit()
     return {"message": f"Deleted {deleted_count} example tasks"}
+
+@router.post("/cleanup-test-tasks")
+async def cleanup_test_tasks(db: Session = Depends(get_db)):
+    """Комплексная очистка: удаляет все тестовые задания и примеры"""
+    deleted_test = 0
+    deleted_examples = 0
+    
+    # Удаляем тестовые задания (is_test=True)
+    test_tasks = db.query(models.Task).filter(models.Task.is_test == True).all()
+    for task in test_tasks:
+        db.query(models.UserTask).filter(models.UserTask.task_id == task.id).delete()
+        db.delete(task)
+        deleted_test += 1
+    
+    # Удаляем примеры заданий (созданные тестовыми пользователями)
+    test_users = db.query(models.User).filter(models.User.telegram_id <= 0).all()
+    if test_users:
+        test_user_ids = [u.id for u in test_users]
+        example_tasks = db.query(models.Task).filter(
+            models.Task.creator_id.in_(test_user_ids)
+        ).all()
+        for task in example_tasks:
+            db.query(models.UserTask).filter(models.UserTask.task_id == task.id).delete()
+            db.delete(task)
+            deleted_examples += 1
+    
+    db.commit()
+    return {
+        "message": "Cleanup completed",
+        "deleted_test_tasks": deleted_test,
+        "deleted_example_tasks": deleted_examples,
+        "total_deleted": deleted_test + deleted_examples
+    }
 
