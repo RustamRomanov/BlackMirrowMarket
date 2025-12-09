@@ -304,11 +304,9 @@ class TonService:
             print(f"ℹ️ User-friendly адрес: {user_friendly[:30]}...", file=sys.stderr, flush=True)
             print(f"ℹ️ Raw адрес: {raw_format[:30]}...", file=sys.stderr, flush=True)
             
-            # TON API v2 обычно принимает адрес в формате base64url (UQ/EQ...)
-            # Но иногда требуется raw формат. Попробуем user-friendly сначала
+            # TON API v2 принимает адрес в формате base64url (UQ/EQ...)
+            # ВАЖНО: НЕ убираем дефисы - они часть адреса!
             api_address = user_friendly
-            # Убираем дефисы, если есть (некоторые API не принимают дефисы)
-            api_address = api_address.replace('-', '').replace('_', '')
             
             print(f"✅ Адрес для API: {api_address[:30]}... (длина: {len(api_address)})", file=sys.stderr, flush=True)
         except Exception as e:
@@ -338,11 +336,13 @@ class TonService:
                 
                 # Пробуем также raw формат на случай, если user-friendly не работает
                 url_v2 = None
+                url_v3 = None  # URL с кодированием
                 try:
                     addr_obj = PytoniqAddress(normalized_address)
                     raw_address = addr_obj.to_str(is_user_friendly=False)
+                    url_v2 = f"https://tonapi.io/v2/accounts/{raw_address}/transactions"
                     encoded_raw = urllib.parse.quote(raw_address, safe='')
-                    url_v2 = f"https://tonapi.io/v2/accounts/{encoded_raw}/transactions"
+                    url_v3 = f"https://tonapi.io/v2/accounts/{encoded_address}/transactions"  # С кодированием user-friendly
                 except:
                     pass
                 
@@ -368,24 +368,41 @@ class TonService:
                         text = await resp.text()
                         print(f"⚠️ TON API вернул 404 для user-friendly формата", file=sys.stderr, flush=True)
                         
-                        # Если есть raw формат, пробуем его
-                        if url_v2:
-                            print(f"🔄 Пробуем raw формат адреса...", file=sys.stderr, flush=True)
-                            async with session.get(url_v2, headers=headers, params=params) as resp2:
+                        # Пробуем альтернативные варианты
+                        # Вариант 1: URL с кодированием
+                        if url_v3:
+                            print(f"🔄 Пробуем URL с кодированием...", file=sys.stderr, flush=True)
+                            async with session.get(url_v3, headers=headers, params=params) as resp2:
                                 if resp2.status == 200:
-                                    print(f"✅ Raw формат сработал!", file=sys.stderr, flush=True)
+                                    print(f"✅ URL с кодированием сработал!", file=sys.stderr, flush=True)
                                     data = await resp2.json()
                                     transactions = data.get("transactions", [])
                                     print(f"📊 Найдено транзакций: {len(transactions)}", file=sys.stderr, flush=True)
                                 else:
-                                    text2 = await resp2.text()
-                                    print(f"⚠️ Raw формат тоже вернул {resp2.status}: {text2[:200]}", file=sys.stderr, flush=True)
-                                    print(f"⚠️ Возможные причины:", file=sys.stderr, flush=True)
-                                    print(f"   1. Адрес неверный или неполный в переменной окружения", file=sys.stderr, flush=True)
-                                    print(f"   2. На кошельке нет транзакций (новый кошелек)", file=sys.stderr, flush=True)
-                                    print(f"   3. Адрес не существует в сети TON", file=sys.stderr, flush=True)
-                                    print(f"ℹ️ Проверьте переменную TON_WALLET_ADDRESS на Railway", file=sys.stderr, flush=True)
-                                    return
+                                    # Вариант 2: Raw формат
+                                    if url_v2:
+                                        print(f"🔄 Пробуем raw формат адреса...", file=sys.stderr, flush=True)
+                                        async with session.get(url_v2, headers=headers, params=params) as resp3:
+                                            if resp3.status == 200:
+                                                print(f"✅ Raw формат сработал!", file=sys.stderr, flush=True)
+                                                data = await resp3.json()
+                                                transactions = data.get("transactions", [])
+                                                print(f"📊 Найдено транзакций: {len(transactions)}", file=sys.stderr, flush=True)
+                                            else:
+                                                text3 = await resp3.text()
+                                                print(f"⚠️ Все варианты вернули ошибку", file=sys.stderr, flush=True)
+                                                print(f"⚠️ User-friendly: 404, URL-encoded: {resp2.status}, Raw: {resp3.status}", file=sys.stderr, flush=True)
+                                                print(f"⚠️ Возможные причины:", file=sys.stderr, flush=True)
+                                                print(f"   1. Проблема с TON API или endpoint изменился", file=sys.stderr, flush=True)
+                                                print(f"   2. Адрес неверный в переменной окружения", file=sys.stderr, flush=True)
+                                                print(f"   3. API ключ неверный или истек", file=sys.stderr, flush=True)
+                                                print(f"ℹ️ Проверьте TON_WALLET_ADDRESS и TONAPI_KEY на Railway", file=sys.stderr, flush=True)
+                                                return
+                                    else:
+                                        text2 = await resp2.text()
+                                        print(f"⚠️ URL с кодированием вернул {resp2.status}: {text2[:200]}", file=sys.stderr, flush=True)
+                                        print(f"⚠️ Проверьте TON_WALLET_ADDRESS и TONAPI_KEY", file=sys.stderr, flush=True)
+                                        return
                         else:
                             print(f"⚠️ Возможные причины:", file=sys.stderr, flush=True)
                             print(f"   1. Адрес неверного формата (должен быть UQ... или EQ...)", file=sys.stderr, flush=True)
