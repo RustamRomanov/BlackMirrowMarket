@@ -180,10 +180,17 @@ async def check_deposits_periodically():
         try:
             await asyncio.sleep(60)  # Проверяем каждую минуту
             import sys
+            print("⏰ Время проверки депозитов (каждую минуту)", file=sys.stderr, flush=True)
             service = get_ton_service()
             if service is None:
                 # TON сервис не настроен, пропускаем
-                print("⚠️ TON сервис не настроен, пропускаем проверку депозитов", file=sys.stderr, flush=True)
+                print("⚠️ TON сервис не настроен (get_ton_service вернул None), пропускаем проверку депозитов", file=sys.stderr, flush=True)
+                await asyncio.sleep(300)  # Проверяем реже, если не настроено
+                continue
+            
+            # Проверяем, что api_key и wallet_address установлены
+            if not service.api_key or not service.wallet_address:
+                print(f"⚠️ TON сервис создан, но api_key={bool(service.api_key)}, wallet_address={bool(service.wallet_address)}. Пропускаем проверку.", file=sys.stderr, flush=True)
                 await asyncio.sleep(300)  # Проверяем реже, если не настроено
                 continue
             
@@ -191,6 +198,11 @@ async def check_deposits_periodically():
             db = SessionLocal()
             try:
                 await service.check_incoming_deposits(db)
+                print("✅ Проверка депозитов завершена", file=sys.stderr, flush=True)
+            except Exception as deposit_error:
+                import traceback
+                print(f"❌ Ошибка при проверке депозитов: {deposit_error}", file=sys.stderr, flush=True)
+                traceback.print_exc()
             finally:
                 db.close()
         except Exception as e:

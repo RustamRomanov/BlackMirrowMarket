@@ -500,7 +500,8 @@ def get_ton_service() -> Optional[TonService]:
             ton_service_singleton = TonService()
             # Проверяем, что хотя бы api_key и wallet_address установлены для проверки депозитов
             if not ton_service_singleton.api_key or not ton_service_singleton.wallet_address:
-                print("⚠️ TON сервис создан, но api_key или wallet_address не установлены. Проверка депозитов будет пропущена.")
+                import sys
+                print("⚠️ TON сервис создан, но api_key или wallet_address не установлены. Проверка депозитов будет пропущена.", file=sys.stderr, flush=True)
         except Exception as e:
             print(f"⚠️ Ошибка создания TON сервиса: {e}")
             return None
