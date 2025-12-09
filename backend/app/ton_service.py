@@ -574,6 +574,7 @@ class TonService:
                         # Получаем хэш транзакции
                         tx_hash = tx.get("hash", "")
                         if not tx_hash:
+                            print(f"⚠️ Транзакция без hash, пропускаем", file=sys.stderr, flush=True)
                             continue
                         
                         # Проверяем, не обрабатывали ли мы уже эту транзакцию
@@ -581,16 +582,19 @@ class TonService:
                             models.Deposit.tx_hash == tx_hash
                         ).first()
                         if existing:
+                            print(f"ℹ️ Транзакция {tx_hash[:16]}... уже обработана (статус: {existing.status})", file=sys.stderr, flush=True)
                             continue
                         
                         # Получаем входящие сообщения (incoming transactions)
                         in_msg = tx.get("in_msg")
                         if not in_msg:
+                            print(f"⚠️ Транзакция {tx_hash[:16]}... без in_msg, пропускаем", file=sys.stderr, flush=True)
                             continue
                         
                         # Получаем сумму транзакции
                         value = int(in_msg.get("value", 0))
                         if value <= 0:
+                            print(f"⚠️ Транзакция {tx_hash[:16]}... с нулевой суммой, пропускаем", file=sys.stderr, flush=True)
                             continue
                         
                         print(f"💰 Найдена транзакция: {tx_hash[:16]}... Сумма: {value / 10**9:.4f} TON", file=sys.stderr, flush=True)
@@ -598,31 +602,30 @@ class TonService:
                         # Получаем адрес отправителя
                         source = in_msg.get("source", {})
                         if isinstance(source, dict):
-                            source = source.get("address", "")
+                            source = source.get("address", "") or source.get("raw_form", "")
                         if not source:
-                            source = in_msg.get("source", "")
+                            source = str(in_msg.get("source", ""))
                         
-                        # Получаем комментарий из тела сообщения
-                        msg_body = in_msg.get("msg_data", {})
+                        print(f"📤 Отправитель: {source[:30]}...", file=sys.stderr, flush=True)
+                        
+                        # Получаем комментарий из тела сообщения - пробуем все возможные варианты
                         telegram_id = None
                         msg_text_str = ""
                         
-                        # tonapi.io возвращает данные в разных форматах
-                        # Пробуем извлечь текст из body
-                        if isinstance(msg_body, dict):
-                            body_text = msg_body.get("text", "")
-                            if body_text:
-                                msg_text_str = body_text
-                        elif isinstance(msg_body, str):
-                            msg_text_str = msg_body
+                        # Вариант 1: msg_data.text
+                        msg_data = in_msg.get("msg_data", {})
+                        if isinstance(msg_data, dict):
+                            msg_text_str = msg_data.get("text", "") or msg_data.get("body", "") or msg_data.get("comment", "")
+                            if not msg_text_str and "text" in msg_data:
+                                msg_text_str = str(msg_data["text"])
                         
-                        # Также пробуем получить из decoded
+                        # Вариант 2: decoded_body
                         if not msg_text_str:
                             decoded = in_msg.get("decoded_body", {})
                             if isinstance(decoded, dict):
-                                msg_text_str = decoded.get("text", "") or decoded.get("comment", "")
+                                msg_text_str = decoded.get("text", "") or decoded.get("comment", "") or decoded.get("body", "")
                         
-                        # Если всё ещё нет, пробуем base64 декодирование
+                        # Вариант 3: body (base64)
                         if not msg_text_str:
                             body_b64 = in_msg.get("body", "")
                             if body_b64:
@@ -632,19 +635,38 @@ class TonService:
                                     # Пропускаем первые 4 байта (обычно это op code)
                                     if len(decoded_bytes) > 4:
                                         msg_text_str = decoded_bytes[4:].decode('utf-8', errors='ignore').strip()
-                                except:
-                                    pass
+                                    elif len(decoded_bytes) > 0:
+                                        # Если меньше 4 байт, пробуем декодировать всё
+                                        msg_text_str = decoded_bytes.decode('utf-8', errors='ignore').strip()
+                                except Exception as decode_err:
+                                    print(f"⚠️ Ошибка декодирования body: {decode_err}", file=sys.stderr, flush=True)
+                        
+                        # Вариант 4: comment напрямую
+                        if not msg_text_str:
+                            msg_text_str = in_msg.get("comment", "") or in_msg.get("text", "")
+                        
+                        # Вариант 5: пробуем из msg_data как строку
+                        if not msg_text_str and isinstance(msg_data, str):
+                            msg_text_str = msg_data
+                        
+                        # Логируем структуру для диагностики
+                        if not msg_text_str:
+                            print(f"🔍 Структура in_msg для диагностики: {str(in_msg)[:500]}", file=sys.stderr, flush=True)
                         
                         # Ищем Telegram ID в комментарии
                         if msg_text_str:
-                            print(f"📝 Комментарий транзакции: {msg_text_str[:100]}", file=sys.stderr, flush=True)
+                            print(f"📝 Комментарий транзакции: {msg_text_str[:200]}", file=sys.stderr, flush=True)
                             # Ищем паттерн: числа от 8 до 12 цифр (Telegram ID)
                             match_id = re.search(r'(?:tg:)?(\d{8,12})', msg_text_str)
                             if match_id:
                                 telegram_id = match_id.group(1)
-                                print(f"✅ Найден Telegram ID в комментарии: {telegram_id}", file=sys.stderr, flush=True)
+                                print(f"✅✅✅ Найден Telegram ID в комментарии: {telegram_id}", file=sys.stderr, flush=True)
+                            else:
+                                print(f"⚠️ Telegram ID не найден в комментарии. Комментарий: '{msg_text_str[:100]}'", file=sys.stderr, flush=True)
+                        else:
+                            print(f"⚠️ Комментарий не найден в транзакции {tx_hash[:16]}...", file=sys.stderr, flush=True)
                         
-                        # Создаем запись о депозите
+                        # Создаем запись о депозите (даже если Telegram ID не найден)
                         deposit = models.Deposit(
                             tx_hash=tx_hash,
                             from_address=source,
@@ -654,6 +676,7 @@ class TonService:
                         )
                         db.add(deposit)
                         db.commit()
+                        print(f"💾 Создана запись о депозите: ID={deposit.id}, TX={tx_hash[:16]}..., сумма={value / 10**9:.4f} TON, Telegram ID={telegram_id or 'не найден'}", file=sys.stderr, flush=True)
                         
                         # Зачисляем на баланс если нашли ID
                         if telegram_id:
