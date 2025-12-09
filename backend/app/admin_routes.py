@@ -26,6 +26,7 @@ def get_sidebar_html(active_page="dashboard"):
     pages = {
         "dashboard": "/admin/dashboard",
         "profit": "/admin/profit",
+        "deposits": "/admin/deposits",
         "ton": "/admin/ton",
         "complaints": "/admin/complaints",
         "ban-user": "/admin/ban-user",
@@ -326,6 +327,231 @@ async def get_dashboard_html(request: Request):
 </html>"""
     
     return HTMLResponse(content=html)
+
+
+# ---------------------------
+# Депозиты: просмотр и ручная проверка
+# ---------------------------
+
+
+async def get_deposits_html(request: Request):
+    """Страница депозитов - просмотр всех входящих депозитов"""
+    db = SessionLocal()
+    try:
+        deposits = db.query(Deposit).order_by(Deposit.created_at.desc()).limit(100).all()
+
+        # Статистика
+        total_deposits = db.query(func.count(Deposit.id)).scalar() or 0
+        pending_deposits = db.query(func.count(Deposit.id)).filter(Deposit.status == "pending").scalar() or 0
+        processed_deposits = db.query(func.count(Deposit.id)).filter(Deposit.status == "processed").scalar() or 0
+        total_amount_nano = db.query(func.sum(Deposit.amount_nano)).filter(Deposit.status == "processed").scalar() or 0
+        total_amount_ton = round(float(total_amount_nano) / 10**9, 4) if total_amount_nano else 0.0
+
+        deposits_html = ""
+        for d in deposits:
+            amount_ton = round(float(d.amount_nano) / 10**9, 4)
+            status_emoji = "✅" if d.status == "processed" else ("⏳" if d.status == "pending" else "❌")
+            status_color = "green" if d.status == "processed" else ("orange" if d.status == "pending" else "red")
+            user_info = ""
+            if d.user:
+                user_info = f'<a href="/admin/user/detail/{d.user.id}">@{d.user.username or "N/A"} (ID: {d.user.id})</a>'
+            elif d.telegram_id_from_comment:
+                user_info = f'<span style="color: orange;">Telegram ID: {d.telegram_id_from_comment} (пользователь не найден)</span>'
+            else:
+                user_info = '<span style="color: red;">ID не указан</span>'
+
+            processed_at = d.processed_at.strftime("%Y-%m-%d %H:%M:%S") if d.processed_at else "—"
+            created_at = d.created_at.strftime("%Y-%m-%d %H:%M:%S") if d.created_at else "—"
+
+            deposits_html += f"""
+            <tr>
+                <td>{d.id}</td>
+                <td><code style="font-size: 11px;">{d.tx_hash[:20]}...</code></td>
+                <td><code style="font-size: 11px;">{d.from_address[:20]}...</code></td>
+                <td><strong>{amount_ton:.4f} TON</strong></td>
+                <td>{user_info}</td>
+                <td><span style="color: {status_color};">{status_emoji} {d.status}</span></td>
+                <td>{created_at}</td>
+                <td>{processed_at}</td>
+                <td>
+                    <a href="https://tonscan.org/tx/{d.tx_hash}" target="_blank" style="color: #667eea;">🔍 Проверить</a>
+                </td>
+            </tr>
+            """
+
+        html = f"""<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Депозиты - Админка</title>
+    <style>
+        {get_base_styles()}
+        .content-header {{ margin-bottom: 20px; }}
+        .content-header h1 {{ font-size: 28px; color: #333; }}
+        .stats-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }}
+        .stat-card {{
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }}
+        .stat-label {{
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+        }}
+        .stat-value {{
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }}
+        .card h2 {{ margin-bottom: 15px; color: #333; }}
+        .data-table {{ width: 100%; background: white; border-collapse: collapse; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+        .data-table th {{ background: #667eea; color: white; font-weight: 600; padding: 12px 15px; text-align: left; }}
+        .data-table td {{ padding: 12px 15px; text-align: left; border-bottom: 1px solid #eee; }}
+        .data-table tr:hover {{ background: #f5f5f5; }}
+    </style>
+</head>
+<body>
+    {get_sidebar_html("deposits")}
+    <div class="main-content">
+        <div class="content-header">
+            <h1>💳 Депозиты</h1>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Всего депозитов</div>
+                <div class="stat-value">{total_deposits}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Обработано</div>
+                <div class="stat-value" style="color: green;">{processed_deposits}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Ожидают обработки</div>
+                <div class="stat-value" style="color: orange;">{pending_deposits}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Общая сумма</div>
+                <div class="stat-value">{total_amount_ton:.4f} TON</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Последние депозиты</h2>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>TX Hash</th>
+                        <th>Отправитель</th>
+                        <th>Сумма</th>
+                        <th>Пользователь</th>
+                        <th>Статус</th>
+                        <th>Создан</th>
+                        <th>Обработан</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {deposits_html if deposits_html else '<tr><td colspan="9" style="text-align: center;">Депозитов не найдено</td></tr>'}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card" style="margin-top: 20px;">
+            <h2>🔍 Ручная проверка транзакции</h2>
+            <form method="POST" action="/admin/deposits/check" style="display: flex; gap: 10px; align-items: center;">
+                <input type="text" name="tx_hash" placeholder="Введите TX Hash транзакции" required style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                <button type="submit" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer;">Проверить</button>
+            </form>
+            <p style="margin-top: 10px; color: #666; font-size: 14px;">
+                Введите хеш транзакции для проверки через tonapi.io. Система автоматически создаст запись о депозите, если транзакция найдена.
+            </p>
+        </div>
+    </div>
+    <script src="/admin/static/admin_menu.js"></script>
+</body>
+</html>
+        """
+
+        return HTMLResponse(content=html)
+    finally:
+        db.close()
+
+
+async def check_deposit_manually(request: Request):
+    """Ручная проверка транзакции через tonapi.io"""
+    if request.method != "POST":
+        return HTMLResponse(content="<h1>Метод не поддерживается</h1>", status_code=405)
+
+    form = await request.form()
+    tx_hash = form.get("tx_hash", "").strip()
+
+    if not tx_hash:
+        return HTMLResponse(content="<h1>Ошибка: TX Hash не указан</h1>", status_code=400)
+
+    db = SessionLocal()
+    try:
+        existing = db.query(Deposit).filter(Deposit.tx_hash == tx_hash).first()
+        if existing:
+            return HTMLResponse(content=f"""
+                <h1>Транзакция уже существует в базе</h1>
+                <p>TX Hash: {tx_hash}</p>
+                <p>Статус: {existing.status}</p>
+                <p>Сумма: {float(existing.amount_nano) / 10**9:.4f} TON</p>
+                <p><a href="/admin/deposits">← Назад к депозитам</a></p>
+            """)
+
+        service = get_ton_service()
+        if not service or not service.api_key:
+            return HTMLResponse(content="<h1>Ошибка: TON сервис не настроен (нет API ключа)</h1>", status_code=500)
+
+        import aiohttp
+        import ssl
+
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+
+        connector = aiohttp.TCPConnector(ssl=ssl_context)
+        async with aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=10),
+            connector=connector
+        ) as session:
+            url = f"https://tonapi.io/v2/blockchain/transactions/{tx_hash}"
+            headers = {"Authorization": f"Bearer {service.api_key}"}
+            async with session.get(url, headers=headers) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    return HTMLResponse(content=f"""
+                        <h1>Транзакция найдена!</h1>
+                        <pre>{str(data)[:1000]}</pre>
+                        <p><a href="/admin/deposits">← Назад к депозитам</a></p>
+                    """)
+                elif resp.status == 404:
+                    return HTMLResponse(content=f"""
+                        <h1>Транзакция не найдена</h1>
+                        <p>TX Hash: {tx_hash}</p>
+                        <p>Транзакция не найдена в блокчейне TON. Возможно, хеш неверный или транзакция еще не подтверждена.</p>
+                        <p><a href="/admin/deposits">← Назад к депозитам</a></p>
+                    """)
+                else:
+                    text = await resp.text()
+                    return HTMLResponse(content=f"""
+                        <h1>Ошибка при проверке транзакции</h1>
+                        <p>Статус: {resp.status}</p>
+                        <p>Ответ: {text[:500]}</p>
+                        <p><a href="/admin/deposits">← Назад к депозитам</a></p>
+                    """)
+    finally:
+        db.close()
 
 
 async def get_ton_wallet_html(request: Request):
