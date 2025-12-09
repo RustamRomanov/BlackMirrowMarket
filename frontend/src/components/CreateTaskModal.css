@@ -128,7 +128,9 @@
   background: white;
   color: #000;
   caret-color: #000;
-  min-height: 48px;
+  min-height: 52px;
+  height: 52px;
+  box-sizing: border-box;
 }
 
 .form-input select,
@@ -163,7 +165,8 @@
 
 textarea.form-input {
   resize: vertical;
-  min-height: 60px;
+  min-height: 64px;
+  height: auto;
 }
 
 /* Новые стили для ряда Пол + Возраст */
