@@ -54,12 +54,15 @@ class TonService:
             raise Exception("TON_WALLET_SEED is not configured. Please set TON_WALLET_SEED environment variable with your 24-word mnemonic phrase.")
         
         # Очищаем мнемонику от лишних символов и пробелов
+        # Кавычки уже должны быть удалены в __init__, но на всякий случай проверяем еще раз
         cleaned_seed = self.seed_phrase.strip()
-        # Убираем кавычки, если они есть
-        if cleaned_seed.startswith('"') and cleaned_seed.endswith('"'):
-            cleaned_seed = cleaned_seed[1:-1].strip()
-        if cleaned_seed.startswith("'") and cleaned_seed.endswith("'"):
-            cleaned_seed = cleaned_seed[1:-1].strip()
+        # Убираем кавычки, если они есть (могут остаться, если переменная была задана с кавычками в Railway)
+        while (cleaned_seed.startswith('"') and cleaned_seed.endswith('"')) or \
+              (cleaned_seed.startswith("'") and cleaned_seed.endswith("'")):
+            if cleaned_seed.startswith('"') and cleaned_seed.endswith('"'):
+                cleaned_seed = cleaned_seed[1:-1].strip()
+            if cleaned_seed.startswith("'") and cleaned_seed.endswith("'"):
+                cleaned_seed = cleaned_seed[1:-1].strip()
         
         # Разбиваем на слова, убирая множественные пробелы
         seed_words = [w.strip() for w in cleaned_seed.split() if w.strip()]
