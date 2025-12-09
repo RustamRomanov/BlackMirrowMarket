@@ -396,23 +396,67 @@ class TonService:
                     # Пробуем декодировать тело сообщения
                     try:
                         body = in_msg.body
-                        # Пробуем получить текст из body (это Cell в pytoniq)
-                        if hasattr(body, 'to_boc'):
-                            boc_bytes = body.to_boc()
-                            # Пробуем декодировать как текст
+                        # Пробуем несколько способов декодирования
+                        
+                        # Способ 1: Прямое чтение как Cell (TL-B схема для text message)
+                        try:
+                            if hasattr(body, 'begin_parse'):
+                                slice = body.begin_parse()
+                                # Пропускаем op code (32 бита = 4 байта)
+                                if hasattr(slice, 'load_bytes'):
+                                    # Пробуем загрузить байты после op code
+                                    try:
+                                        # Загружаем op code
+                                        op = slice.load_uint(32)
+                                        # Если op = 0 (text message), читаем текст
+                                        if op == 0:
+                                            # Читаем текст
+                                            text_bytes = slice.load_bytes(slice.remaining_bits // 8)
+                                            msg_text_str = text_bytes.decode('utf-8', errors='ignore').strip()
+                                            print(f"✅ Декодировано через begin_parse: {msg_text_str[:50]}", file=sys.stderr, flush=True)
+                                    except:
+                                        # Пробуем загрузить все оставшиеся байты
+                                        try:
+                                            remaining = slice.remaining_bits // 8
+                                            if remaining > 0:
+                                                text_bytes = slice.load_bytes(remaining)
+                                                msg_text_str = text_bytes.decode('utf-8', errors='ignore').strip()
+                                        except:
+                                            pass
+                        except Exception as e:
+                            print(f"⚠️ Ошибка begin_parse: {e}", file=sys.stderr, flush=True)
+                        
+                        # Способ 2: Если не получилось, пробуем через to_boc
+                        if not msg_text_str and hasattr(body, 'to_boc'):
                             try:
-                                # Пропускаем первые 32 бита (op code для text message)
+                                boc_bytes = body.to_boc()
+                                # Пропускаем первые 4 байта (op code для text message = 0)
                                 if len(boc_bytes) > 4:
-                                    text_bytes = boc_bytes[4:]
-                                    msg_text_str = text_bytes.decode('utf-8', errors='ignore').strip()
+                                    # Проверяем, что первые 4 байта = 0 (text message op)
+                                    if boc_bytes[:4] == b'\x00\x00\x00\x00':
+                                        text_bytes = boc_bytes[4:]
+                                        msg_text_str = text_bytes.decode('utf-8', errors='ignore').strip()
+                                        print(f"✅ Декодировано через to_boc: {msg_text_str[:50]}", file=sys.stderr, flush=True)
+                                    else:
+                                        # Пробуем весь BOC как текст
+                                        msg_text_str = boc_bytes.decode('utf-8', errors='ignore').strip()
+                            except Exception as e:
+                                print(f"⚠️ Ошибка to_boc: {e}", file=sys.stderr, flush=True)
+                        
+                        # Способ 3: Пробуем как строку
+                        if not msg_text_str:
+                            try:
+                                msg_text_str = str(body)
+                                # Убираем служебные символы
+                                if msg_text_str.startswith('<') or msg_text_str.startswith('b\''):
+                                    msg_text_str = ""
                             except:
-                                # Если не получилось, пробуем весь BOC
-                                try:
-                                    msg_text_str = boc_bytes.decode('utf-8', errors='ignore').strip()
-                                except:
-                                    msg_text_str = str(boc_bytes)[:200]
+                                pass
+                                
                     except Exception as e:
                         print(f"⚠️ Ошибка декодирования сообщения: {e}", file=sys.stderr, flush=True)
+                        import traceback
+                        traceback.print_exc()
                 
                 if msg_text_str:
                     msg_text_str = str(msg_text_str).strip()
