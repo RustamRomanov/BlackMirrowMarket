@@ -14,8 +14,13 @@
 
 @media (max-width: 768px) {
   .create-task-modal-overlay {
-    align-items: flex-start;
+    align-items: flex-end;
     padding: 0;
+  }
+  
+  .create-task-modal-content {
+    max-height: 90vh;
+    border-radius: 16px 16px 0 0;
   }
 }
 
@@ -30,13 +35,12 @@
   animation: slideUp 0.3s ease-out;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   position: relative;
-  overflow: hidden;
 }
 
 @media (max-width: 768px) {
   .create-task-modal-content {
-    max-height: 100vh;
-    border-radius: 0;
+    max-height: 95vh;
+    border-radius: 16px 16px 0 0;
   }
 }
 
@@ -85,14 +89,16 @@
 .create-task-form {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .create-task-form-body {
   padding: 24px;
-  padding-bottom: 100px;
+  padding-bottom: 120px;
   overflow-y: auto;
+  overflow-x: hidden;
   flex: 1;
   min-height: 0;
   scrollbar-width: none;
@@ -262,7 +268,7 @@ textarea.form-input {
 }
 
 .average-price-hint {
-  margin-top: 6px;
+  margin-top: 4px;
   font-size: 13px;
   color: #ff8c00;
   text-align: center;
@@ -391,8 +397,6 @@ textarea.form-input {
   background: white;
   z-index: 10;
   flex-shrink: 0;
-  position: sticky;
-  bottom: 0;
   margin-top: auto;
 }
 
