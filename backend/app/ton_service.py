@@ -421,7 +421,8 @@ class TonService:
         # Сразу используем TON Center API, так как подключение к блокчейну через pytoniq зависает
         print("🔄 Используем TON Center API для проверки депозитов...", file=sys.stderr, flush=True)
         return await self._check_deposits_via_api(db, normalized_address)
-        try:
+
+    async def update_pending_transactions(self, db: Session):
             # Создаем адрес объект
             wallet_addr = PytoniqAddress(normalized_address)
             print(f"✅ Адрес валиден: {wallet_addr.to_str(is_user_friendly=True)[:30]}...", file=sys.stderr, flush=True)
