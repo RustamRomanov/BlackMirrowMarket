@@ -294,7 +294,7 @@ class TonService:
                 params = {
                     "address": normalized_address,
                     "limit": 50,
-                    "archival": True
+                    "archival": "true"  # TON Center API требует строку, а не булево значение
                 }
                 if self.api_key:
                     params["api_key"] = self.api_key
@@ -485,20 +485,34 @@ class TonService:
             
             # Обрабатываем транзакции
             for tx in transactions:
+                print(f"🔍 Обработка транзакции...", file=sys.stderr, flush=True)
+                
                 # Получаем хеш транзакции
-                tx_hash = tx.hash.hex() if hasattr(tx, 'hash') and hasattr(tx.hash, 'hex') else (str(tx.hash) if hasattr(tx, 'hash') else None)
-                if not tx_hash:
-                    # Пробуем другой способ получения хеша
-                    if hasattr(tx, 'lt') and hasattr(tx, 'account'):
+                tx_hash = None
+                try:
+                    if hasattr(tx, 'hash'):
+                        if hasattr(tx.hash, 'hex'):
+                            tx_hash = tx.hash.hex()
+                        else:
+                            tx_hash = str(tx.hash)
+                    elif hasattr(tx, 'lt') and hasattr(tx, 'account'):
                         tx_hash = f"{tx.account.address.to_str()}_{tx.lt}"
-                    else:
-                        continue
+                except Exception as e:
+                    print(f"⚠️ Ошибка получения хеша транзакции: {e}", file=sys.stderr, flush=True)
+                    continue
+                
+                if not tx_hash:
+                    print(f"⚠️ Не удалось получить хеш транзакции, пропускаем", file=sys.stderr, flush=True)
+                    continue
+                
+                print(f"📋 TX Hash: {tx_hash[:30]}...", file=sys.stderr, flush=True)
                 
                 # Проверяем, обрабатывали ли мы уже эту транзакцию
                 existing = db.query(models.Deposit).filter(
                     models.Deposit.tx_hash == tx_hash
                 ).first()
                 if existing:
+                    print(f"ℹ️ Транзакция {tx_hash[:20]}... уже обработана", file=sys.stderr, flush=True)
                     continue
                 
                 # Получаем входящие сообщения
@@ -509,9 +523,11 @@ class TonService:
                 # В pytoniq транзакция имеет структуру Transaction
                 if hasattr(tx, 'in_msg') and tx.in_msg:
                     in_msg = tx.in_msg
+                    print(f"✅ Найдено входящее сообщение", file=sys.stderr, flush=True)
                     # Получаем сумму из сообщения
                     if hasattr(in_msg, 'value'):
                         value = int(in_msg.value)
+                        print(f"💰 Сумма: {value / 10**9:.4f} TON", file=sys.stderr, flush=True)
                     # Получаем отправителя
                     if hasattr(in_msg, 'source'):
                         source_addr = in_msg.source
@@ -519,8 +535,12 @@ class TonService:
                             source = source_addr.to_str(is_user_friendly=False)
                         else:
                             source = str(source_addr)
+                        print(f"👤 Отправитель: {source[:30]}...", file=sys.stderr, flush=True)
+                else:
+                    print(f"⚠️ Нет входящего сообщения в транзакции", file=sys.stderr, flush=True)
                 
                 if value <= 0:
+                    print(f"⚠️ Сумма транзакции <= 0, пропускаем", file=sys.stderr, flush=True)
                     continue
                 
                 # Проверяем, что транзакция на наш кошелек
