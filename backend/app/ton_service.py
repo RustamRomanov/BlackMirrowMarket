@@ -116,15 +116,28 @@ class TonService:
                 error_msg = str(e)
                 if "mnemonics" in error_msg.lower() or "invalid" in error_msg.lower():
                     # Показываем количество слов и первые/последние слова для диагностики
-                    preview = f"{' '.join(seed_words[:3])} ... {''.join(seed_words[-3:])}"
-                    raise Exception(
-                        f"Invalid mnemonic phrase. Please check TON_WALLET_SEED. "
-                        f"The mnemonic phrase must be exactly 24 valid BIP39 words. "
-                        f"Current word count: {word_count}. "
-                        f"Preview (first 3 and last 3 words): {preview}. "
-                        f"Error details: {error_msg}. "
-                        f"Make sure all words are from the BIP39 wordlist (English)."
-                    )
+                    preview = f"{' '.join(seed_words[:3])} ... {' '.join(seed_words[-3:])}"
+                    
+                    error_details = []
+                    error_details.append(f"Invalid mnemonic phrase (ValueError).")
+                    error_details.append(f"Current word count: {word_count}.")
+                    error_details.append(f"Preview: {preview}.")
+                    
+                    if suspicious_words:
+                        error_details.append(f"⚠️ Suspicious long words detected (possibly merged words without spaces):")
+                        for sw in suspicious_words[:3]:  # Показываем максимум 3
+                            error_details.append(f"  - {sw}")
+                        error_details.append("Please check if words are separated by spaces. Each word should be 3-8 characters long.")
+                    
+                    error_details.append(f"Error: {error_msg}.")
+                    error_details.append("Make sure:")
+                    error_details.append("  1. All 24 words are from BIP39 wordlist (English)")
+                    error_details.append("  2. Words are separated by SINGLE spaces (no multiple spaces)")
+                    error_details.append("  3. No words are merged together (check for words longer than 12 characters)")
+                    error_details.append("  4. No quotes around the mnemonic phrase")
+                    error_details.append("  5. The mnemonic phrase matches your TON wallet")
+                    
+                    raise Exception("\n".join(error_details))
                 raise Exception(f"Failed to initialize wallet: {error_msg}")
             except AssertionError as e:
                 # AssertionError от pytoniq означает невалидную мнемонику
