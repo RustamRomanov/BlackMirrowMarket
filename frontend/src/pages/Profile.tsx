@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { initData } from '@twa-dev/sdk'
 import axios from 'axios'
-import { Copy, Users, TrendingUp } from 'lucide-react'
+import { Users, TrendingUp } from 'lucide-react'
 import TermsModal from '../components/TermsModal'
 import { COUNTRIES, getCountryByCode } from '../data/countries'
 import './Profile.css'
@@ -222,53 +222,22 @@ export default function Profile() {
     <div className="profile-page">
       <h1>Профиль</h1>
       
-      {/* Блок с Telegram ID */}
+      {/* Компактный блок: Username и ID */}
       {user && (
-        <div style={{
-          background: '#e3f2fd',
-          border: '1px solid #2196f3',
-          borderRadius: '8px',
-          padding: '15px',
-          marginBottom: '20px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <strong style={{ color: '#1976d2', fontSize: '14px' }}>Ваш Telegram ID:</strong>
-              <div style={{ 
-                fontFamily: 'monospace', 
-                fontSize: '18px', 
-                fontWeight: 'bold', 
-                color: '#1565c0',
-                marginTop: '5px'
-              }}>
-                {user.telegram_id}
-              </div>
-              <p style={{ fontSize: '12px', color: '#666', marginTop: '8px', marginBottom: 0 }}>
-                Используйте этот ID при пополнении баланса в комментарии к транзакции
-              </p>
-            </div>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(user.telegram_id.toString())
-                showSuccess('Telegram ID скопирован!')
-              }}
-              style={{
-                padding: '8px 16px',
-                background: '#2196f3',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontSize: '14px'
-              }}
-            >
-              <Copy size={16} />
-              Копировать
-            </button>
+        <div className="profile-compact-card">
+          <div className="profile-row">
+            <div className="label">Username</div>
+            <div className="value">@{user.username || 'не указан'}</div>
           </div>
+          <div className="profile-row">
+            <div className="label">ID</div>
+            <div className="value mono">{user.telegram_id}</div>
+          </div>
+          {profileFilled ? (
+            <div className="profile-status ok">Профиль заполнен ✓</div>
+          ) : (
+            <div className="profile-status muted">Заполните профиль, чтобы получить задания</div>
+          )}
         </div>
       )}
 
@@ -326,11 +295,6 @@ export default function Profile() {
           <div className="info-item">
             <label>Username:</label>
             <span>@{user?.username || 'Не указано'}</span>
-            {profileFilled && (
-              <span style={{ marginLeft: '8px', fontSize: '14px', color: '#666' }}>
-                (Профиль зарегистрирован)
-              </span>
-            )}
           </div>
         </div>
 
