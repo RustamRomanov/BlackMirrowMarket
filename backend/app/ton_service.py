@@ -441,20 +441,22 @@ class TonService:
                 await asyncio.wait_for(client.start_up(), timeout=5.0)
                 print("✅ Подключено к блокчейну", file=sys.stderr, flush=True)
             except asyncio.TimeoutError:
-                print("❌ Таймаут подключения к блокчейну (5 сек) - пробуем TON API", file=sys.stderr, flush=True)
+                print("❌ Таймаут подключения к блокчейну (5 сек) - пробуем TON Center API", file=sys.stderr, flush=True)
                 try:
-                    await client.close_all()
-                except:
-                    pass
-                # Пробуем через TON API как резервный вариант
+                    if hasattr(client, 'close_all'):
+                        await client.close_all()
+                except Exception as close_err:
+                    print(f"⚠️ Ошибка при закрытии клиента (не критично): {close_err}", file=sys.stderr, flush=True)
+                # Пробуем через TON Center API как резервный вариант
                 return await self._check_deposits_via_api(db, normalized_address)
             except Exception as e:
-                print(f"❌ Ошибка подключения к блокчейну: {e} - пробуем TON API", file=sys.stderr, flush=True)
+                print(f"❌ Ошибка подключения к блокчейну: {e} - пробуем TON Center API", file=sys.stderr, flush=True)
                 try:
-                    await client.close_all()
-                except:
-                    pass
-                # Пробуем через TON API как резервный вариант
+                    if hasattr(client, 'close_all'):
+                        await client.close_all()
+                except Exception as close_err:
+                    print(f"⚠️ Ошибка при закрытии клиента (не критично): {close_err}", file=sys.stderr, flush=True)
+                # Пробуем через TON Center API как резервный вариант
                 return await self._check_deposits_via_api(db, normalized_address)
             
             # Получаем транзакции напрямую из блокчейна
@@ -670,17 +672,24 @@ class TonService:
                     print(f"⚠️ Депозит {tx_hash[:20]}... без Telegram ID в комментарии, требуется ручная обработка", file=sys.stderr, flush=True)
             
             print(f"✅ Обработано транзакций: {len(transactions)}", file=sys.stderr, flush=True)
-            await client.close_all()
+            try:
+                if hasattr(client, 'close_all'):
+                    await client.close_all()
+            except:
+                pass
             
         except Exception as e:
             import sys, traceback
             print(f"❌ Ошибка при проверке депозитов через блокчейн: {e}", file=sys.stderr, flush=True)
             traceback.print_exc()
             try:
-                if 'client' in locals():
+                if 'client' in locals() and hasattr(client, 'close_all'):
                     await client.close_all()
             except:
                 pass
+            # Пробуем через TON Center API как резервный вариант
+            return await self._check_deposits_via_api(db, normalized_address)
+        """
         except Exception as e:
             import sys
             print(f"❌ Error checking deposits: {e}", file=sys.stderr, flush=True)
