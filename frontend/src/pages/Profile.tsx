@@ -370,6 +370,23 @@ export default function Profile() {
         ) : (
           <div className="profile-filled">
             <div className="profile-status ok">Профиль заполнен</div>
+            <div className="inline-links">
+              <button
+                type="button"
+                className="terms-link"
+                onClick={() => setShowTermsModal(true)}
+              >
+                Правила пользования приложением
+              </button>
+              <span className="inline-sep">и</span>
+              <button
+                type="button"
+                className="terms-link"
+                onClick={() => setShowAgreementModal(true)}
+              >
+                Пользовательское соглашение
+              </button>
+            </div>
           </div>
         )}
       </div>
