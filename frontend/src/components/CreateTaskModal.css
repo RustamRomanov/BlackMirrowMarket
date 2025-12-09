@@ -128,8 +128,8 @@
   background: white;
   color: #000;
   caret-color: #000;
-  min-height: 52px;
-  height: 52px;
+  min-height: 44px;
+  height: 44px;
   box-sizing: border-box;
 }
 
@@ -165,7 +165,7 @@
 
 textarea.form-input {
   resize: vertical;
-  min-height: 64px;
+  min-height: 52px;
   height: auto;
 }
 
