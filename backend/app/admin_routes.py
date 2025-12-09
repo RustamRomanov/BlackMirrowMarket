@@ -48,6 +48,10 @@ def get_sidebar_html(active_page="dashboard"):
                 <span class="nav-icon">💰</span>
                 <span class="nav-text">Прибыль</span>
             </a>
+            <a href="/admin/deposits" class="nav-item {'active' if active_page == 'deposits' else ''}">
+                <span class="nav-icon">💳</span>
+                <span class="nav-text">Депозиты</span>
+            </a>
             <a href="/admin/ton" class="nav-item {'active' if active_page == 'ton' else ''}">
                 <span class="nav-icon">🪙</span>
                 <span class="nav-text">TON Кошелек</span>

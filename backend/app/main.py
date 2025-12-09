@@ -33,6 +33,8 @@ from app.admin_routes import (
     get_user_balance_html,
     get_user_task_html,
     get_ton_wallet_html,
+    get_deposits_html,
+    check_deposit_manually,
 )
 from fastapi import Request
 
