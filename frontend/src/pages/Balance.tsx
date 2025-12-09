@@ -399,6 +399,19 @@ export default function Balance() {
                 <Copy size={16} />
               </button>
             </div>
+            <div style={{ marginTop: '14px', fontSize: '13px', color: '#444', lineHeight: 1.5 }}>
+              <div style={{ marginBottom: '6px', fontWeight: 600 }}>Как зачисляются средства:</div>
+              <div style={{ marginBottom: '4px' }}>1) Откройте свой TON-кошелек (Tonkeeper, MyTonWallet и т.д.).</div>
+              <div style={{ marginBottom: '4px' }}>2) Отправьте TON на адрес выше.</div>
+              <div style={{ marginBottom: '4px' }}>
+                3) В комментарии/мемо укажите ваш Telegram ID:
+                <span style={{ marginLeft: '6px', fontFamily: 'monospace', fontWeight: 700 }}>
+                  {user?.telegram_id}
+                </span>
+                . Это обязательно — по нему система зачислит перевод на ваш баланс.
+              </div>
+              <div>4) После подтверждения сети зачисление происходит автоматически.</div>
+            </div>
           </div>
         </div>
       )}
