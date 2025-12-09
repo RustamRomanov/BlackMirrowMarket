@@ -361,16 +361,16 @@ export default function Balance() {
             >
               ×
             </button>
-            <h3 style={{ marginBottom: '12px' }}>Пополнить баланс</h3>
+            <h3 style={{ marginBottom: '16px' }}>Пополнить баланс</h3>
 
             {/* Шаг 1 */}
-            <div style={{ marginBottom: '10px', fontSize: '14px', color: '#333', fontWeight: 600 }}>
-              1) Минимальная сумма пополнения: <span style={{ fontWeight: 700 }}>1 TON</span>
+            <div style={{ marginBottom: '14px', fontSize: '14px', color: '#333', fontWeight: 400 }}>
+              1. Минимальная сумма пополнения: <span style={{ fontWeight: 700 }}>1 TON</span>
             </div>
 
             {/* Шаг 2 */}
-            <div style={{ marginTop: '6px', fontSize: '14px', color: '#333', fontWeight: 600 }}>
-              2) Отправьте TON по этому адресу:
+            <div style={{ marginTop: '6px', fontSize: '14px', color: '#333', fontWeight: 400 }}>
+              2. Отправьте TON по этому адресу:
             </div>
             <div style={{
               marginTop: '8px',
@@ -410,8 +410,8 @@ export default function Balance() {
             </div>
 
             {/* Шаг 3 */}
-            <div style={{ marginTop: '12px', fontSize: '14px', color: '#333', fontWeight: 600 }}>
-              3) Обязательно укажите Telegram ID в комментарии/мемо:
+            <div style={{ marginTop: '12px', fontSize: '14px', color: '#333', fontWeight: 400 }}>
+              3. Обязательно укажите Telegram ID в комментарии/мемо:
             </div>
             <div style={{
               marginTop: '8px',
@@ -431,7 +431,7 @@ export default function Balance() {
                 <div style={{ fontFamily: 'monospace', fontSize: '20px', fontWeight: 700, color: '#bf360c' }}>
                   {user?.telegram_id}
                 </div>
-                <div style={{ fontSize: '12px', color: '#8a6d3b', marginTop: '6px' }}>
+                <div style={{ fontSize: '11px', color: '#8a6d3b', marginTop: '6px', lineHeight: 1.25 }}>
                   Если не указать ID, зачисление может не произойти.
                 </div>
               </div>
@@ -458,8 +458,8 @@ export default function Balance() {
             </div>
 
             {/* Шаг 4 */}
-            <div style={{ marginTop: '12px', fontSize: '14px', color: '#333', fontWeight: 600 }}>
-              4) После подтверждения сети (обычно 1–2 минуты) зачисление происходит автоматически.
+            <div style={{ marginTop: '12px', fontSize: '14px', color: '#333', fontWeight: 400 }}>
+              4. После подтверждения сети (обычно 1–2 минуты) зачисление происходит автоматически.
             </div>
           </div>
         </div>
