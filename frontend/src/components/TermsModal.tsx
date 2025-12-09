@@ -20,11 +20,6 @@ export default function TermsModal({ title, content, onClose }: TermsModalProps)
         <div className="terms-modal-body">
           <div className="terms-text">{content}</div>
         </div>
-        <div className="terms-modal-footer">
-          <button className="terms-modal-button" onClick={onClose}>
-            Закрыть
-          </button>
-        </div>
       </div>
     </div>
   )

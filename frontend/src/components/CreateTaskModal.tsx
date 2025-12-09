@@ -84,6 +84,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
   const [submitting, setSubmitting] = useState(false)
   const [botAdded, setBotAdded] = useState(false)
   const [showBotRules, setShowBotRules] = useState(false)
+  const [botCopied, setBotCopied] = useState(false)
 
   // Загрузка баланса для расчета макс. слотов
   useEffect(() => {
@@ -442,15 +443,30 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
             {/* Информация о боте */}
             {(formData.task_type === 'subscription' || formData.task_type === 'comment') && (
               <div className="admin-bot-info-end bot-box">
-                <div className="bot-box-header">
-                  <span>Добавьте @BlackMirrowAdminBot админом в свой канал</span>
+                <div className="bot-info-text">
+                  Добавьте нашего бота админом в свой канал
+                </div>
+                <div className="bot-actions-row">
                   <button
                     type="button"
-                    className="copy-bot-icon"
-                    onClick={() => navigator.clipboard.writeText(ADMIN_BOT)}
-                    title="Скопировать бота"
+                    className="copy-bot-button"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(ADMIN_BOT)
+                      setBotCopied(true)
+                      setTimeout(() => setBotCopied(false), 2000)
+                    }}
                   >
-                    <Copy size={18} />
+                    {botCopied ? 'Бот скопирован' : 'Копировать бота'}
+                  </button>
+                  <button
+                    type="button"
+                    className="rules-button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      setShowBotRules(true)
+                    }}
+                  >
+                    Правила
                   </button>
                 </div>
                 <label className="bot-checkbox-label">
@@ -459,19 +475,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
                     checked={botAdded}
                     onChange={(e) => setBotAdded(e.target.checked)}
                   />
-                  <span>
-                    Бот добавлен{' '}
-                    <button
-                      type="button"
-                      className="rules-text-link"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        setShowBotRules(true)
-                      }}
-                    >
-                      Правила
-                    </button>
-                  </span>
+                  <span>Бот добавлен</span>
                 </label>
               </div>
             )}
