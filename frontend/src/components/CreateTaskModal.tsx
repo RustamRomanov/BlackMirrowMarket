@@ -144,15 +144,12 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
       newErrors.total_slots = `Недостаточно средств. Ваш баланс: ${userBalance.toFixed(2)}`
     }
     
-    if (formData.task_type === 'comment' && !formData.comment_instruction?.trim()) {
-      newErrors.comment_instruction = 'Инструкция для комментария обязательна'
-    }
     
     if ((formData.task_type === 'comment' || formData.task_type === 'view') && !formData.telegram_post_id) {
       newErrors.telegram_post_id = 'Ссылка поста обязательна'
     }
     
-    if (formData.task_type !== 'view' && !formData.telegram_channel_id) {
+    if (formData.task_type === 'subscription' && !formData.telegram_channel_id) {
       newErrors.telegram_channel_id = 'Ссылка на канал обязательна'
     }
 
@@ -240,6 +237,8 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
                 placeholder={
                   formData.task_type === 'subscription'
                     ? 'Краткое описание о чем канал'
+                    : formData.task_type === 'comment'
+                    ? 'Напишите о чем ваш пост и какой комментарий вы хотете увидеть'
                     : 'Краткое описание о чем пост'
                 }
                 className={`form-input ${errors.description ? 'error' : ''}`}
@@ -302,7 +301,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
             </div>
 
             {/* Ссылка на канал */}
-            {(formData.task_type === 'subscription' || formData.task_type === 'comment') && (
+            {formData.task_type === 'subscription' && (
               <div className="form-field-group">
                 <label className="form-label">
                   Ссылка на канал
@@ -348,25 +347,6 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
               </div>
             )}
 
-            {/* Инструкция для комментария */}
-            {formData.task_type === 'comment' && (
-              <div className="form-field-group">
-                <label className="form-label">
-                  Инструкция для комментария
-                </label>
-                <textarea
-                  value={formData.comment_instruction}
-                  onChange={(e) => {
-                    setFormData({ ...formData, comment_instruction: e.target.value })
-                    if (errors.comment_instruction) setErrors({ ...errors, comment_instruction: '' })
-                  }}
-                  rows={3}
-                  placeholder="Опишите, какой комментарий нужно оставить"
-                  className={`form-input ${errors.comment_instruction ? 'error' : ''}`}
-                />
-                {errors.comment_instruction && <div className="form-error">{errors.comment_instruction}</div>}
-              </div>
-            )}
 
             {/* Страна */}
             <div className="form-field-group">
