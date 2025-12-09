@@ -460,24 +460,17 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
                 </label>
               </div>
             )}
-          </div>
 
-          <div className="create-task-modal-footer">
-            <button
-              type="button"
-              className="cancel-button"
-              onClick={onClose}
-              disabled={submitting}
-            >
-              Отмена
-            </button>
-            <button
-              type="submit"
-              className="submit-button"
-              disabled={submitting}
-            >
-              {submitting ? 'Создание...' : 'Создать'}
-            </button>
+            {/* Кнопка Создать */}
+            <div className="form-field-group" style={{ marginTop: '24px' }}>
+              <button
+                type="submit"
+                className="submit-button-full"
+                disabled={submitting}
+              >
+                {submitting ? 'Создание...' : 'Создать'}
+              </button>
+            </div>
           </div>
         </form>
       </div>
