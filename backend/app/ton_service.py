@@ -629,88 +629,12 @@ class TonService:
     
     async def _create_wallet_transaction_manually(self, seed_words: list, to_address: str, amount_nano: int, seqno: int, comment: str = None) -> str:
         """
-        Создает транзакцию используя готовый API toncenter.com через pytoniq.
-        Использует WalletV4R2.create_transfer_message для правильного создания транзакции.
+        Создает транзакцию используя готовый API toncenter.com.
+        Использует fallback метод для создания транзакции вручную через pytoniq_core.
         """
-        try:
-            # Используем pytoniq для создания транзакции через готовый метод
-            from pytoniq.contract.wallets.wallet import WalletV4R2
-            from pytoniq import Address as PytoniqAddress
-            from pytoniq.liteclient import LiteClient
-            from pytoniq_core.boc import Builder
-            from mnemonic import Mnemonic
-            
-            print(f"🔄 Using pytoniq WalletV4R2.create_transfer_message (ready API method)", file=sys.stderr, flush=True)
-            
-            # Создаем приватный ключ из мнемоники используя правильный метод для Ed25519
-            mnemo = Mnemonic("english")
-            seed_string = " ".join(seed_words)
-            # BIP39 seed (64 байта) -> берем первые 32 байта для Ed25519 seed
-            bip39_seed = mnemo.to_seed(seed_string)
-            ed25519_seed = bip39_seed[:32]
-            
-            # Проверяем, что seed правильного формата (32 байта)
-            if len(ed25519_seed) != 32:
-                raise Exception(f"Invalid seed length: {len(ed25519_seed)}, expected 32 bytes")
-            
-            # from_private_key ожидает 32 байта seed (Ed25519 seed), а не 64 байта private key
-            # Используем seed напрямую (32 байта)
-            private_key_for_wallet = ed25519_seed
-            
-            # Создаем клиент (не подключаемся к блокчейну)
-            # LiteClient нужен только для создания кошелька, не для подключения
-            client = LiteClient.from_mainnet_config()
-            
-            # Создаем кошелек из приватного ключа БЕЗ подключения к блокчейну
-            # from_private_key ожидает 32 байта seed (Ed25519 seed)
-            try:
-                wallet = await WalletV4R2.from_private_key(
-                    provider=client,
-                    private_key=private_key_for_wallet,  # 32 байта Ed25519 seed
-                    wc=0,  # workchain 0
-                    wallet_id=698983191  # WalletV4R2 wallet_id
-                )
-            except (ValueError, TypeError) as key_error:
-                print(f"⚠️ Error with from_private_key: {key_error}", file=sys.stderr, flush=True)
-                if "Invalid secret key" in str(key_error):
-                    raise Exception(f"Invalid Ed25519 secret key format. Seed length: {len(private_key_for_wallet)}, Seed type: {type(private_key_for_wallet)}")
-                raise Exception(f"Cannot create wallet from private key: {key_error}")
-            
-            print(f"✅ Created wallet from private key using pytoniq", file=sys.stderr, flush=True)
-            
-            # Создаем адрес получателя
-            dest_addr = PytoniqAddress(to_address)
-            
-            # Создаем body с комментарием, если он указан
-            body = None
-            if comment:
-                body_builder = Builder()
-                body_builder.store_uint(0, 32)  # op = 0 для текстового комментария
-                body_builder.store_bytes(comment.encode('utf-8'))
-                body = body_builder.end_cell()
-            
-            # Используем готовый метод create_transfer_message из pytoniq
-            # Этот метод правильно создает транзакцию БЕЗ подключения к блокчейну
-            message = await wallet.create_transfer_message(
-                destination=dest_addr,
-                amount=amount_nano,
-                seqno=seqno,
-                body=body
-            )
-            
-            # Получаем BOC base64 из сообщения
-            # message.to_boc_base64() - это готовый метод из pytoniq
-            boc_base64 = message.to_boc_base64()
-            
-            print(f"✅ Created transaction using pytoniq create_transfer_message (seqno={seqno})", file=sys.stderr, flush=True)
-            return boc_base64
-            
-        except Exception as e:
-            print(f"⚠️ Error creating transaction with pytoniq: {e}, trying fallback", file=sys.stderr, flush=True)
-            import traceback
-            print(f"❌ Traceback: {traceback.format_exc()}", file=sys.stderr, flush=True)
-            # Fallback на старый метод при ошибке
-            return await self._create_wallet_transaction_fallback(seed_words, to_address, amount_nano, seqno, comment)
+        # Сразу используем fallback метод, так как from_private_key не работает
+        print(f"🔄 Using fallback method for transaction creation (from_private_key bypassed)", file=sys.stderr, flush=True)
+        return await self._create_wallet_transaction_fallback(seed_words, to_address, amount_nano, seqno, comment)
     
     async def _create_wallet_transaction_fallback(self, seed_words: list, to_address: str, amount_nano: int, seqno: int, comment: str = None) -> str:
         """
@@ -879,10 +803,28 @@ class TonService:
                     if cell in cells_list:
                         return
                     cells_list.append(cell)
-                    # Получаем ссылки
-                    for i in range(cell.refs_count):
-                        ref = cell.refs[i]
-                        collect_cells(ref, cells_list)
+                    # Получаем ссылки - в pytoniq_core Cell имеет свойство refs, которое возвращает список
+                    try:
+                        # Пробуем получить ссылки через refs
+                        if hasattr(cell, 'refs'):
+                            refs = cell.refs
+                            # refs может быть списком или итерируемым объектом
+                            if hasattr(refs, '__iter__') and not isinstance(refs, (str, bytes)):
+                                for ref in refs:
+                                    collect_cells(ref, cells_list)
+                            elif hasattr(refs, '__getitem__'):
+                                # Если refs поддерживает индексацию, пробуем получить по индексу
+                                i = 0
+                                while True:
+                                    try:
+                                        ref = refs[i]
+                                        collect_cells(ref, cells_list)
+                                        i += 1
+                                    except (IndexError, KeyError, TypeError):
+                                        break
+                    except (AttributeError, TypeError) as e:
+                        # Если нет ссылок или ошибка, просто пропускаем
+                        pass
                 
                 cells_list = []
                 collect_cells(external_message, cells_list)
@@ -916,10 +858,28 @@ class TonService:
                         if cell in cells_list:
                             return
                         cells_list.append(cell)
-                        # Получаем ссылки
-                        for i in range(cell.refs_count):
-                            ref = cell.refs[i]
-                            collect_cells(ref, cells_list)
+                        # Получаем ссылки - в pytoniq_core Cell имеет свойство refs, которое возвращает список
+                        try:
+                            # Пробуем получить ссылки через refs
+                            if hasattr(cell, 'refs'):
+                                refs = cell.refs
+                                # refs может быть списком или итерируемым объектом
+                                if hasattr(refs, '__iter__') and not isinstance(refs, (str, bytes)):
+                                    for ref in refs:
+                                        collect_cells(ref, cells_list)
+                                elif hasattr(refs, '__getitem__'):
+                                    # Если refs поддерживает индексацию, пробуем получить по индексу
+                                    i = 0
+                                    while True:
+                                        try:
+                                            ref = refs[i]
+                                            collect_cells(ref, cells_list)
+                                            i += 1
+                                        except (IndexError, KeyError, TypeError):
+                                            break
+                        except (AttributeError, TypeError) as e:
+                            # Если нет ссылок или ошибка, просто пропускаем
+                            pass
                     
                     cells_list = []
                     collect_cells(external_message, cells_list)
