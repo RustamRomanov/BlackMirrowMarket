@@ -597,11 +597,13 @@ class TonService:
             body = None
             if comment:
                 # Создаем ячейку с комментарием (текстовое сообщение)
+                # В TON формат текстового комментария: uint32(0) + bytes(текст)
                 builder = Builder()
-                # Флаг 0 для текстового комментария
+                # Флаг 0 для текстового комментария (op = 0)
                 builder.store_uint(0, 32)
-                # Добавляем текст комментария
-                builder.store_string(comment)
+                # Добавляем текст комментария как байты
+                comment_bytes = comment.encode('utf-8')
+                builder.store_bytes(comment_bytes)
                 body = builder.end_cell()
             
             # Пробуем создать транзакцию напрямую через внутренние методы
