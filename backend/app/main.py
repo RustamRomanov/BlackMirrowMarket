@@ -224,13 +224,45 @@ async def check_deposits_periodically():
 @app.on_event("startup")
 async def startup_event():
     """Запускаем фоновые задачи при старте приложения."""
+    import sys
     print("🚀 Запуск приложения...")
     
     # Удаляем тестовые задания и примеры при старте
     from app.database import SessionLocal
-    from app.models import Task, User, UserTask
+    from app.models import Task, User, UserTask, TonTransaction, UserBalance
+    from datetime import datetime, timedelta
+    from decimal import Decimal
     db = SessionLocal()
     try:
+        # Автоматически возвращаем средства для старых pending транзакций без tx_hash
+        print("🔄 Checking for old pending transactions to refund...", file=sys.stderr, flush=True)
+        old_pending_txs = db.query(TonTransaction).filter(
+            TonTransaction.status == "pending",
+            TonTransaction.tx_hash.is_(None)
+        ).all()
+        
+        refunded_count = 0
+        for tx in old_pending_txs:
+            # Проверяем, сколько времени прошло
+            time_since_creation = datetime.utcnow() - (tx.created_at.replace(tzinfo=None) if tx.created_at and tx.created_at.tzinfo else tx.created_at) if tx.created_at else timedelta(0)
+            
+            # Если транзакция старше 1 минуты - возвращаем средства
+            if time_since_creation > timedelta(minutes=1):
+                if tx.user_id:
+                    user = db.query(User).filter(User.id == tx.user_id).first()
+                    if user:
+                        balance = db.query(UserBalance).filter(UserBalance.user_id == user.id).first()
+                        if balance:
+                            balance.ton_active_balance += tx.amount_nano
+                            tx.status = "failed"
+                            tx.error_message = f"Transaction failed on startup: could not send after {time_since_creation}. Funds automatically refunded."
+                            refunded_count += 1
+                            print(f"✅ Startup refund: {float(tx.amount_nano) / 10**9:.4f} TON to user {user.telegram_id}", file=sys.stderr, flush=True)
+        
+        if refunded_count > 0:
+            db.commit()
+            print(f"✅ Startup: Automatically refunded {refunded_count} failed transactions", file=sys.stderr, flush=True)
+        
         # Удаляем тестовые задания (is_test=True)
         test_tasks = db.query(Task).filter(Task.is_test == True).all()
         test_count = len(test_tasks)
