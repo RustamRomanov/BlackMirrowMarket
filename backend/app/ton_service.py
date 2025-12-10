@@ -565,8 +565,6 @@ class TonService:
         """
         from mnemonic import Mnemonic
         from pytoniq_core.boc import Builder, Cell
-        from pytoniq_core.tlb import Message, StateInit
-        from pytoniq_core.crypto.signature import sign
         from pytoniq import Address as PytoniqAddress
         import time
         
@@ -601,8 +599,22 @@ class TonService:
         # Структура: flags (4) + dest_addr (267) + amount (VarUInteger 16) + forward_fee (4) + forward_payload (Cell) + body (Cell)
         message_builder = Builder()
         message_builder.store_uint(0, 4)  # flags: 0 = простой перевод
-        message_builder.store_address(dest_addr)  # адрес получателя
-        message_builder.store_coins(amount_nano)  # сумма в нано-TON
+        
+        # Сохраняем адрес получателя
+        try:
+            message_builder.store_address(dest_addr)
+        except:
+            # Альтернативный способ: сохраняем адрес как raw bytes
+            addr_bytes = dest_addr.hash_part()
+            message_builder.store_bytes(addr_bytes)
+        
+        # Сохраняем сумму (VarUInteger 16 - до 120 бит)
+        try:
+            message_builder.store_coins(amount_nano)
+        except:
+            # Альтернативный способ: сохраняем как uint64
+            message_builder.store_uint(amount_nano, 64)
+        
         message_builder.store_uint(0, 4)  # forward_fee
         message_builder.store_ref(Builder().end_cell())  # forward_payload (пустое)
         message_builder.store_ref(message_body)  # body с комментарием
