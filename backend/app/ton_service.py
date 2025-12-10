@@ -669,7 +669,38 @@ class TonService:
                 final_cell = final_builder.end_cell()
                 
                 # Конвертируем в BOC base64
-                boc_base64 = final_cell.to_boc_base64()
+                # В pytoniq_core Cell нужно использовать правильный метод
+                import base64
+                try:
+                    # Используем pytoniq для конвертации (более надежно)
+                    from pytoniq import Cell as PytoniqCell
+                    # Получаем bytes из pytoniq_core Cell
+                    if hasattr(final_cell, 'to_boc'):
+                        boc_bytes = final_cell.to_boc()
+                    else:
+                        # Используем serialize_boc из pytoniq_core
+                        from pytoniq_core.boc import serialize_boc
+                        boc_bytes = serialize_boc(final_cell)
+                    
+                    # Конвертируем в pytoniq Cell и затем в base64
+                    pytoniq_cell = PytoniqCell.from_boc(boc_bytes)
+                    boc_base64 = pytoniq_cell.to_boc_base64()
+                    
+                except Exception as pytoniq_error:
+                    print(f"⚠️ Error using pytoniq for conversion: {pytoniq_error}", file=sys.stderr, flush=True)
+                    # Fallback: используем pytoniq_core напрямую
+                    try:
+                        from pytoniq_core.boc import serialize_boc
+                        boc_bytes = serialize_boc(final_cell)
+                        boc_base64 = base64.b64encode(boc_bytes).decode('utf-8')
+                    except Exception as core_error:
+                        print(f"⚠️ Error using pytoniq_core serialize_boc: {core_error}", file=sys.stderr, flush=True)
+                        # Последняя попытка: пробуем to_boc() если есть
+                        if hasattr(final_cell, 'to_boc'):
+                            boc_bytes = final_cell.to_boc()
+                            boc_base64 = base64.b64encode(boc_bytes).decode('utf-8')
+                        else:
+                            raise Exception(f"Cannot convert Cell to BOC base64. Tried pytoniq and pytoniq_core. Last error: {core_error}")
                 
                 return boc_base64
                 
