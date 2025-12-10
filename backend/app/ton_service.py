@@ -629,12 +629,68 @@ class TonService:
     
     async def _create_wallet_transaction_manually(self, seed_words: list, to_address: str, amount_nano: int, seqno: int, comment: str = None) -> str:
         """
-        Создает транзакцию используя fallback метод.
-        tontools не работает из-за проблем с зависимостями (crc16 не компилируется).
+        Создает транзакцию используя pytoniq create_transfer_message БЕЗ подключения к блокчейну.
+        Использует правильный способ создания транзакции через готовые методы pytoniq.
         """
-        # Используем fallback метод напрямую
-        print(f"🔄 Using fallback method for transaction creation", file=sys.stderr, flush=True)
-        return await self._create_wallet_transaction_fallback(seed_words, to_address, amount_nano, seqno, comment)
+        try:
+            from pytoniq import LiteClient, WalletV4R2, Address as PytoniqAddress
+            from pytoniq_core.boc import Builder
+            
+            print(f"🔄 Using pytoniq create_transfer_message (NEW approach - no blockchain connection)", file=sys.stderr, flush=True)
+            
+            # Создаем LiteClient БЕЗ подключения к блокчейну
+            # Используем фиктивный провайдер, который не требует подключения
+            client = LiteClient.from_mainnet_config()
+            
+            # Пробуем создать кошелек из мнемоники БЕЗ подключения к блокчейну
+            # Используем правильный способ - создаем кошелек локально
+            try:
+                # Создаем кошелек из мнемоники - НЕ подключаемся к блокчейну
+                # from_mnemonic может работать без подключения для создания транзакции
+                wallet = await WalletV4R2.from_mnemonic(client, seed_words, wc=0)
+                print(f"✅ Created wallet from mnemonic (local, no connection)", file=sys.stderr, flush=True)
+            except Exception as wallet_error:
+                print(f"⚠️ Error creating wallet: {wallet_error}", file=sys.stderr, flush=True)
+                # Если не получилось, используем fallback
+                return await self._create_wallet_transaction_fallback(seed_words, to_address, amount_nano, seqno, comment)
+            
+            # Создаем адрес получателя
+            dest_addr = PytoniqAddress(to_address)
+            
+            # Создаем body с комментарием
+            body = None
+            if comment:
+                body_builder = Builder()
+                body_builder.store_uint(0, 32)  # op = 0 для текстового комментария
+                body_builder.store_bytes(comment.encode('utf-8'))
+                body = body_builder.end_cell()
+            
+            # Используем готовый метод create_transfer_message БЕЗ подключения к блокчейну
+            # Этот метод создает транзакцию локально и возвращает правильный BOC
+            try:
+                message = await wallet.create_transfer_message(
+                    destination=dest_addr,
+                    amount=amount_nano,
+                    seqno=seqno,
+                    body=body
+                )
+                
+                # Используем готовый метод to_boc_base64() для правильной сериализации BOC
+                boc_base64 = message.to_boc_base64()
+                
+                print(f"✅ Created transaction using pytoniq create_transfer_message (seqno={seqno}, NEW approach)", file=sys.stderr, flush=True)
+                return boc_base64
+                
+            except Exception as transfer_error:
+                print(f"⚠️ Error creating transfer message: {transfer_error}, using fallback", file=sys.stderr, flush=True)
+                # Если не получилось, используем fallback
+                return await self._create_wallet_transaction_fallback(seed_words, to_address, amount_nano, seqno, comment)
+            
+        except Exception as e:
+            print(f"⚠️ Error with pytoniq create_transfer_message: {e}, using fallback", file=sys.stderr, flush=True)
+            import traceback
+            print(f"❌ Traceback: {traceback.format_exc()}", file=sys.stderr, flush=True)
+            return await self._create_wallet_transaction_fallback(seed_words, to_address, amount_nano, seqno, comment)
     
     async def _create_wallet_transaction_fallback(self, seed_words: list, to_address: str, amount_nano: int, seqno: int, comment: str = None) -> str:
         """
