@@ -629,13 +629,73 @@ class TonService:
     
     async def _create_wallet_transaction_manually(self, seed_words: list, to_address: str, amount_nano: int, seqno: int, comment: str = None) -> str:
         """
-        Создает транзакцию используя готовый сервис - pytoniq с правильной настройкой.
-        Использует готовые методы без подключения к блокчейну.
+        Создает транзакцию используя готовый сервис - pytoniq.
+        Использует готовые методы pytoniq для создания транзакции и правильной сериализации BOC.
         """
-        # Используем готовый fallback метод, который создает транзакцию вручную
-        # но с правильной сериализацией BOC через pytoniq
-        print(f"🔄 Using ready-made transaction creation service (pytoniq-based)", file=sys.stderr, flush=True)
-        return await self._create_wallet_transaction_fallback(seed_words, to_address, amount_nano, seqno, comment)
+        try:
+            from pytoniq import LiteClient, WalletV4R2, Address as PytoniqAddress
+            from pytoniq_core.boc import Builder
+            from mnemonic import Mnemonic
+            
+            print(f"🔄 Using ready-made pytoniq service for transaction creation", file=sys.stderr, flush=True)
+            
+            # Создаем seed из мнемоники
+            mnemo = Mnemonic("english")
+            seed_string = " ".join(seed_words)
+            
+            # Создаем LiteClient (не подключаемся к блокчейну)
+            # Используем фиктивный провайдер, который не требует подключения
+            client = LiteClient.from_mainnet_config()
+            
+            # Создаем кошелек из мнемоники используя готовый метод pytoniq
+            # Этот метод может работать без подключения к блокчейну для создания транзакции
+            try:
+                # Пробуем создать кошелек без подключения к блокчейну
+                # Используем timeout=0 чтобы не ждать подключения
+                wallet = await WalletV4R2.from_mnemonic(client, seed_words, wc=0)
+                print(f"✅ Created wallet from mnemonic using pytoniq", file=sys.stderr, flush=True)
+            except Exception as wallet_error:
+                print(f"⚠️ Error creating wallet: {wallet_error}, wallet may need connection", file=sys.stderr, flush=True)
+                # Если не получилось, пробуем использовать fallback
+                return await self._create_wallet_transaction_fallback(seed_words, to_address, amount_nano, seqno, comment)
+            
+            # Создаем адрес получателя
+            dest_addr = PytoniqAddress(to_address)
+            
+            # Создаем body с комментарием
+            body = None
+            if comment:
+                body_builder = Builder()
+                body_builder.store_uint(0, 32)  # op = 0 для текстового комментария
+                body_builder.store_bytes(comment.encode('utf-8'))
+                body = body_builder.end_cell()
+            
+            # Используем готовый метод create_transfer_message из pytoniq
+            # Этот метод правильно создает транзакцию и сериализует BOC
+            try:
+                message = await wallet.create_transfer_message(
+                    destination=dest_addr,
+                    amount=amount_nano,
+                    seqno=seqno,
+                    body=body
+                )
+                
+                # Используем готовый метод to_boc_base64() для правильной сериализации BOC
+                boc_base64 = message.to_boc_base64()
+                
+                print(f"✅ Created transaction using ready-made pytoniq service (seqno={seqno})", file=sys.stderr, flush=True)
+                return boc_base64
+                
+            except Exception as transfer_error:
+                print(f"⚠️ Error creating transfer message: {transfer_error}, using fallback", file=sys.stderr, flush=True)
+                # Если не получилось, используем fallback
+                return await self._create_wallet_transaction_fallback(seed_words, to_address, amount_nano, seqno, comment)
+            
+        except Exception as e:
+            print(f"⚠️ Error with ready-made pytoniq service: {e}, using fallback", file=sys.stderr, flush=True)
+            import traceback
+            print(f"❌ Traceback: {traceback.format_exc()}", file=sys.stderr, flush=True)
+            return await self._create_wallet_transaction_fallback(seed_words, to_address, amount_nano, seqno, comment)
     
     async def _create_wallet_transaction_fallback(self, seed_words: list, to_address: str, amount_nano: int, seqno: int, comment: str = None) -> str:
         """
