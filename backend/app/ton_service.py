@@ -629,18 +629,18 @@ class TonService:
     
     async def _create_wallet_transaction_manually(self, seed_words: list, to_address: str, amount_nano: int, seqno: int, comment: str = None) -> str:
         """
-        Создает транзакцию используя pytoniq WalletV4R2, но БЕЗ подключения к блокчейну.
-        Создает кошелек напрямую из приватного ключа, минуя from_mnemonic который требует подключения.
+        Создает транзакцию используя готовый API toncenter.com через pytoniq.
+        Использует WalletV4R2.create_transfer_message для правильного создания транзакции.
         """
         try:
-            # Используем pytoniq для создания транзакции, но без подключения к блокчейну
+            # Используем pytoniq для создания транзакции через готовый метод
             from pytoniq.contract.wallets.wallet import WalletV4R2
             from pytoniq import Address as PytoniqAddress
             from pytoniq.liteclient import LiteClient
             from pytoniq_core.boc import Builder
             from mnemonic import Mnemonic
             
-            print(f"🔄 Using pytoniq WalletV4R2 with direct private key (no blockchain connection)", file=sys.stderr, flush=True)
+            print(f"🔄 Using pytoniq WalletV4R2.create_transfer_message (ready API method)", file=sys.stderr, flush=True)
             
             # Создаем приватный ключ из мнемоники
             mnemo = Mnemonic("english")
@@ -652,31 +652,38 @@ class TonService:
             if len(private_key_bytes) != 32:
                 raise Exception(f"Invalid private key length: {len(private_key_bytes)}, expected 32 bytes")
             
-            # Создаем клиент (не подключаемся)
+            # Создаем клиент (не подключаемся к блокчейну)
+            # LiteClient нужен только для создания кошелька, не для подключения
             client = LiteClient.from_mainnet_config()
             
-            # Создаем кошелек напрямую из приватного ключа БЕЗ подключения к блокчейну
-            # Используем from_private_key напрямую, минуя from_mnemonic
-            # private_key должен быть bytes или правильным форматом
-            # Пробуем передать как bytes напрямую
+            # Создаем кошелек из приватного ключа БЕЗ подключения к блокчейну
+            # Используем правильный формат для Ed25519 приватного ключа
+            # pytoniq ожидает bytes длиной 32 байта для Ed25519
+            # Пробуем создать кошелек через from_private_key
             try:
+                # from_private_key требует правильный формат приватного ключа
+                # Проверяем, что ключ правильного формата
+                if not isinstance(private_key_bytes, bytes) or len(private_key_bytes) != 32:
+                    raise Exception(f"Invalid private key format: type={type(private_key_bytes)}, length={len(private_key_bytes) if isinstance(private_key_bytes, bytes) else 'N/A'}")
+                
+                # Создаем кошелек из приватного ключа
+                # provider нужен только для создания кошелька, не для подключения
                 wallet = await WalletV4R2.from_private_key(
                     provider=client,
                     private_key=private_key_bytes,
                     wc=0,  # workchain 0
                     wallet_id=698983191  # WalletV4R2 wallet_id
                 )
-            except ValueError as key_error:
+            except (ValueError, TypeError, Exception) as key_error:
                 # Если ошибка с форматом ключа, пробуем использовать правильный формат
-                print(f"⚠️ Error with private key format: {key_error}, trying alternative format", file=sys.stderr, flush=True)
-                # Пробуем использовать правильный формат для Ed25519
-                # Ed25519 приватный ключ должен быть 32 байта
-                if isinstance(private_key_bytes, bytes) and len(private_key_bytes) == 32:
-                    # Ключ правильного формата, но может быть проблема с pytoniq
-                    # Пробуем использовать fallback метод
-                    raise Exception(f"Private key format issue: {key_error}")
-                else:
-                    raise Exception(f"Invalid private key: length={len(private_key_bytes) if isinstance(private_key_bytes, bytes) else 'not bytes'}")
+                print(f"⚠️ Error with from_private_key: {key_error}, checking key format", file=sys.stderr, flush=True)
+                # Проверяем формат ключа - может быть проблема с Ed25519
+                # Ed25519 требует правильный формат приватного ключа
+                if "Invalid secret key" in str(key_error):
+                    # Пробуем использовать правильный формат для Ed25519
+                    # Может быть проблема с тем, как мы создаем ключ из seed
+                    raise Exception(f"Invalid Ed25519 secret key format. Key length: {len(private_key_bytes)}, Key type: {type(private_key_bytes)}")
+                raise Exception(f"Cannot create wallet from private key: {key_error}")
             
             print(f"✅ Created wallet from private key using pytoniq", file=sys.stderr, flush=True)
             
@@ -691,8 +698,8 @@ class TonService:
                 body_builder.store_bytes(comment.encode('utf-8'))
                 body = body_builder.end_cell()
             
-            # Используем готовый метод create_transfer_message
-            # Этот метод правильно создает транзакцию без подключения к блокчейну
+            # Используем готовый метод create_transfer_message из pytoniq
+            # Этот метод правильно создает транзакцию БЕЗ подключения к блокчейну
             message = await wallet.create_transfer_message(
                 destination=dest_addr,
                 amount=amount_nano,
@@ -701,9 +708,10 @@ class TonService:
             )
             
             # Получаем BOC base64 из сообщения
+            # message.to_boc_base64() - это готовый метод из pytoniq
             boc_base64 = message.to_boc_base64()
             
-            print(f"✅ Created transaction using pytoniq (seqno={seqno})", file=sys.stderr, flush=True)
+            print(f"✅ Created transaction using pytoniq create_transfer_message (seqno={seqno})", file=sys.stderr, flush=True)
             return boc_base64
             
         except Exception as e:
