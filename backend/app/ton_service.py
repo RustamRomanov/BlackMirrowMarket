@@ -875,43 +875,49 @@ class TonService:
                 # Пробуем создать pytoniq Cell из pytoniq_core Cell
                 # Сначала получаем bytes через правильную сериализацию
                 # Используем правильную сериализацию Cell в BOC
-                # serialize() требует indexes (список, который будет заполнен) и byte_len
-                # indexes должен быть списком, который заполняется при сериализации
-                indexes = []  # Будет заполнен при сериализации
+                # serialize() требует indexes (словарь для хранения индексов) и byte_len
+                indexes = {}  # Словарь для хранения индексов, не список!
                 byte_len = 4  # Длина в байтах для индексов
                 
-                # Сериализуем Cell - indexes будет заполнен автоматически
+                # Сериализуем Cell
                 boc_bytes = external_message.serialize(indexes=indexes, byte_len=byte_len)
                 
-                # Конвертируем bytes в pytoniq Cell и затем в BOC base64
-                pytoniq_cell = PytoniqCell.from_boc(boc_bytes)
+                # Конвертируем bytes в pytoniq Cell
+                # from_boc может вернуть список, берем первый элемент
+                pytoniq_cells = PytoniqCell.from_boc(boc_bytes)
+                if isinstance(pytoniq_cells, list):
+                    pytoniq_cell = pytoniq_cells[0]
+                else:
+                    pytoniq_cell = pytoniq_cells
+                
                 boc_base64 = pytoniq_cell.to_boc_base64()
                 
             except Exception as pytoniq_error:
-                print(f"⚠️ Error converting via pytoniq: {pytoniq_error}, trying direct base64 encoding", file=sys.stderr, flush=True)
+                print(f"⚠️ Error converting via pytoniq with dict indexes: {pytoniq_error}, trying direct base64", file=sys.stderr, flush=True)
                 try:
                     # Альтернативный способ: используем правильную сериализацию
-                    indexes = []
+                    indexes = {}  # Словарь для индексов
                     byte_len = 4
                     boc_bytes = external_message.serialize(indexes=indexes, byte_len=byte_len)
                     # Конвертируем в base64 напрямую
                     import base64
                     boc_base64 = base64.b64encode(boc_bytes).decode('utf-8')
                 except Exception as serialize_error:
-                    print(f"⚠️ Error converting via serialize: {serialize_error}, trying pytoniq Cell.to_boc()", file=sys.stderr, flush=True)
+                    print(f"⚠️ Error converting via serialize: {serialize_error}, trying alternative", file=sys.stderr, flush=True)
                     # Последняя попытка: используем pytoniq Cell напрямую
                     try:
                         # Пробуем создать pytoniq Cell из pytoniq_core Cell
-                        # Конвертируем через bytes representation
-                        if hasattr(external_message, 'to_boc'):
-                            boc_bytes = external_message.to_boc()
-                        else:
-                            # Используем правильную сериализацию
-                            indexes = []
-                            byte_len = 4
-                            boc_bytes = external_message.serialize(indexes=indexes, byte_len=byte_len)
+                        # Используем правильную сериализацию
+                        indexes = {}
+                        byte_len = 4
+                        boc_bytes = external_message.serialize(indexes=indexes, byte_len=byte_len)
                         
-                        pytoniq_cell = PytoniqCell.from_boc(boc_bytes)
+                        pytoniq_cells = PytoniqCell.from_boc(boc_bytes)
+                        if isinstance(pytoniq_cells, list):
+                            pytoniq_cell = pytoniq_cells[0]
+                        else:
+                            pytoniq_cell = pytoniq_cells
+                        
                         boc_base64 = pytoniq_cell.to_boc_base64()
                     except Exception as final_error:
                         raise Exception(f"All conversion methods failed. Last error: {final_error}")
