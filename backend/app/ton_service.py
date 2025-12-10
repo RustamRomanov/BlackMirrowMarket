@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from pytoniq.liteclient import LiteBalancer
-from pytoniq.contract.wallets.wallet import WalletV4R2, Address
+from pytoniq.contract.wallets.wallet import WalletV4R2, WalletV5R1, Address
 from pytoniq import Address as PytoniqAddress
 
 from app import models
@@ -565,225 +565,64 @@ class TonService:
     
     async def _create_wallet_transaction_manually(self, seed_words: list, to_address: str, amount_nano: int, seqno: int, comment: str = None) -> str:
         """
-        Создает транзакцию WalletV4R2 используя toncenter.com API напрямую.
-        Использует готовый сервис для создания и отправки транзакций без необходимости
-        подключения к блокчейну или использования сложных библиотек.
+        Создает транзакцию WalletV5R1 используя pytoniq, но БЕЗ подключения к блокчейну.
+        Использует WalletV5R1.from_mnemonic для создания кошелька локально,
+        затем создает транзакцию через create_transfer_message без вызова start_up().
         """
-        import hashlib
-        import hmac
-        from mnemonic import Mnemonic
-        from pytoniq_core.boc import Builder, Cell
-        from pytoniq import Address as PytoniqAddress
-        import time
-        
-        # Создаем приватный ключ из мнемоники
-        mnemo = Mnemonic("english")
-        seed_string = " ".join(seed_words)
-        seed_bytes = mnemo.to_seed(seed_string)
-        private_key_bytes = seed_bytes[:32]
+        # Используем pytoniq для создания транзакции WalletV5R1
+        # Это более надежный способ, который создает правильную структуру
+        from pytoniq.contract.wallets.wallet import WalletV5R1
+        from pytoniq.liteclient import LiteClient
+        from pytoniq_core.boc import Builder
         
         # Создаем адрес получателя
-        dest_addr = PytoniqAddress(to_address)
+        dest_addr = Address(to_address)
         
-        # Используем toncenter.com API для создания транзакции
-        # Это более надежный способ, который не требует подключения к блокчейну
+        # Создаем клиент, но НЕ подключаемся к блокчейну
+        client = LiteClient.from_mainnet_config()
+        
+        # Создаем кошелек WalletV5R1 из мнемоники БЕЗ подключения
         try:
-            # Создаем транзакцию через toncenter.com API
-            # Используем метод estimateFee для получения правильной структуры
-            ssl_context = ssl.create_default_context()
-            ssl_context.check_hostname = False
-            ssl_context.verify_mode = ssl.CERT_NONE
+            wallet = await WalletV5R1.from_mnemonic(client, seed_words)
+        except Exception as wallet_error:
+            print(f"⚠️ Error creating WalletV5R1 from mnemonic: {wallet_error}", file=sys.stderr, flush=True)
+            # Fallback: пробуем WalletV4R2
+            try:
+                from pytoniq.contract.wallets.wallet import WalletV4R2
+                wallet = await WalletV4R2.from_mnemonic(client, seed_words)
+                print(f"✅ Using WalletV4R2 as fallback", file=sys.stderr, flush=True)
+            except Exception as fallback_error:
+                raise Exception(f"Cannot create wallet from mnemonic: {wallet_error}, fallback also failed: {fallback_error}")
+        
+        # Создаем body с комментарием, если он указан
+        body = None
+        if comment:
+            body_builder = Builder()
+            # Флаг 0 для текстового комментария (op = 0)
+            body_builder.store_uint(0, 32)
+            # Добавляем текст комментария как байты
+            comment_bytes = comment.encode('utf-8')
+            body_builder.store_bytes(comment_bytes)
+            body = body_builder.end_cell()
+        
+        # Создаем транзакцию через метод кошелька
+        # Важно: НЕ вызываем client.start_up() - это позволяет работать без подключения
+        try:
+            signed_tx = await wallet.create_transfer_message(
+                destination=dest_addr,
+                amount=amount_nano,
+                seqno=seqno,
+                body=body  # Добавляем комментарий в транзакцию
+            )
             
-            connector = aiohttp.TCPConnector(ssl=ssl_context)
-            async with aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=30),
-                connector=connector
-            ) as session:
-                # Получаем публичный ключ из приватного
-                import nacl.signing
-                signing_key = nacl.signing.SigningKey(private_key_bytes)
-                public_key = signing_key.verify_key.encode()
-                
-                # Создаем транзакцию через toncenter.com API
-                # Используем метод sendBoc для отправки готовой транзакции
-                # Но сначала нужно создать BOC локально
-                
-                # Создаем body с комментарием
-                body = None
-                if comment:
-                    body_builder = Builder()
-                    body_builder.store_uint(0, 32)  # op = 0 для текстового комментария
-                    comment_bytes = comment.encode('utf-8')
-                    body_builder.store_bytes(comment_bytes)
-                    body = body_builder.end_cell()
-                
-                # Создаем внутреннее сообщение
-                msg_builder = Builder()
-                msg_builder.store_uint(0, 4)  # flags
-                
-                # Сохраняем адрес получателя
-                try:
-                    msg_builder.store_address(dest_addr)
-                except:
-                    # Альтернативный способ: сохраняем адрес как raw bytes
-                    addr_hash = dest_addr.hash_part()
-                    msg_builder.store_bytes(addr_hash)
-                
-                # Сохраняем сумму
-                try:
-                    msg_builder.store_coins(amount_nano)
-                except:
-                    # Альтернативный способ: сохраняем как uint64
-                    msg_builder.store_uint(amount_nano, 64)
-                
-                msg_builder.store_uint(0, 4)  # forward_fee
-                msg_builder.store_ref(Builder().end_cell())  # forward_payload
-                if body:
-                    msg_builder.store_ref(body)
-                else:
-                    msg_builder.store_ref(Builder().end_cell())
-                
-                internal_msg = msg_builder.end_cell()
-                
-                # Создаем тело транзакции кошелька
-                # ВАЖНО: Если кошелек uninit (seqno = 0), нужно создать init транзакцию
-                wallet_body_builder = Builder()
-                
-                if seqno == 0:
-                    # Это init транзакция - нужно включить StateInit
-                    # Определяем тип кошелька по адресу (W5 или V4R2)
-                    # W5 (WalletV5) имеет wallet_id = 0x4 = 4
-                    # V4R2 имеет wallet_id = 698983191
-                    # Проверяем адрес кошелька - если это W5, используем wallet_id = 4
-                    # Определяем wallet_id по типу кошелька
-                    # WalletV5R1 имеет wallet_id = 0x4 = 4
-                    # WalletV4R2 имеет wallet_id = 698983191
-                    wallet_id = 4  # WalletV5R1 (wallet_v5r1) - более новый формат
-                    
-                    # Создаем StateInit для WalletV5
-                    state_init_builder = Builder()
-                    state_init_builder.store_uint(0, 1)  # split_depth (0 = нет split)
-                    state_init_builder.store_uint(0, 1)  # special (0 = нет special)
-                    state_init_builder.store_uint(wallet_id, 32)  # wallet_id для WalletV5 (0x4 = 4)
-                    state_init_builder.store_bytes(public_key)  # публичный ключ
-                    
-                    state_init = state_init_builder.end_cell()
-                    
-                    # Для init транзакции: StateInit + messages
-                    wallet_body_builder.store_ref(state_init)  # StateInit
-                else:
-                    # Обычная транзакция: seqno + expire_at + messages
-                    wallet_body_builder.store_uint(seqno, 32)  # seqno
-                    wallet_body_builder.store_uint(int(time.time()) + 60, 32)  # expire_at
-                
-                # Список сообщений
-                messages_builder = Builder()
-                messages_builder.store_ref(internal_msg)
-                messages_builder.store_uint(0, 1)  # конец списка
-                
-                wallet_body_builder.store_ref(messages_builder.end_cell())
-                wallet_body = wallet_body_builder.end_cell()
-                
-                # Подписываем транзакцию
-                # hash - это свойство Cell, получаем его правильно
-                try:
-                    # Пробуем получить hash как свойство
-                    if hasattr(wallet_body, 'hash'):
-                        wallet_body_hash = wallet_body.hash
-                    else:
-                        # Если hash - это метод
-                        wallet_body_hash = wallet_body.hash()
-                except Exception as hash_error:
-                    # Альтернативный способ: вычисляем hash вручную
-                    import hashlib
-                    wallet_body_bytes = wallet_body.to_boc()
-                    wallet_body_hash = hashlib.sha256(wallet_body_bytes).digest()
-                
-                signature = signing_key.sign(wallet_body_hash).signature
-                
-                # Создаем финальную транзакцию
-                final_builder = Builder()
-                final_builder.store_bytes(signature)
-                final_builder.store_ref(wallet_body)
-                final_cell = final_builder.end_cell()
-                
-                # Конвертируем в BOC base64
-                # Используем pytoniq для конвертации - это самый надежный способ
-                import base64
-                try:
-                    from pytoniq import Cell as PytoniqCell
-                    # Сначала получаем bytes из pytoniq_core Cell
-                    # Пробуем разные способы получения bytes
-                    boc_bytes = None
-                    
-                    # Способ 1: через to_boc() если есть
-                    if hasattr(final_cell, 'to_boc'):
-                        try:
-                            boc_bytes = final_cell.to_boc()
-                        except:
-                            pass
-                    
-                    # Способ 2: через serialize_boc если есть
-                    if not boc_bytes and hasattr(final_cell, 'serialize_boc'):
-                        try:
-                            boc_bytes = final_cell.serialize_boc()
-                        except:
-                            pass
-                    
-                    # Способ 3: используем pytoniq_core.boc.serialize_boc
-                    if not boc_bytes:
-                        try:
-                            from pytoniq_core.boc import serialize_boc
-                            boc_bytes = serialize_boc(final_cell)
-                        except:
-                            pass
-                    
-                    # Если все способы не сработали, пробуем через pytoniq напрямую
-                    if not boc_bytes:
-                        # Создаем pytoniq Cell из pytoniq_core Cell через repr/str
-                        # Или используем другой способ
-                        raise Exception("Cannot get bytes from Cell")
-                    
-                    # Конвертируем bytes в pytoniq Cell и затем в base64
-                    pytoniq_cells = PytoniqCell.from_boc(boc_bytes)
-                    if isinstance(pytoniq_cells, list):
-                        pytoniq_cell = pytoniq_cells[0]
-                    else:
-                        pytoniq_cell = pytoniq_cells
-                    
-                    boc_base64 = pytoniq_cell.to_boc_base64()
-                    
-                except Exception as pytoniq_error:
-                    print(f"⚠️ Error using pytoniq for conversion: {pytoniq_error}", file=sys.stderr, flush=True)
-                    # Fallback: конвертируем напрямую в base64 из bytes
-                    try:
-                        # Пробуем получить bytes напрямую из pytoniq_core Cell
-                        # pytoniq_core Cell имеет метод serialize_boc() или to_boc()
-                        if hasattr(final_cell, 'serialize_boc'):
-                            try:
-                                boc_bytes = final_cell.serialize_boc()
-                            except:
-                                # Если serialize_boc не работает, пробуем другой способ
-                                from pytoniq_core.boc import serialize_boc
-                                boc_bytes = serialize_boc(final_cell)
-                        elif hasattr(final_cell, 'to_boc'):
-                            boc_bytes = final_cell.to_boc()
-                        else:
-                            # Используем pytoniq_core.boc.serialize_boc напрямую
-                            from pytoniq_core.boc import serialize_boc
-                            boc_bytes = serialize_boc(final_cell)
-                        
-                        boc_base64 = base64.b64encode(boc_bytes).decode('utf-8')
-                        print(f"✅ Converted Cell to BOC base64 using direct method", file=sys.stderr, flush=True)
-                    except Exception as final_error:
-                        print(f"⚠️ Error in direct conversion: {final_error}", file=sys.stderr, flush=True)
-                        raise Exception(f"Cannot convert Cell to BOC base64. Tried pytoniq and direct conversion. Last error: {final_error}")
-                
-                return boc_base64
-                
-        except Exception as e:
-            print(f"⚠️ Error creating transaction via toncenter approach: {e}", file=sys.stderr, flush=True)
-            raise Exception(f"Failed to create transaction: {e}")
+            # Получаем BOC
+            boc = signed_tx.to_boc()
+            boc_base64 = boc.to_boc_base64()
+            
+            return boc_base64
+        except Exception as tx_error:
+            print(f"⚠️ Error creating transaction: {tx_error}", file=sys.stderr, flush=True)
+            raise Exception(f"Cannot create transaction: {tx_error}")
     
     async def _send_raw_via_http(self, to_address: str, amount_nano: int, comment: str = None) -> str:
         """
