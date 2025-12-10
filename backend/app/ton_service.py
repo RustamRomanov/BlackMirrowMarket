@@ -633,9 +633,26 @@ class TonService:
                 internal_msg = msg_builder.end_cell()
                 
                 # Создаем тело транзакции кошелька
+                # ВАЖНО: Если кошелек uninit (seqno = 0), нужно создать init транзакцию
                 wallet_body_builder = Builder()
-                wallet_body_builder.store_uint(seqno, 32)
-                wallet_body_builder.store_uint(int(time.time()) + 60, 32)  # expire_at
+                
+                if seqno == 0:
+                    # Это init транзакция - нужно включить StateInit
+                    # Создаем StateInit для WalletV4R2
+                    state_init_builder = Builder()
+                    state_init_builder.store_uint(0, 1)  # split_depth (0 = нет split)
+                    state_init_builder.store_uint(0, 1)  # special (0 = нет special)
+                    state_init_builder.store_uint(698983191, 32)  # wallet_id для WalletV4R2
+                    state_init_builder.store_bytes(public_key)  # публичный ключ
+                    
+                    state_init = state_init_builder.end_cell()
+                    
+                    # Для init транзакции: StateInit + messages
+                    wallet_body_builder.store_ref(state_init)  # StateInit
+                else:
+                    # Обычная транзакция: seqno + expire_at + messages
+                    wallet_body_builder.store_uint(seqno, 32)  # seqno
+                    wallet_body_builder.store_uint(int(time.time()) + 60, 32)  # expire_at
                 
                 # Список сообщений
                 messages_builder = Builder()
