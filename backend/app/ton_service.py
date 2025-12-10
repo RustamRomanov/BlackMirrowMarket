@@ -486,22 +486,43 @@ class TonService:
                         async with session.get(url, headers=headers) as resp:
                             if resp.status == 200:
                                 data = await resp.json()
+                                print(f"🔍 Debug: API response structure: {str(data)[:500]}", file=sys.stderr, flush=True)
+                                
                                 # Получаем seqno из состояния кошелька
-                                seqno = data.get("interfaces", {}).get("wallet_v4r2", {}).get("seqno")
-                                if seqno is not None:
-                                    print(f"✅ Got seqno via API: {seqno}", file=sys.stderr, flush=True)
-                                    return int(seqno)
+                                # interfaces может быть списком или словарем
+                                interfaces = data.get("interfaces", [])
+                                if isinstance(interfaces, list):
+                                    # Если это список, ищем wallet_v4r2
+                                    for interface in interfaces:
+                                        if isinstance(interface, dict) and interface.get("name") == "wallet_v4r2":
+                                            seqno = interface.get("seqno")
+                                            if seqno is not None:
+                                                print(f"✅ Got seqno via API: {seqno}", file=sys.stderr, flush=True)
+                                                return int(seqno)
+                                elif isinstance(interfaces, dict):
+                                    # Если это словарь, пробуем напрямую
+                                    seqno = interfaces.get("wallet_v4r2", {}).get("seqno")
+                                    if seqno is not None:
+                                        print(f"✅ Got seqno via API: {seqno}", file=sys.stderr, flush=True)
+                                        return int(seqno)
+                                
                                 # Альтернативный способ - через состояние
                                 state = data.get("state", {})
-                                if state:
+                                if isinstance(state, dict):
                                     # Пробуем получить seqno из данных состояния
                                     account_state = state.get("account", {})
-                                    if account_state:
+                                    if isinstance(account_state, dict):
                                         # Seqno может быть в разных местах в зависимости от типа кошелька
                                         seqno = account_state.get("seqno")
                                         if seqno is not None:
                                             print(f"✅ Got seqno via API (from state): {seqno}", file=sys.stderr, flush=True)
                                             return int(seqno)
+                                
+                                # Пробуем получить seqno напрямую из data
+                                seqno = data.get("seqno")
+                                if seqno is not None:
+                                    print(f"✅ Got seqno via API (direct): {seqno}", file=sys.stderr, flush=True)
+                                    return int(seqno)
                     except Exception as e:
                         print(f"⚠️ Error getting seqno for {addr}: {e}", file=sys.stderr, flush=True)
                         continue
@@ -550,9 +571,45 @@ class TonService:
         private_key_bytes = seed_bytes[:32]
         
         # Импортируем необходимые модули
-        from pytoniq_core.crypto.keys import PrivateKey
+        # Пробуем разные способы импорта PrivateKey
+        try:
+            from pytoniq_core.crypto.keys import PrivateKey
+        except ImportError:
+            try:
+                from pytoniq.crypto.keys import PrivateKey
+            except ImportError:
+                try:
+                    from pytoniq_core.crypto import PrivateKey
+                except ImportError:
+                    # Используем альтернативный способ - создаем ключ через pytoniq напрямую
+                    from pytoniq.contract.wallets.wallet import WalletV4R2
+                    from pytoniq.liteclient import LiteBalancer
+                    # Используем мнемонику напрямую для создания кошелька
+                    seed_words_list = seed_words
+                    # Создаем временный клиент (не подключаемся)
+                    temp_client = LiteBalancer.from_mainnet_config()
+                    # Создаем кошелек из мнемоники
+                    wallet = await WalletV4R2.from_mnemonic(temp_client, seed_words_list)
+                    # Используем кошелек для создания транзакции
+                    dest_addr = Address(to_address)
+                    print(f"🔄 Creating transfer message using wallet from mnemonic...", file=sys.stderr, flush=True)
+                    msg = wallet.transfer(destination=dest_addr, amount=amount_nano)
+                    # Создаем подписанную транзакцию
+                    signed_tx = await wallet.create_transfer_message(
+                        destination=dest_addr,
+                        amount=amount_nano,
+                        seqno=seqno
+                    )
+                    # Получаем BOC
+                    boc = signed_tx.to_boc()
+                    boc_base64 = boc.to_boc_base64()
+                    print(f"✅ Transaction created and signed locally", file=sys.stderr, flush=True)
+                    # Отправляем через HTTP
+                    return await self._send_boc_via_http(boc_base64)
+        
+        # Если PrivateKey импортирован успешно
         from pytoniq.contract.wallets.wallet import WalletV4R2
-        from pytoniq.liteclient import LiteClient
+        from pytoniq.liteclient import LiteBalancer
         
         private_key = PrivateKey(private_key_bytes)
         dest_addr = Address(to_address)
@@ -634,50 +691,47 @@ class TonService:
             print(f"✅ Transaction created and signed locally", file=sys.stderr, flush=True)
             
             # Отправляем BOC через HTTP endpoint
-            print(f"🔄 Sending transaction via HTTP API...", file=sys.stderr, flush=True)
-            
-            # Используем TON Center API или напрямую в блокчейн через HTTP
-            # Пробуем отправить через TON Center API
-            ssl_context = ssl.create_default_context()
-            ssl_context.check_hostname = False
-            ssl_context.verify_mode = ssl.CERT_NONE
-            
-            connector = aiohttp.TCPConnector(ssl=ssl_context)
-            async with aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=30),
-                connector=connector
-            ) as session:
-                # Отправляем через TON Center API
-                url = "https://toncenter.com/api/v2/sendBoc"
-                params = {
-                    "boc": boc_base64
-                }
-                if self.api_key:
-                    params["api_key"] = self.api_key
-                
-                async with session.post(url, params=params) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        if data.get("ok"):
-                            tx_hash = data.get("result", "")
-                            print(f"✅ Transaction sent via HTTP API! Hash: {tx_hash[:20]}...", file=sys.stderr, flush=True)
-                            return tx_hash
-                        else:
-                            error_msg = data.get("error", "Unknown error")
-                            raise Exception(f"TON Center API error: {error_msg}")
-                    else:
-                        text = await resp.text()
-                        raise Exception(f"TON Center API HTTP error: {resp.status} - {text}")
+            return await self._send_boc_via_http(boc_base64)
             
         except Exception as e:
             error_msg = str(e)
             print(f"⚠️ HTTP method error: {error_msg}", file=sys.stderr, flush=True)
-            # Если это не ошибка создания транзакции, пробуем fallback
-            if "create_transfer_message" not in error_msg.lower() and "from_private_key" not in error_msg.lower():
-                raise
-            # Иначе пробуем fallback на прямой метод
-            print(f"ℹ️ HTTP method failed, trying direct blockchain connection...", file=sys.stderr, flush=True)
-            raise Exception(f"HTTP method failed: {error_msg}. Trying direct method.")
+            raise Exception(f"HTTP method failed: {error_msg}")
+    
+    async def _send_boc_via_http(self, boc_base64: str) -> str:
+        """Отправляет подписанную транзакцию (BOC) через TON Center API."""
+        print(f"🔄 Sending transaction via HTTP API...", file=sys.stderr, flush=True)
+        
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        
+        connector = aiohttp.TCPConnector(ssl=ssl_context)
+        async with aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=30),
+            connector=connector
+        ) as session:
+            # Отправляем через TON Center API
+            url = "https://toncenter.com/api/v2/sendBoc"
+            params = {
+                "boc": boc_base64
+            }
+            if self.api_key:
+                params["api_key"] = self.api_key
+            
+            async with session.post(url, params=params) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    if data.get("ok"):
+                        tx_hash = data.get("result", "")
+                        print(f"✅ Transaction sent via HTTP API! Hash: {tx_hash[:20]}...", file=sys.stderr, flush=True)
+                        return tx_hash
+                    else:
+                        error_msg = data.get("error", "Unknown error")
+                        raise Exception(f"TON Center API error: {error_msg}")
+                else:
+                    text = await resp.text()
+                    raise Exception(f"TON Center API HTTP error: {resp.status} - {text}")
     
     async def _send_raw_via_api(self, to_address: str, amount_nano: int) -> str:
         """
