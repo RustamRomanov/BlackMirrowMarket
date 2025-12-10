@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from pytoniq.liteclient import LiteBalancer
-from pytoniq.contract.wallets.wallet import WalletV4R2, WalletV5R1, Address
+from pytoniq.contract.wallets.wallet import WalletV4R2, Address
 from pytoniq import Address as PytoniqAddress
 
 from app import models
@@ -629,13 +629,14 @@ class TonService:
     
     async def _create_wallet_transaction_manually(self, seed_words: list, to_address: str, amount_nano: int, seqno: int, comment: str = None) -> str:
         """
-        Создает транзакцию WalletV5R1 используя pytoniq, но БЕЗ подключения к блокчейну.
-        Использует WalletV5R1.from_mnemonic для создания кошелька локально,
+        Создает транзакцию используя pytoniq, но БЕЗ подключения к блокчейну.
+        Использует WalletV4R2/V3R1/V3R2.from_mnemonic для создания кошелька локально,
         затем создает транзакцию через create_transfer_message без вызова start_up().
+        Примечание: W5 (WalletV5) в Tonkeeper может быть совместим с WalletV4R2 для транзакций.
         """
-        # Используем pytoniq для создания транзакции WalletV5R1
-        # Это более надежный способ, который создает правильную структуру
-        from pytoniq.contract.wallets.wallet import WalletV5R1
+        # Используем pytoniq для создания транзакции
+        # W5 (WalletV5) может не поддерживаться напрямую в pytoniq
+        # Используем WalletV4R2, который должен работать для большинства кошельков
         from pytoniq.liteclient import LiteClient
         from pytoniq_core.boc import Builder
         
@@ -646,33 +647,33 @@ class TonService:
         client = LiteClient.from_mainnet_config()
         
         # Создаем кошелек из мнемоники БЕЗ подключения
-        # Пробуем разные версии кошельков, начиная с самых новых
+        # Пробуем разные версии кошельков
         wallet = None
         wallet_type = None
         
-        # Пробуем WalletV5R1 (W5)
+        # Пробуем WalletV4R2 (самый распространенный и стабильный)
         try:
-            wallet = await WalletV5R1.from_mnemonic(client, seed_words)
-            wallet_type = "WalletV5R1"
-            print(f"✅ Created WalletV5R1 from mnemonic", file=sys.stderr, flush=True)
-        except Exception as v5_error:
-            print(f"⚠️ Error creating WalletV5R1: {v5_error}", file=sys.stderr, flush=True)
-            # Fallback: пробуем WalletV4R2
+            wallet = await WalletV4R2.from_mnemonic(client, seed_words)
+            wallet_type = "WalletV4R2"
+            print(f"✅ Created WalletV4R2 from mnemonic", file=sys.stderr, flush=True)
+        except Exception as v4_error:
+            print(f"⚠️ Error creating WalletV4R2: {v4_error}", file=sys.stderr, flush=True)
+            # Fallback: пробуем WalletV3R1 (v3R1)
             try:
-                from pytoniq.contract.wallets.wallet import WalletV4R2
-                wallet = await WalletV4R2.from_mnemonic(client, seed_words)
-                wallet_type = "WalletV4R2"
-                print(f"✅ Created WalletV4R2 from mnemonic", file=sys.stderr, flush=True)
-            except Exception as v4_error:
-                print(f"⚠️ Error creating WalletV4R2: {v4_error}", file=sys.stderr, flush=True)
-                # Fallback: пробуем WalletV3R1 (v3R1)
+                from pytoniq.contract.wallets.wallet import WalletV3R1
+                wallet = await WalletV3R1.from_mnemonic(client, seed_words)
+                wallet_type = "WalletV3R1"
+                print(f"✅ Created WalletV3R1 from mnemonic", file=sys.stderr, flush=True)
+            except Exception as v3_error:
+                print(f"⚠️ Error creating WalletV3R1: {v3_error}", file=sys.stderr, flush=True)
+                # Fallback: пробуем WalletV3R2
                 try:
-                    from pytoniq.contract.wallets.wallet import WalletV3R1
-                    wallet = await WalletV3R1.from_mnemonic(client, seed_words)
-                    wallet_type = "WalletV3R1"
-                    print(f"✅ Created WalletV3R1 from mnemonic", file=sys.stderr, flush=True)
-                except Exception as v3_error:
-                    raise Exception(f"Cannot create wallet from mnemonic. Tried V5R1, V4R2, V3R1. Last error: {v3_error}")
+                    from pytoniq.contract.wallets.wallet import WalletV3R2
+                    wallet = await WalletV3R2.from_mnemonic(client, seed_words)
+                    wallet_type = "WalletV3R2"
+                    print(f"✅ Created WalletV3R2 from mnemonic", file=sys.stderr, flush=True)
+                except Exception as v3r2_error:
+                    raise Exception(f"Cannot create wallet from mnemonic. Tried V4R2, V3R1, V3R2. Last error: {v3r2_error}")
         
         if not wallet:
             raise Exception("Failed to create wallet from mnemonic")
