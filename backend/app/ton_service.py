@@ -672,35 +672,53 @@ class TonService:
                 # В pytoniq_core Cell нужно использовать правильный метод
                 import base64
                 try:
-                    # Используем pytoniq для конвертации (более надежно)
+                    # Используем pytoniq для конвертации
                     from pytoniq import Cell as PytoniqCell
-                    # Получаем bytes из pytoniq_core Cell
-                    if hasattr(final_cell, 'to_boc'):
-                        boc_bytes = final_cell.to_boc()
-                    else:
-                        # Используем serialize_boc из pytoniq_core
+                    # Получаем bytes из pytoniq_core Cell через serialize_boc
+                    # pytoniq_core Cell имеет метод serialize_boc() или можно использовать Builder
+                    try:
+                        # Пробуем получить bytes напрямую
+                        if hasattr(final_cell, 'serialize_boc'):
+                            boc_bytes = final_cell.serialize_boc()
+                        elif hasattr(final_cell, 'to_boc'):
+                            boc_bytes = final_cell.to_boc()
+                        else:
+                            # Используем Builder для сериализации
+                            from pytoniq_core.boc import serialize_boc
+                            boc_bytes = serialize_boc(final_cell)
+                    except:
+                        # Альтернативный способ: используем pytoniq_core.boc.serialize_boc
                         from pytoniq_core.boc import serialize_boc
                         boc_bytes = serialize_boc(final_cell)
                     
-                    # Конвертируем в pytoniq Cell и затем в base64
-                    pytoniq_cell = PytoniqCell.from_boc(boc_bytes)
+                    # Конвертируем bytes в pytoniq Cell и затем в base64
+                    # from_boc может вернуть список, берем первый элемент
+                    pytoniq_cells = PytoniqCell.from_boc(boc_bytes)
+                    if isinstance(pytoniq_cells, list):
+                        pytoniq_cell = pytoniq_cells[0]
+                    else:
+                        pytoniq_cell = pytoniq_cells
+                    
                     boc_base64 = pytoniq_cell.to_boc_base64()
                     
                 except Exception as pytoniq_error:
                     print(f"⚠️ Error using pytoniq for conversion: {pytoniq_error}", file=sys.stderr, flush=True)
-                    # Fallback: используем pytoniq_core напрямую
+                    # Fallback: конвертируем напрямую в base64
                     try:
-                        from pytoniq_core.boc import serialize_boc
-                        boc_bytes = serialize_boc(final_cell)
-                        boc_base64 = base64.b64encode(boc_bytes).decode('utf-8')
-                    except Exception as core_error:
-                        print(f"⚠️ Error using pytoniq_core serialize_boc: {core_error}", file=sys.stderr, flush=True)
-                        # Последняя попытка: пробуем to_boc() если есть
+                        # Пробуем получить bytes из Cell
                         if hasattr(final_cell, 'to_boc'):
                             boc_bytes = final_cell.to_boc()
-                            boc_base64 = base64.b64encode(boc_bytes).decode('utf-8')
+                        elif hasattr(final_cell, 'serialize_boc'):
+                            boc_bytes = final_cell.serialize_boc()
                         else:
-                            raise Exception(f"Cannot convert Cell to BOC base64. Tried pytoniq and pytoniq_core. Last error: {core_error}")
+                            # Используем pytoniq_core.boc.serialize_boc
+                            from pytoniq_core.boc import serialize_boc
+                            boc_bytes = serialize_boc(final_cell)
+                        
+                        boc_base64 = base64.b64encode(boc_bytes).decode('utf-8')
+                    except Exception as core_error:
+                        print(f"⚠️ Error converting Cell to bytes: {core_error}", file=sys.stderr, flush=True)
+                        raise Exception(f"Cannot convert Cell to BOC base64. Tried pytoniq and direct conversion. Last error: {core_error}")
                 
                 return boc_base64
                 
@@ -748,7 +766,7 @@ class TonService:
             raise Exception(f"Failed to create transaction manually: {manual_error}")
     
     async def _send_boc_via_http(self, boc_base64: str) -> str:
-        """Отправляет подписанную транзакцию (BOC) через TON Center API."""
+        """Отправляет подписанную транзакцию (BOC) через tonapi.io или toncenter.com API."""
         print(f"🔄 Sending transaction via HTTP API...", file=sys.stderr, flush=True)
         
         ssl_context = ssl.create_default_context()
@@ -760,20 +778,30 @@ class TonService:
             timeout=aiohttp.ClientTimeout(total=30),
             connector=connector
         ) as session:
-            # Отправляем через TON Center API
+            # Сначала пробуем tonapi.io (у нас есть TONAPI_KEY)
+            if self.api_key:
+                try:
+                    # tonapi.io использует другой endpoint для отправки транзакций
+                    # Пробуем через /v2/blockchain/message или используем toncenter.com через tonapi.io proxy
+                    # Но проще использовать toncenter.com напрямую (он не требует API ключа для sendBoc)
+                    print(f"🔄 Trying toncenter.com (no API key required for sendBoc)...", file=sys.stderr, flush=True)
+                except Exception as tonapi_error:
+                    print(f"⚠️ Error: {tonapi_error}", file=sys.stderr, flush=True)
+            
+            # Fallback: используем toncenter.com (без API ключа, он не обязателен для sendBoc)
             url = "https://toncenter.com/api/v2/sendBoc"
             params = {
                 "boc": boc_base64
             }
-            if self.api_key:
-                params["api_key"] = self.api_key
+            # API ключ для toncenter.com не обязателен, но если есть - используем
+            # НО наш TONAPI_KEY для tonapi.io, не для toncenter.com
             
             async with session.post(url, params=params) as resp:
                 if resp.status == 200:
                     data = await resp.json()
                     if data.get("ok"):
                         tx_hash = data.get("result", "")
-                        print(f"✅ Transaction sent via HTTP API! Hash: {tx_hash[:20]}...", file=sys.stderr, flush=True)
+                        print(f"✅ Transaction sent via toncenter.com! Hash: {tx_hash[:20]}...", file=sys.stderr, flush=True)
                         return tx_hash
                     else:
                         error_msg = data.get("error", "Unknown error")
