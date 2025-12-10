@@ -497,14 +497,25 @@ class TonService:
                                 try:
                                     # Пробуем получить seqno через runGetMethod
                                     method_url = f"https://tonapi.io/v2/blockchain/accounts/{addr}/methods/seqno"
-                                    async with session.get(method_url, headers=headers) as method_resp:
+                                    async with session.post(method_url, headers=headers, json={}) as method_resp:
                                         if method_resp.status == 200:
                                             method_data = await method_resp.json()
+                                            print(f"🔍 Debug: runGetMethod response: {str(method_data)[:500]}", file=sys.stderr, flush=True)
+                                            
                                             if "stack" in method_data and len(method_data["stack"]) > 0:
                                                 stack_item = method_data["stack"][0]
                                                 # stack_item может быть словарем с ключами "type" и "value"
                                                 if isinstance(stack_item, dict):
-                                                    seqno_value = stack_item.get("value", stack_item)
+                                                    # Проверяем разные варианты структуры
+                                                    seqno_value = stack_item.get("value")
+                                                    if seqno_value is None:
+                                                        # Может быть вложенная структура
+                                                        if "num" in stack_item:
+                                                            seqno_value = stack_item["num"]
+                                                        elif "dec" in stack_item:
+                                                            seqno_value = stack_item["dec"]
+                                                        else:
+                                                            seqno_value = stack_item
                                                 else:
                                                     seqno_value = stack_item
                                                 
@@ -515,7 +526,7 @@ class TonService:
                                                     seqno = int(seqno_value)
                                                 elif isinstance(seqno_value, dict):
                                                     # Если это словарь, пробуем получить значение из него
-                                                    seqno = int(seqno_value.get("value", 0))
+                                                    seqno = int(seqno_value.get("value", seqno_value.get("num", 0)))
                                                 else:
                                                     seqno = 0
                                                 
@@ -581,18 +592,37 @@ class TonService:
         # Создаем клиент, но НЕ подключаемся к блокчейну
         client = LiteClient.from_mainnet_config()
         
-        # Создаем кошелек WalletV5R1 из мнемоники БЕЗ подключения
+        # Создаем кошелек из мнемоники БЕЗ подключения
+        # Пробуем разные версии кошельков, начиная с самых новых
+        wallet = None
+        wallet_type = None
+        
+        # Пробуем WalletV5R1 (W5)
         try:
             wallet = await WalletV5R1.from_mnemonic(client, seed_words)
-        except Exception as wallet_error:
-            print(f"⚠️ Error creating WalletV5R1 from mnemonic: {wallet_error}", file=sys.stderr, flush=True)
+            wallet_type = "WalletV5R1"
+            print(f"✅ Created WalletV5R1 from mnemonic", file=sys.stderr, flush=True)
+        except Exception as v5_error:
+            print(f"⚠️ Error creating WalletV5R1: {v5_error}", file=sys.stderr, flush=True)
             # Fallback: пробуем WalletV4R2
             try:
                 from pytoniq.contract.wallets.wallet import WalletV4R2
                 wallet = await WalletV4R2.from_mnemonic(client, seed_words)
-                print(f"✅ Using WalletV4R2 as fallback", file=sys.stderr, flush=True)
-            except Exception as fallback_error:
-                raise Exception(f"Cannot create wallet from mnemonic: {wallet_error}, fallback also failed: {fallback_error}")
+                wallet_type = "WalletV4R2"
+                print(f"✅ Created WalletV4R2 from mnemonic", file=sys.stderr, flush=True)
+            except Exception as v4_error:
+                print(f"⚠️ Error creating WalletV4R2: {v4_error}", file=sys.stderr, flush=True)
+                # Fallback: пробуем WalletV3R1 (v3R1)
+                try:
+                    from pytoniq.contract.wallets.wallet import WalletV3R1
+                    wallet = await WalletV3R1.from_mnemonic(client, seed_words)
+                    wallet_type = "WalletV3R1"
+                    print(f"✅ Created WalletV3R1 from mnemonic", file=sys.stderr, flush=True)
+                except Exception as v3_error:
+                    raise Exception(f"Cannot create wallet from mnemonic. Tried V5R1, V4R2, V3R1. Last error: {v3_error}")
+        
+        if not wallet:
+            raise Exception("Failed to create wallet from mnemonic")
         
         # Создаем body с комментарием, если он указан
         body = None
