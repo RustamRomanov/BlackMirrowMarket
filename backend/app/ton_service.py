@@ -669,30 +669,43 @@ class TonService:
                 final_cell = final_builder.end_cell()
                 
                 # Конвертируем в BOC base64
-                # В pytoniq_core Cell нужно использовать правильный метод
+                # Используем pytoniq для конвертации - это самый надежный способ
                 import base64
                 try:
-                    # Используем pytoniq для конвертации
                     from pytoniq import Cell as PytoniqCell
-                    # Получаем bytes из pytoniq_core Cell через serialize_boc
-                    # pytoniq_core Cell имеет метод serialize_boc() или можно использовать Builder
-                    try:
-                        # Пробуем получить bytes напрямую
-                        if hasattr(final_cell, 'serialize_boc'):
-                            boc_bytes = final_cell.serialize_boc()
-                        elif hasattr(final_cell, 'to_boc'):
+                    # Сначала получаем bytes из pytoniq_core Cell
+                    # Пробуем разные способы получения bytes
+                    boc_bytes = None
+                    
+                    # Способ 1: через to_boc() если есть
+                    if hasattr(final_cell, 'to_boc'):
+                        try:
                             boc_bytes = final_cell.to_boc()
-                        else:
-                            # Используем Builder для сериализации
+                        except:
+                            pass
+                    
+                    # Способ 2: через serialize_boc если есть
+                    if not boc_bytes and hasattr(final_cell, 'serialize_boc'):
+                        try:
+                            boc_bytes = final_cell.serialize_boc()
+                        except:
+                            pass
+                    
+                    # Способ 3: используем pytoniq_core.boc.serialize_boc
+                    if not boc_bytes:
+                        try:
                             from pytoniq_core.boc import serialize_boc
                             boc_bytes = serialize_boc(final_cell)
-                    except:
-                        # Альтернативный способ: используем pytoniq_core.boc.serialize_boc
-                        from pytoniq_core.boc import serialize_boc
-                        boc_bytes = serialize_boc(final_cell)
+                        except:
+                            pass
+                    
+                    # Если все способы не сработали, пробуем через pytoniq напрямую
+                    if not boc_bytes:
+                        # Создаем pytoniq Cell из pytoniq_core Cell через repr/str
+                        # Или используем другой способ
+                        raise Exception("Cannot get bytes from Cell")
                     
                     # Конвертируем bytes в pytoniq Cell и затем в base64
-                    # from_boc может вернуть список, берем первый элемент
                     pytoniq_cells = PytoniqCell.from_boc(boc_bytes)
                     if isinstance(pytoniq_cells, list):
                         pytoniq_cell = pytoniq_cells[0]
@@ -703,22 +716,20 @@ class TonService:
                     
                 except Exception as pytoniq_error:
                     print(f"⚠️ Error using pytoniq for conversion: {pytoniq_error}", file=sys.stderr, flush=True)
-                    # Fallback: конвертируем напрямую в base64
+                    # Fallback: конвертируем напрямую в base64 из bytes
                     try:
-                        # Пробуем получить bytes из Cell
+                        # Пробуем получить bytes напрямую
                         if hasattr(final_cell, 'to_boc'):
                             boc_bytes = final_cell.to_boc()
                         elif hasattr(final_cell, 'serialize_boc'):
                             boc_bytes = final_cell.serialize_boc()
                         else:
-                            # Используем pytoniq_core.boc.serialize_boc
-                            from pytoniq_core.boc import serialize_boc
-                            boc_bytes = serialize_boc(final_cell)
+                            # Последняя попытка: используем repr или другой способ
+                            raise Exception("Cannot get bytes from Cell using any method")
                         
                         boc_base64 = base64.b64encode(boc_bytes).decode('utf-8')
-                    except Exception as core_error:
-                        print(f"⚠️ Error converting Cell to bytes: {core_error}", file=sys.stderr, flush=True)
-                        raise Exception(f"Cannot convert Cell to BOC base64. Tried pytoniq and direct conversion. Last error: {core_error}")
+                    except Exception as final_error:
+                        raise Exception(f"Cannot convert Cell to BOC base64. Tried pytoniq and direct conversion. Last error: {final_error}")
                 
                 return boc_base64
                 
@@ -788,15 +799,15 @@ class TonService:
                 except Exception as tonapi_error:
                     print(f"⚠️ Error: {tonapi_error}", file=sys.stderr, flush=True)
             
-            # Fallback: используем toncenter.com (без API ключа, он не обязателен для sendBoc)
+            # Используем toncenter.com (без API ключа, он не обязателен для sendBoc)
+            # toncenter.com ожидает параметры в form-data для POST запроса
             url = "https://toncenter.com/api/v2/sendBoc"
-            params = {
-                "boc": boc_base64
-            }
-            # API ключ для toncenter.com не обязателен, но если есть - используем
-            # НО наш TONAPI_KEY для tonapi.io, не для toncenter.com
             
-            async with session.post(url, params=params) as resp:
+            # ВАЖНО: toncenter.com ожидает POST с form-data, НЕ query string и НЕ JSON
+            form_data = aiohttp.FormData()
+            form_data.add_field('boc', boc_base64)
+            
+            async with session.post(url, data=form_data) as resp:
                 if resp.status == 200:
                     data = await resp.json()
                     if data.get("ok"):
