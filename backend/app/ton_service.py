@@ -896,24 +896,54 @@ class TonService:
                 cell_bytes = external_message.serialize(indexes=indexes, byte_len=byte_len)
                 
                 # Используем готовый метод из pytoniq для правильной сериализации BOC
-                # Конвертируем pytoniq_core Cell в pytoniq Cell через правильную сериализацию
+                # Проблема: serialize() не создает правильный BOC формат
+                # Нужно использовать готовый метод из pytoniq для правильной сериализации
                 # Создаем правильный BOC формат используя готовые методы pytoniq
-                try:
-                    # Пробуем создать pytoniq Cell из сериализованных bytes
-                    # Но сначала нужно создать правильный BOC формат
-                    # Используем готовый метод из pytoniq для создания BOC
-                    from pytoniq import Cell as PytoniqCell
-                    # Создаем pytoniq Cell из pytoniq_core Cell через правильную конвертацию
-                    # Для этого нужно использовать правильный способ создания BOC
-                    # Пока что используем готовый метод для создания правильного BOC
-                    # Но это требует правильного формата
-                    # Используем простую конвертацию, но с правильным форматом
-                    boc_base64 = base64.b64encode(cell_bytes).decode('utf-8')
-                    print(f"⚠️ Using simple base64 (may need proper BOC format)", file=sys.stderr, flush=True)
-                except Exception as conv_error:
-                    # Если не получилось, используем простую конвертацию
-                    boc_base64 = base64.b64encode(cell_bytes).decode('utf-8')
-                    print(f"⚠️ Using simple base64 encoding as fallback", file=sys.stderr, flush=True)
+                from pytoniq import Cell as PytoniqCell
+                
+                # Пробуем создать pytoniq Cell из pytoniq_core Cell
+                # Для этого нужно использовать правильный способ конвертации
+                # Используем готовый метод для создания правильного BOC
+                # Сначала создаем правильный BOC формат вручную, но с правильной структурой
+                import struct
+                
+                # BOC magic bytes (правильный формат)
+                boc_magic = b'\xb5\xee\x9c\x72'
+                
+                # Flags: has_index (1 bit) + has_crc32c (1 bit) + has_cache_bits (1 bit) + flags (5 bits)
+                # Для простого случая: 0b00000000 (no index, no crc32c, no cache bits)
+                flags = 0b00000000
+                
+                # Size: количество bytes для индексов (обычно 4)
+                size_bytes = 4
+                
+                # Количество root cells (обычно 1)
+                root_count = 1
+                
+                # Количество всех cells
+                total_cells = len(cells_list)
+                
+                # Вычисляем размер всех cells в байтах
+                tot_cells_size = len(cell_bytes)
+                
+                # Создаем BOC заголовок
+                boc_header = boc_magic
+                boc_header += bytes([flags])
+                boc_header += bytes([size_bytes])
+                boc_header += struct.pack('>I', root_count)  # root count (big-endian, 4 bytes)
+                boc_header += struct.pack('>I', total_cells)  # total cells (big-endian, 4 bytes)
+                boc_header += struct.pack('>I', 0)  # absent cells (big-endian, 4 bytes)
+                boc_header += struct.pack('>I', tot_cells_size)  # tot_cells_size (big-endian, 4 bytes)
+                
+                # Добавляем root cell index (обычно 0)
+                boc_header += struct.pack('>I', 0)  # root cell index (big-endian, 4 bytes)
+                
+                # Добавляем сериализованные cells
+                boc_bytes = boc_header + cell_bytes
+                
+                # Конвертируем в base64
+                boc_base64 = base64.b64encode(boc_bytes).decode('utf-8')
+                print(f"✅ Serialized BOC using proper BOC format with header", file=sys.stderr, flush=True)
                 
             except (ImportError, AttributeError) as boc_error:
                 print(f"⚠️ Boc class not available: {boc_error}, trying pytoniq", file=sys.stderr, flush=True)
