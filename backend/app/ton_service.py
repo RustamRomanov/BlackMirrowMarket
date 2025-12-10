@@ -797,15 +797,16 @@ class TonService:
                     if "timeout" not in error_msg.lower() and "connection" not in error_msg.lower():
                         raise
                     
-                    # Если это последняя попытка, оставляем транзакцию в pending
-                    # Фоновая задача попробует отправить позже
+                    # Если это последняя попытка, автоматически возвращаем средства
                     if attempt == max_retries:
-                        print(f"⚠️ All {max_retries} attempts failed. Transaction will be processed by background task.", file=sys.stderr, flush=True)
-                        tx.status = "pending"
-                        tx.error_message = f"Initial send failed: {error_msg[:200]}"
+                        print(f"⚠️ All {max_retries} attempts failed. Automatically refunding funds to user balance.", file=sys.stderr, flush=True)
+                        # Возвращаем средства на баланс
+                        balance.ton_active_balance += amount_nano
+                        tx.status = "failed"
+                        tx.error_message = f"All {max_retries} send attempts failed: {error_msg[:200]}. Funds automatically refunded."
                         db.commit()
                         db.refresh(tx)
-                        # НЕ выбрасываем ошибку - транзакция создана, будет обработана фоновой задачей
+                        # Возвращаем транзакцию, но не выбрасываем ошибку - средства уже возвращены
                         return tx, True
                     
                     # Ждем перед следующей попыткой
@@ -1396,10 +1397,11 @@ class TonService:
     async def process_pending_withdrawals(self, db: Session):
         """
         Обрабатывает pending транзакции вывода, которые не удалось отправить сразу.
-        Пробует отправить их снова.
+        Пробует отправить их снова. Если не удается после нескольких попыток - автоматически возвращает средства.
         """
         from app.models import TonTransaction
         import sys
+        from datetime import datetime, timedelta
         
         # Находим все pending транзакции без tx_hash
         pending_txs = db.query(TonTransaction).filter(
@@ -1414,6 +1416,31 @@ class TonService:
         
         for tx in pending_txs:
             try:
+                # Проверяем, сколько времени прошло с момента создания транзакции
+                time_since_creation = datetime.utcnow() - (tx.created_at.replace(tzinfo=None) if tx.created_at and tx.created_at.tzinfo else tx.created_at) if tx.created_at else timedelta(0)
+                max_wait_time = timedelta(minutes=5)  # Максимальное время ожидания - 5 минут
+                
+                # Если транзакция слишком старая и все еще не отправлена - возвращаем средства
+                if time_since_creation > max_wait_time:
+                    print(f"⚠️ Transaction {tx.id} is too old ({time_since_creation}), automatically refunding...", file=sys.stderr, flush=True)
+                    
+                    # Находим пользователя и возвращаем средства
+                    if tx.user_id:
+                        user = db.query(models.User).filter(models.User.id == tx.user_id).first()
+                        if user:
+                            balance = db.query(models.UserBalance).filter(
+                                models.UserBalance.user_id == user.id
+                            ).first()
+                            if balance:
+                                balance.ton_active_balance += tx.amount_nano
+                                print(f"✅ Automatically refunded {float(tx.amount_nano) / 10**9:.4f} TON to user {user.telegram_id}", file=sys.stderr, flush=True)
+                    
+                    tx.status = "failed"
+                    tx.error_message = f"Transaction failed: could not send after {time_since_creation}. Funds automatically refunded."
+                    db.commit()
+                    continue
+                
+                # Пробуем отправить транзакцию
                 print(f"🔄 Attempting to send pending transaction {tx.id}...", file=sys.stderr, flush=True)
                 tx_hash = await self._send_raw(tx.to_address, int(tx.amount_nano))
                 tx.tx_hash = tx_hash
@@ -1424,8 +1451,41 @@ class TonService:
             except Exception as e:
                 error_msg = str(e)
                 print(f"⚠️ Failed to send pending transaction {tx.id}: {error_msg}", file=sys.stderr, flush=True)
-                tx.error_message = error_msg[:200]
-                db.commit()
+                
+                # Подсчитываем количество попыток по error_message
+                attempt_count = tx.error_message.count("attempt") if tx.error_message else 0
+                max_auto_attempts = 5  # Максимум автоматических попыток
+                
+                # Проверяем время с момента создания
+                time_since_creation = datetime.utcnow() - (tx.created_at.replace(tzinfo=None) if tx.created_at and tx.created_at.tzinfo else tx.created_at) if tx.created_at else timedelta(0)
+                max_wait_time = timedelta(minutes=5)
+                
+                # Если попыток слишком много или транзакция слишком старая - возвращаем средства
+                if attempt_count >= max_auto_attempts or time_since_creation > max_wait_time:
+                    print(f"⚠️ Too many failed attempts ({attempt_count}) or too old transaction {tx.id}, automatically refunding...", file=sys.stderr, flush=True)
+                    
+                    # Возвращаем средства
+                    if tx.user_id:
+                        user = db.query(models.User).filter(models.User.id == tx.user_id).first()
+                        if user:
+                            balance = db.query(models.UserBalance).filter(
+                                models.UserBalance.user_id == user.id
+                            ).first()
+                            if balance:
+                                balance.ton_active_balance += tx.amount_nano
+                                print(f"✅ Automatically refunded {float(tx.amount_nano) / 10**9:.4f} TON to user {user.telegram_id}", file=sys.stderr, flush=True)
+                    
+                    tx.status = "failed"
+                    tx.error_message = f"Transaction failed after {attempt_count + 1} attempts: {error_msg[:200]}. Funds automatically refunded."
+                    db.commit()
+                else:
+                    # Обновляем error_message с информацией о попытке
+                    new_error = f"Attempt {attempt_count + 1} failed: {error_msg[:200]}"
+                    if tx.error_message:
+                        tx.error_message = f"{tx.error_message}; {new_error}"
+                    else:
+                        tx.error_message = new_error
+                    db.commit()
                 # Продолжаем обработку других транзакций
     
     async def update_pending_transactions(self, db: Session):
