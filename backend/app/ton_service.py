@@ -800,14 +800,14 @@ class TonService:
                     print(f"⚠️ Error: {tonapi_error}", file=sys.stderr, flush=True)
             
             # Используем toncenter.com (без API ключа, он не обязателен для sendBoc)
-            # toncenter.com ожидает параметры в form-data для POST запроса
+            # toncenter.com ожидает параметры в query string для GET запроса
             url = "https://toncenter.com/api/v2/sendBoc"
+            params = {
+                "boc": boc_base64
+            }
             
-            # ВАЖНО: toncenter.com ожидает POST с form-data, НЕ query string и НЕ JSON
-            form_data = aiohttp.FormData()
-            form_data.add_field('boc', boc_base64)
-            
-            async with session.post(url, data=form_data) as resp:
+            # Пробуем GET запрос с параметрами в query string (стандартный способ для toncenter.com)
+            async with session.get(url, params=params) as resp:
                 if resp.status == 200:
                     data = await resp.json()
                     if data.get("ok"):
