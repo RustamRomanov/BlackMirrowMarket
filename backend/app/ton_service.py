@@ -550,7 +550,7 @@ class TonService:
             print(f"⚠️ Error getting seqno via API: {e}, using 0", file=sys.stderr, flush=True)
             return 0
     
-    async def _create_wallet_transaction_manually(self, seed_words: list, to_address: str, amount_nano: int, seqno: int) -> str:
+    async def _create_wallet_transaction_manually(self, seed_words: list, to_address: str, amount_nano: int, seqno: int, comment: str = None) -> str:
         """
         Создает транзакцию WalletV4R2 используя pytoniq, но без подключения к блокчейну.
         Использует обходной путь - создает кошелек локально и транзакцию без вызова методов, требующих подключения.
@@ -558,6 +558,7 @@ class TonService:
         from mnemonic import Mnemonic
         from pytoniq.contract.wallets.wallet import WalletV4R2
         from pytoniq.liteclient import LiteClient
+        from pytoniq_core.boc import Builder, Cell
         
         # Создаем приватный ключ из мнемоники
         mnemo = Mnemonic("english")
@@ -592,11 +593,23 @@ class TonService:
         # Создаем транзакцию используя внутренние методы кошелька
         # Используем метод, который не требует подключения
         try:
+            # Создаем body с комментарием, если он указан
+            body = None
+            if comment:
+                # Создаем ячейку с комментарием (текстовое сообщение)
+                builder = Builder()
+                # Флаг 0 для текстового комментария
+                builder.store_uint(0, 32)
+                # Добавляем текст комментария
+                builder.store_string(comment)
+                body = builder.end_cell()
+            
             # Пробуем создать транзакцию напрямую через внутренние методы
             signed_tx = await wallet.create_transfer_message(
                 destination=dest_addr,
                 amount=amount_nano,
-                seqno=seqno
+                seqno=seqno,
+                body=body  # Добавляем комментарий в транзакцию
             )
             
             # Получаем BOC
@@ -609,7 +622,7 @@ class TonService:
             print(f"⚠️ Error creating transaction: {tx_error}", file=sys.stderr, flush=True)
             raise Exception(f"Cannot create transaction: {tx_error}")
     
-    async def _send_raw_via_http(self, to_address: str, amount_nano: int) -> str:
+    async def _send_raw_via_http(self, to_address: str, amount_nano: int, comment: str = None) -> str:
         """
         Отправка TON через HTTP API без прямого подключения к блокчейну.
         Создает и подписывает транзакцию локально, затем отправляет через HTTP.
@@ -637,8 +650,10 @@ class TonService:
         
         # Создаем транзакцию вручную
         print(f"🔄 Creating transaction manually (no blockchain connection)...", file=sys.stderr, flush=True)
+        if comment:
+            print(f"📝 Adding comment to transaction: {comment}", file=sys.stderr, flush=True)
         try:
-            boc_base64 = await self._create_wallet_transaction_manually(seed_words, to_address, amount_nano, seqno)
+            boc_base64 = await self._create_wallet_transaction_manually(seed_words, to_address, amount_nano, seqno, comment)
             print(f"✅ Transaction created and signed manually", file=sys.stderr, flush=True)
             return await self._send_boc_via_http(boc_base64)
         except Exception as manual_error:
@@ -692,14 +707,14 @@ class TonService:
             print(f"⚠️ HTTP-based sending failed: {http_error}, trying direct method...", file=sys.stderr, flush=True)
             return await self._send_raw(to_address, amount_nano)
     
-    async def _send_raw(self, to_address: str, amount_nano: int) -> str:
+    async def _send_raw(self, to_address: str, amount_nano: int, comment: str = None) -> str:
         """
         Отправка TON. Возвращает tx_hash.
         Использует ТОЛЬКО HTTP API для максимальной скорости и надежности.
         """
         # Сразу используем HTTP метод - он работает без подключения к блокчейну
         print(f"🚀 Using HTTP-based transaction sending (fast and reliable)...", file=sys.stderr, flush=True)
-        return await self._send_raw_via_http(to_address, amount_nano)
+        return await self._send_raw_via_http(to_address, amount_nano, comment)
 
     async def create_withdrawal(
         self,
@@ -750,6 +765,7 @@ class TonService:
                 detail=f"Insufficient funds. Available: {available_ton:.4f} TON, Requested: {float(amount_nano) / 10**9:.4f} TON"
             )
 
+        # Создаем запись о транзакции БЕЗ списания средств
         tx = models.TonTransaction(
             user_id=user.id,
             to_address=to_address,
@@ -757,9 +773,6 @@ class TonService:
             status="pending",
             idempotency_key=key,
         )
-
-        # Резервируем средства
-        balance.ton_active_balance -= amount_nano
         db.add(tx)
         db.commit()
         db.refresh(tx)
@@ -774,19 +787,27 @@ class TonService:
                     detail=f"Invalid TON address: {to_address}. Error: {str(addr_error)}"
                 )
             
+            # Создаем комментарий с Telegram ID пользователя
+            comment = str(telegram_id)
+            print(f"📝 Adding comment to transaction: Telegram ID {telegram_id}", file=sys.stderr, flush=True)
+            
             # Отправка транзакции с несколькими попытками
+            # ВАЖНО: Средства списываются ТОЛЬКО после успешной отправки (получения tx_hash)
             max_retries = 3
             last_error = None
+            tx_hash = None
             
             for attempt in range(1, max_retries + 1):
                 try:
                     print(f"🔄 Attempt {attempt}/{max_retries} to send transaction...", file=sys.stderr, flush=True)
-                    tx_hash = await self._send_raw(to_address, int(amount_nano))
+                    tx_hash = await self._send_raw(to_address, int(amount_nano), comment)
+                    # ТОЛЬКО после успешной отправки списываем средства
+                    balance.ton_active_balance -= amount_nano
                     tx.tx_hash = tx_hash
                     tx.status = "pending"
                     db.commit()
                     db.refresh(tx)
-                    print(f"✅ Transaction sent successfully on attempt {attempt}", file=sys.stderr, flush=True)
+                    print(f"✅ Transaction sent successfully on attempt {attempt}. Funds deducted from balance.", file=sys.stderr, flush=True)
                     break  # Успешно отправили
                 except Exception as send_error:
                     last_error = send_error
@@ -797,33 +818,43 @@ class TonService:
                     if "timeout" not in error_msg.lower() and "connection" not in error_msg.lower():
                         raise
                     
-                    # Если это последняя попытка, автоматически возвращаем средства
+                    # Если это последняя попытка - транзакция не отправлена, средства НЕ списывались
                     if attempt == max_retries:
-                        print(f"⚠️ All {max_retries} attempts failed. Automatically refunding funds to user balance.", file=sys.stderr, flush=True)
-                        # Возвращаем средства на баланс
-                        balance.ton_active_balance += amount_nano
+                        print(f"⚠️ All {max_retries} attempts failed. Transaction not sent, funds NOT deducted.", file=sys.stderr, flush=True)
                         tx.status = "failed"
-                        tx.error_message = f"All {max_retries} send attempts failed: {error_msg[:200]}. Funds automatically refunded."
+                        tx.error_message = f"All {max_retries} send attempts failed: {error_msg[:200]}. Transaction not sent, funds remain on balance."
                         db.commit()
                         db.refresh(tx)
-                        # Возвращаем транзакцию, но не выбрасываем ошибку - средства уже возвращены
+                        # Возвращаем транзакцию, но не выбрасываем ошибку - средства не списывались
                         return tx, True
                     
                     # Ждем перед следующей попыткой
                     await asyncio.sleep(2)
+            
+            # Если не получили tx_hash после всех попыток - транзакция не отправлена
+            if not tx_hash:
+                tx.status = "failed"
+                tx.error_message = f"Transaction not sent after {max_retries} attempts. Funds remain on balance."
+                db.commit()
+                db.refresh(tx)
+                return tx, True
+                
         except HTTPException:
             # Пробрасываем HTTPException как есть
+            # Средства не списывались, так что просто удаляем транзакцию или помечаем как failed
+            tx.status = "failed"
+            tx.error_message = "Transaction validation failed. Funds not deducted."
+            db.commit()
             raise
         except Exception as exc:
-            # Возврат средств при неуспехе
+            # Ошибка при отправке - средства НЕ списывались
             error_msg = str(exc)
             error_trace = traceback.format_exc()
             print(f"❌ Ошибка при выводе средств: {error_msg}", file=sys.stderr, flush=True)
             print(f"❌ Traceback: {error_trace}", file=sys.stderr, flush=True)
             
             tx.status = "failed"
-            tx.error_message = error_msg[:500]  # Ограничиваем длину сообщения об ошибке
-            balance.ton_active_balance += amount_nano
+            tx.error_message = f"Transaction failed: {error_msg[:500]}. Funds NOT deducted."
             db.commit()
             db.refresh(tx)
             raise HTTPException(
@@ -1397,13 +1428,13 @@ class TonService:
     async def process_pending_withdrawals(self, db: Session):
         """
         Обрабатывает pending транзакции вывода, которые не удалось отправить сразу.
-        Пробует отправить их снова. Если не удается после нескольких попыток - автоматически возвращает средства.
+        Пробует отправить их снова. Средства списываются ТОЛЬКО после успешной отправки.
         """
         from app.models import TonTransaction
         import sys
         from datetime import datetime, timedelta
         
-        # Находим все pending транзакции без tx_hash
+        # Находим все pending транзакции без tx_hash (средства еще не списаны)
         pending_txs = db.query(TonTransaction).filter(
             TonTransaction.status == "pending",
             TonTransaction.tx_hash.is_(None)
@@ -1412,37 +1443,44 @@ class TonService:
         if not pending_txs:
             return
         
-        print(f"🔄 Processing {len(pending_txs)} pending withdrawal transactions...", file=sys.stderr, flush=True)
+        print(f"🔄 Processing {len(pending_txs)} pending withdrawal transactions (funds not deducted yet)...", file=sys.stderr, flush=True)
         
         for tx in pending_txs:
             try:
                 # Проверяем, сколько времени прошло с момента создания транзакции
                 time_since_creation = datetime.utcnow() - (tx.created_at.replace(tzinfo=None) if tx.created_at and tx.created_at.tzinfo else tx.created_at) if tx.created_at else timedelta(0)
-                max_wait_time = timedelta(minutes=5)  # Максимальное время ожидания - 5 минут
+                max_wait_time = timedelta(minutes=10)  # Максимальное время ожидания - 10 минут
                 
-                # Если транзакция слишком старая и все еще не отправлена - возвращаем средства
+                # Если транзакция слишком старая и все еще не отправлена - помечаем как failed
+                # Средства НЕ списывались, так что возвращать нечего
                 if time_since_creation > max_wait_time:
-                    print(f"⚠️ Transaction {tx.id} is too old ({time_since_creation}), automatically refunding...", file=sys.stderr, flush=True)
-                    
-                    # Находим пользователя и возвращаем средства
-                    if tx.user_id:
-                        user = db.query(models.User).filter(models.User.id == tx.user_id).first()
-                        if user:
-                            balance = db.query(models.UserBalance).filter(
-                                models.UserBalance.user_id == user.id
-                            ).first()
-                            if balance:
-                                balance.ton_active_balance += tx.amount_nano
-                                print(f"✅ Automatically refunded {float(tx.amount_nano) / 10**9:.4f} TON to user {user.telegram_id}", file=sys.stderr, flush=True)
-                    
+                    print(f"⚠️ Transaction {tx.id} is too old ({time_since_creation}), marking as failed (funds were never deducted).", file=sys.stderr, flush=True)
                     tx.status = "failed"
-                    tx.error_message = f"Transaction failed: could not send after {time_since_creation}. Funds automatically refunded."
+                    tx.error_message = f"Transaction failed: could not send after {time_since_creation}. Funds were never deducted."
                     db.commit()
                     continue
                 
+                # Получаем пользователя для комментария
+                user = None
+                comment = None
+                if tx.user_id:
+                    user = db.query(models.User).filter(models.User.id == tx.user_id).first()
+                    if user:
+                        comment = str(user.telegram_id)
+                
                 # Пробуем отправить транзакцию
                 print(f"🔄 Attempting to send pending transaction {tx.id}...", file=sys.stderr, flush=True)
-                tx_hash = await self._send_raw(tx.to_address, int(tx.amount_nano))
+                tx_hash = await self._send_raw(tx.to_address, int(tx.amount_nano), comment)
+                
+                # ТОЛЬКО после успешной отправки списываем средства
+                if tx.user_id and user:
+                    balance = db.query(models.UserBalance).filter(
+                        models.UserBalance.user_id == user.id
+                    ).first()
+                    if balance:
+                        balance.ton_active_balance -= tx.amount_nano
+                        print(f"✅ Funds deducted from balance after successful send: {float(tx.amount_nano) / 10**9:.4f} TON", file=sys.stderr, flush=True)
+                
                 tx.tx_hash = tx_hash
                 tx.status = "pending"  # Остается pending до подтверждения
                 tx.error_message = None  # Очищаем ошибку
@@ -1458,25 +1496,14 @@ class TonService:
                 
                 # Проверяем время с момента создания
                 time_since_creation = datetime.utcnow() - (tx.created_at.replace(tzinfo=None) if tx.created_at and tx.created_at.tzinfo else tx.created_at) if tx.created_at else timedelta(0)
-                max_wait_time = timedelta(minutes=5)
+                max_wait_time = timedelta(minutes=10)
                 
-                # Если попыток слишком много или транзакция слишком старая - возвращаем средства
+                # Если попыток слишком много или транзакция слишком старая - помечаем как failed
+                # Средства НЕ списывались, так что возвращать нечего
                 if attempt_count >= max_auto_attempts or time_since_creation > max_wait_time:
-                    print(f"⚠️ Too many failed attempts ({attempt_count}) or too old transaction {tx.id}, automatically refunding...", file=sys.stderr, flush=True)
-                    
-                    # Возвращаем средства
-                    if tx.user_id:
-                        user = db.query(models.User).filter(models.User.id == tx.user_id).first()
-                        if user:
-                            balance = db.query(models.UserBalance).filter(
-                                models.UserBalance.user_id == user.id
-                            ).first()
-                            if balance:
-                                balance.ton_active_balance += tx.amount_nano
-                                print(f"✅ Automatically refunded {float(tx.amount_nano) / 10**9:.4f} TON to user {user.telegram_id}", file=sys.stderr, flush=True)
-                    
+                    print(f"⚠️ Too many failed attempts ({attempt_count}) or too old transaction {tx.id}, marking as failed (funds were never deducted).", file=sys.stderr, flush=True)
                     tx.status = "failed"
-                    tx.error_message = f"Transaction failed after {attempt_count + 1} attempts: {error_msg[:200]}. Funds automatically refunded."
+                    tx.error_message = f"Transaction failed after {attempt_count + 1} attempts: {error_msg[:200]}. Funds were never deducted."
                     db.commit()
                 else:
                     # Обновляем error_message с информацией о попытке

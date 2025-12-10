@@ -234,34 +234,33 @@ async def startup_event():
     from decimal import Decimal
     db = SessionLocal()
     try:
-        # Автоматически возвращаем средства для старых pending транзакций без tx_hash
-        print("🔄 Checking for old pending transactions to refund...", file=sys.stderr, flush=True)
+        # Помечаем старые pending транзакции без tx_hash как failed
+        # Средства НЕ списывались, так что возвращать нечего
+        print("🔄 Checking for old pending transactions without tx_hash...", file=sys.stderr, flush=True)
         old_pending_txs = db.query(TonTransaction).filter(
             TonTransaction.status == "pending",
             TonTransaction.tx_hash.is_(None)
         ).all()
         
-        refunded_count = 0
+        failed_count = 0
         for tx in old_pending_txs:
             # Проверяем, сколько времени прошло
             time_since_creation = datetime.utcnow() - (tx.created_at.replace(tzinfo=None) if tx.created_at and tx.created_at.tzinfo else tx.created_at) if tx.created_at else timedelta(0)
             
-            # Если транзакция старше 1 минуты - возвращаем средства
+            # Если транзакция старше 1 минуты - помечаем как failed
+            # Средства НЕ списывались, так что возвращать нечего
             if time_since_creation > timedelta(minutes=1):
+                tx.status = "failed"
+                tx.error_message = f"Transaction failed on startup: could not send after {time_since_creation}. Funds were never deducted."
+                failed_count += 1
                 if tx.user_id:
                     user = db.query(User).filter(User.id == tx.user_id).first()
                     if user:
-                        balance = db.query(UserBalance).filter(UserBalance.user_id == user.id).first()
-                        if balance:
-                            balance.ton_active_balance += tx.amount_nano
-                            tx.status = "failed"
-                            tx.error_message = f"Transaction failed on startup: could not send after {time_since_creation}. Funds automatically refunded."
-                            refunded_count += 1
-                            print(f"✅ Startup refund: {float(tx.amount_nano) / 10**9:.4f} TON to user {user.telegram_id}", file=sys.stderr, flush=True)
+                        print(f"⚠️ Startup: Marked transaction {tx.id} as failed for user {user.telegram_id} (funds were never deducted)", file=sys.stderr, flush=True)
         
-        if refunded_count > 0:
+        if failed_count > 0:
             db.commit()
-            print(f"✅ Startup: Automatically refunded {refunded_count} failed transactions", file=sys.stderr, flush=True)
+            print(f"✅ Startup: Marked {failed_count} old pending transactions as failed (funds were never deducted)", file=sys.stderr, flush=True)
         
         # Удаляем тестовые задания (is_test=True)
         test_tasks = db.query(Task).filter(Task.is_test == True).all()
