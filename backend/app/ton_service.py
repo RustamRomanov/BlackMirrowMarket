@@ -552,37 +552,27 @@ class TonService:
     
     async def _create_wallet_transaction_manually(self, seed_words: list, to_address: str, amount_nano: int, seqno: int, comment: str = None) -> str:
         """
-        ПОЛНОСТЬЮ РУЧНОЕ создание транзакции WalletV4R2 без использования объектов кошелька.
-        Создает структуру транзакции напрямую через pytoniq_core Builder, подписывает приватным ключом.
-        Это позволяет обойти проблемы с подключением к блокчейну на Railway.
-        
-        Структура транзакции WalletV4R2:
-        1. Подпись (512 бит)
-        2. Тело транзакции:
-           - Seqno (32 бита)
-           - Expire at (32 бита)
-           - Список сообщений (Cell)
+        Создает транзакцию WalletV4R2 используя pytoniq, но БЕЗ подключения к блокчейну.
+        Использует WalletV4R2.from_mnemonic для создания кошелька локально,
+        затем создает транзакцию через create_transfer_message без вызова start_up().
         """
-        from mnemonic import Mnemonic
-        from pytoniq_core.boc import Builder, Cell
-        from pytoniq import Address as PytoniqAddress
-        import time
-        
-        # Создаем приватный ключ из мнемоники
-        mnemo = Mnemonic("english")
-        seed_string = " ".join(seed_words)
-        seed_bytes = mnemo.to_seed(seed_string)
-        private_key_bytes = seed_bytes[:32]
+        from pytoniq.contract.wallets.wallet import WalletV4R2
+        from pytoniq.liteclient import LiteClient
+        from pytoniq_core.boc import Builder
         
         # Создаем адрес получателя
-        try:
-            dest_addr = Address(to_address)
-        except:
-            # Если Address не работает, используем PytoniqAddress
-            dest_addr = PytoniqAddress(to_address)
+        dest_addr = Address(to_address)
         
-        # Создаем body сообщения (комментарий)
-        message_body = None
+        # Создаем клиент, но НЕ подключаемся к блокчейну
+        # Используем LiteClient, но не вызываем start_up()
+        client = LiteClient.from_mainnet_config()
+        
+        # Создаем кошелек из мнемоники БЕЗ подключения
+        # WalletV4R2.from_mnemonic может работать без start_up() для создания транзакции
+        wallet = await WalletV4R2.from_mnemonic(client, seed_words)
+        
+        # Создаем body с комментарием, если он указан
+        body = None
         if comment:
             body_builder = Builder()
             # Флаг 0 для текстового комментария (op = 0)
@@ -590,77 +580,20 @@ class TonService:
             # Добавляем текст комментария как байты
             comment_bytes = comment.encode('utf-8')
             body_builder.store_bytes(comment_bytes)
-            message_body = body_builder.end_cell()
-        else:
-            # Пустое тело
-            message_body = Builder().end_cell()
+            body = body_builder.end_cell()
         
-        # Создаем внутреннее сообщение (InternalMessage)
-        # Структура: flags (4) + dest_addr (267) + amount (VarUInteger 16) + forward_fee (4) + forward_payload (Cell) + body (Cell)
-        message_builder = Builder()
-        message_builder.store_uint(0, 4)  # flags: 0 = простой перевод
+        # Создаем транзакцию через метод кошелька
+        # Важно: НЕ вызываем client.start_up() - это позволяет работать без подключения
+        signed_tx = await wallet.create_transfer_message(
+            destination=dest_addr,
+            amount=amount_nano,
+            seqno=seqno,
+            body=body  # Добавляем комментарий в транзакцию
+        )
         
-        # Сохраняем адрес получателя
-        try:
-            message_builder.store_address(dest_addr)
-        except:
-            # Альтернативный способ: сохраняем адрес как raw bytes
-            addr_bytes = dest_addr.hash_part()
-            message_builder.store_bytes(addr_bytes)
-        
-        # Сохраняем сумму (VarUInteger 16 - до 120 бит)
-        try:
-            message_builder.store_coins(amount_nano)
-        except:
-            # Альтернативный способ: сохраняем как uint64
-            message_builder.store_uint(amount_nano, 64)
-        
-        message_builder.store_uint(0, 4)  # forward_fee
-        message_builder.store_ref(Builder().end_cell())  # forward_payload (пустое)
-        message_builder.store_ref(message_body)  # body с комментарием
-        
-        internal_message = message_builder.end_cell()
-        
-        # Создаем тело транзакции кошелька
-        # Структура: seqno (32) + expire_at (32) + messages (Cell)
-        wallet_body_builder = Builder()
-        wallet_body_builder.store_uint(seqno, 32)  # seqno
-        wallet_body_builder.store_uint(int(time.time()) + 60, 32)  # expire_at (текущее время + 60 сек)
-        
-        # Создаем список сообщений (обычно одно сообщение)
-        messages_builder = Builder()
-        messages_builder.store_ref(internal_message)  # первое сообщение
-        messages_builder.store_uint(0, 1)  # конец списка (0 = нет следующего)
-        
-        wallet_body_builder.store_ref(messages_builder.end_cell())  # список сообщений
-        
-        wallet_body = wallet_body_builder.end_cell()
-        
-        # Подписываем тело транзакции
-        wallet_body_hash = wallet_body.hash()
-        
-        # Используем функцию sign из pytoniq_core
-        try:
-            from pytoniq_core.crypto.signature import sign as sign_func
-            signature = sign_func(wallet_body_hash, private_key_bytes)
-        except ImportError:
-            # Альтернативный способ подписи через nacl
-            try:
-                import nacl.signing
-                signing_key = nacl.signing.SigningKey(private_key_bytes)
-                signature = signing_key.sign(wallet_body_hash).signature
-            except ImportError:
-                raise Exception("Cannot sign transaction: need pytoniq_core.crypto.signature or nacl")
-        
-        # Создаем финальную транзакцию: подпись + тело
-        final_builder = Builder()
-        final_builder.store_bytes(signature)  # подпись (512 бит = 64 байта)
-        final_builder.store_ref(wallet_body)  # тело транзакции
-        
-        final_cell = final_builder.end_cell()
-        
-        # Конвертируем в BOC base64
-        boc_base64 = final_cell.to_boc_base64()
+        # Получаем BOC
+        boc = signed_tx.to_boc()
+        boc_base64 = boc.to_boc_base64()
         
         return boc_base64
     
