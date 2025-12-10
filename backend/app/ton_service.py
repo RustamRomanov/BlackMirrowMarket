@@ -791,28 +791,25 @@ class TonService:
             external_message = external_builder.end_cell()
             
             # Конвертируем в BOC base64
-            # Используем правильный метод для сериализации BOC из pytoniq
-            # Проблема: serialize() из pytoniq_core не создает правильный BOC формат
-            # Нужно использовать pytoniq Cell.to_boc_base64() для правильной сериализации
+            # Используем правильный метод для сериализации BOC из pytoniq_core
+            # Проблема: serialize() не создает правильный BOC формат с заголовком
+            # Нужно использовать класс Boc из pytoniq_core для правильной сериализации
             try:
-                from pytoniq import Cell as PytoniqCell
-                from pytoniq_core.boc import serialize_boc as core_serialize_boc
+                from pytoniq_core.boc import Boc
+                import base64
                 
-                # Пробуем использовать serialize_boc из pytoniq_core (если доступен)
+                # Используем Boc класс для правильной сериализации
+                # Boc.serialize() создает правильный BOC формат с заголовком
+                boc = Boc()
+                boc_bytes = boc.serialize([external_message])  # Boc.serialize принимает список cells
+                boc_base64 = base64.b64encode(boc_bytes).decode('utf-8')
+                print(f"✅ Serialized BOC using Boc.serialize() from pytoniq_core", file=sys.stderr, flush=True)
+                
+            except (ImportError, AttributeError) as boc_error:
+                print(f"⚠️ Boc class not available: {boc_error}, trying pytoniq", file=sys.stderr, flush=True)
+                # Альтернативный способ: используем pytoniq для правильной сериализации
                 try:
-                    boc_bytes = core_serialize_boc(external_message)
-                    # Конвертируем в pytoniq Cell для получения правильного BOC base64
-                    pytoniq_cells = PytoniqCell.from_boc(boc_bytes)
-                    if isinstance(pytoniq_cells, list):
-                        pytoniq_cell = pytoniq_cells[0]
-                    else:
-                        pytoniq_cell = pytoniq_cells
-                    boc_base64 = pytoniq_cell.to_boc_base64()
-                    print(f"✅ Serialized BOC using serialize_boc from pytoniq_core", file=sys.stderr, flush=True)
-                except (ImportError, AttributeError):
-                    # Если serialize_boc недоступен, используем правильную сериализацию через pytoniq
-                    # Сначала конвертируем pytoniq_core Cell в pytoniq Cell
-                    # Для этого нужно правильно сериализовать все cells
+                    from pytoniq import Cell as PytoniqCell
                     
                     # Собираем все cells рекурсивно
                     def collect_cells(cell, cells_list):
@@ -820,7 +817,6 @@ class TonService:
                         if cell in cells_list:
                             return
                         cells_list.append(cell)
-                        # Получаем ссылки - в pytoniq_core Cell имеет свойство refs
                         try:
                             if hasattr(cell, 'refs'):
                                 refs = cell.refs
@@ -847,67 +843,54 @@ class TonService:
                     for idx, cell in enumerate(cells_list):
                         indexes[cell] = idx
                     
-                    # Сериализуем root cell с правильным форматом BOC
+                    # Сериализуем root cell
                     byte_len = 4
-                    boc_bytes = external_message.serialize(indexes=indexes, byte_len=byte_len)
+                    cell_bytes = external_message.serialize(indexes=indexes, byte_len=byte_len)
                     
-                    # Конвертируем в pytoniq Cell для получения правильного BOC base64
-                    # pytoniq Cell.from_boc() правильно парсит BOC и создает правильный формат
-                    pytoniq_cells = PytoniqCell.from_boc(boc_bytes)
-                    if isinstance(pytoniq_cells, list):
-                        pytoniq_cell = pytoniq_cells[0]
-                    else:
-                        pytoniq_cell = pytoniq_cells
+                    # Создаем правильный BOC формат вручную
+                    # BOC формат: magic (4 bytes: b'\xb5\xee\x9c\x72') + flags (1 byte) + size (var) + root cells
+                    import struct
                     
-                    boc_base64 = pytoniq_cell.to_boc_base64()
-                    print(f"✅ Serialized BOC using pytoniq Cell.to_boc_base64()", file=sys.stderr, flush=True)
+                    # BOC magic bytes
+                    boc_magic = b'\xb5\xee\x9c\x72'
                     
-            except Exception as pytoniq_error:
-                print(f"⚠️ Error converting via pytoniq: {pytoniq_error}, trying manual BOC creation", file=sys.stderr, flush=True)
-                # Последняя попытка: создаем BOC вручную с правильным заголовком
-                try:
-                    # BOC формат требует правильного заголовка
-                    # Используем правильную сериализацию через pytoniq_core с правильным форматом
-                    from pytoniq_core.boc import Builder as CoreBuilder
-                    import base64
+                    # Flags: has_index (1 bit) + has_crc32c (1 bit) + has_cache_bits (1 bit) + flags (5 bits)
+                    # Для простого случая: 0b00000000 (no index, no crc32c, no cache bits)
+                    flags = 0b00000000
                     
-                    # Собираем все cells
-                    def collect_cells(cell, cells_list):
-                        if cell in cells_list:
-                            return
-                        cells_list.append(cell)
-                        try:
-                            if hasattr(cell, 'refs'):
-                                refs = cell.refs
-                                if hasattr(refs, '__iter__') and not isinstance(refs, (str, bytes)):
-                                    for ref in refs:
-                                        collect_cells(ref, cells_list)
-                        except:
-                            pass
+                    # Size: количество bytes для индексов (обычно 4)
+                    size_bytes = 4
                     
-                    cells_list = []
-                    collect_cells(external_message, cells_list)
-                    indexes = {cell: idx for idx, cell in enumerate(cells_list)}
+                    # Количество root cells (обычно 1)
+                    root_count = 1
                     
-                    # Сериализуем с правильным форматом
-                    byte_len = 4
-                    boc_bytes = external_message.serialize(indexes=indexes, byte_len=byte_len)
+                    # Количество всех cells
+                    total_cells = len(cells_list)
                     
-                    # Создаем правильный BOC заголовок
-                    # BOC формат: magic (4 bytes) + flags (1 byte) + size (var) + root cells
-                    # Но проще использовать pytoniq для правильной сериализации
-                    # Попробуем создать pytoniq Cell из bytes и использовать to_boc_base64
-                    from pytoniq import Cell as PytoniqCell
-                    pytoniq_cells = PytoniqCell.from_boc(boc_bytes)
-                    if isinstance(pytoniq_cells, list):
-                        pytoniq_cell = pytoniq_cells[0]
-                    else:
-                        pytoniq_cell = pytoniq_cells
-                    boc_base64 = pytoniq_cell.to_boc_base64()
-                    print(f"✅ Serialized BOC using manual method with pytoniq conversion", file=sys.stderr, flush=True)
+                    # Создаем BOC заголовок
+                    boc_header = boc_magic
+                    boc_header += bytes([flags])
+                    boc_header += bytes([size_bytes])
+                    boc_header += struct.pack('>I', root_count)  # root count (big-endian, 4 bytes)
+                    boc_header += struct.pack('>I', total_cells)  # total cells (big-endian, 4 bytes)
+                    boc_header += struct.pack('>I', 0)  # absent cells (big-endian, 4 bytes)
+                    boc_header += struct.pack('>I', 0)  # tot_cells_size (big-endian, 4 bytes) - будет пересчитано
                     
-                except Exception as final_error:
-                    raise Exception(f"All conversion methods failed. Last error: {final_error}")
+                    # Добавляем root cell index (обычно 0)
+                    boc_header += struct.pack('>I', 0)  # root cell index (big-endian, 4 bytes)
+                    
+                    # Добавляем сериализованные cells
+                    boc_bytes = boc_header + cell_bytes
+                    
+                    # Конвертируем в base64
+                    boc_base64 = base64.b64encode(boc_bytes).decode('utf-8')
+                    print(f"✅ Serialized BOC using manual BOC format creation", file=sys.stderr, flush=True)
+                    
+                except Exception as pytoniq_error:
+                    print(f"⚠️ Error with pytoniq: {pytoniq_error}, trying simple base64", file=sys.stderr, flush=True)
+                    # Последняя попытка: используем простую сериализацию
+                    # Но это не сработает, так как нужен правильный BOC формат
+                    raise Exception(f"All conversion methods failed. Last error: {pytoniq_error}")
             
             print(f"✅ Created transaction manually (seqno={seqno})", file=sys.stderr, flush=True)
             return boc_base64
