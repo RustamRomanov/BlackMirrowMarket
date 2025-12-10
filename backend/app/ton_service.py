@@ -92,13 +92,15 @@ class TonService:
                     f"Invalid words (first 5): {invalid_words[:5]}. "
                     f"Word count: {len(seed_words)}. Preview: {preview}"
                 )
-            # Дополнительно проверяем всю фразу целиком
+            # Дополнительно проверяем checksum; если не сходится, не падаем, а предупреждаем.
             seed_string = " ".join(seed_words)
             if not mnemo.check(seed_string):
                 preview = f"{' '.join(seed_words[:3])} ... {' '.join(seed_words[-3:])}"
-                raise Exception(
-                    "Invalid mnemonic: BIP39 checksum failed. "
-                    f"Word count: {len(seed_words)}. Preview: {preview}"
+                print(
+                    f"⚠️ Mnemonic checksum failed (BIP39). "
+                    f"Word count: {len(seed_words)}. Preview: {preview}",
+                    file=sys.stderr,
+                    flush=True,
                 )
         except ImportError:
             # Если mnemonic не установлен, продолжаем (но в requirements он есть)
