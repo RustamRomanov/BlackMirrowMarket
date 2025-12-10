@@ -599,18 +599,85 @@ class TonService:
             # Используем другой подход: создаем транзакцию вручную используя структуру V4R2
             # Это сложно, но возможно
             
-            # Пока используем fallback - но с улучшенной обработкой
-            raise Exception("HTTP-based sending: Creating transaction locally requires complex implementation. Using direct method as fallback.")
+            # Создаем кошелек локально используя временный клиент
+            # Создаем минимальный клиент только для инициализации кошелька
+            # НЕ подключаемся к блокчейну - используем только для создания транзакции
+            print(f"🔄 Initializing wallet locally (no blockchain connection)...", file=sys.stderr, flush=True)
+            
+            # Создаем временный клиент (не подключаемся)
+            # Используем from_mainnet_config, но не вызываем start_up()
+            temp_client = LiteBalancer.from_mainnet_config()
+            
+            # Создаем кошелек из приватного ключа
+            wallet = await WalletV4R2.from_private_key(temp_client, private_key)
+            
+            # Создаем транзакцию локально
+            print(f"🔄 Creating transfer message locally...", file=sys.stderr, flush=True)
+            msg = wallet.transfer(destination=dest_addr, amount=amount_nano)
+            
+            # Получаем BOC транзакции
+            # Для этого нужно создать подписанную транзакцию
+            # Используем метод кошелька для создания подписанной транзакции
+            print(f"🔄 Signing transaction locally...", file=sys.stderr, flush=True)
+            
+            # Создаем подписанную транзакцию используя seqno
+            signed_tx = await wallet.create_transfer_message(
+                destination=dest_addr,
+                amount=amount_nano,
+                seqno=seqno
+            )
+            
+            # Получаем BOC из подписанной транзакции
+            boc = signed_tx.to_boc()
+            boc_base64 = boc.to_boc_base64()
+            
+            print(f"✅ Transaction created and signed locally", file=sys.stderr, flush=True)
+            
+            # Отправляем BOC через HTTP endpoint
+            print(f"🔄 Sending transaction via HTTP API...", file=sys.stderr, flush=True)
+            
+            # Используем TON Center API или напрямую в блокчейн через HTTP
+            # Пробуем отправить через TON Center API
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            async with aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=30),
+                connector=connector
+            ) as session:
+                # Отправляем через TON Center API
+                url = "https://toncenter.com/api/v2/sendBoc"
+                params = {
+                    "boc": boc_base64
+                }
+                if self.api_key:
+                    params["api_key"] = self.api_key
+                
+                async with session.post(url, params=params) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        if data.get("ok"):
+                            tx_hash = data.get("result", "")
+                            print(f"✅ Transaction sent via HTTP API! Hash: {tx_hash[:20]}...", file=sys.stderr, flush=True)
+                            return tx_hash
+                        else:
+                            error_msg = data.get("error", "Unknown error")
+                            raise Exception(f"TON Center API error: {error_msg}")
+                    else:
+                        text = await resp.text()
+                        raise Exception(f"TON Center API HTTP error: {resp.status} - {text}")
             
         except Exception as e:
             error_msg = str(e)
-            if "requires complex implementation" in error_msg:
-                # Это ожидаемая ошибка - используем fallback
-                print(f"ℹ️ HTTP method not fully implemented, using direct blockchain connection...", file=sys.stderr, flush=True)
+            print(f"⚠️ HTTP method error: {error_msg}", file=sys.stderr, flush=True)
+            # Если это не ошибка создания транзакции, пробуем fallback
+            if "create_transfer_message" not in error_msg.lower() and "from_private_key" not in error_msg.lower():
                 raise
-            else:
-                print(f"⚠️ Error in HTTP method: {e}", file=sys.stderr, flush=True)
-                raise
+            # Иначе пробуем fallback на прямой метод
+            print(f"ℹ️ HTTP method failed, trying direct blockchain connection...", file=sys.stderr, flush=True)
+            raise Exception(f"HTTP method failed: {error_msg}. Trying direct method.")
     
     async def _send_raw_via_api(self, to_address: str, amount_nano: int) -> str:
         """
