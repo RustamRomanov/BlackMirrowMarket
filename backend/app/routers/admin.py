@@ -402,3 +402,72 @@ async def cleanup_test_tasks(db: Session = Depends(get_db)):
         "total_deleted": deleted_test + deleted_examples + deleted_by_title
     }
 
+@router.post("/fix-failed-withdrawal/{telegram_id}")
+async def fix_failed_withdrawal(telegram_id: int, db: Session = Depends(get_db)):
+    """
+    Исправляет проблему с выводом средств: возвращает средства на баланс,
+    если транзакция не была отправлена (нет tx_hash).
+    """
+    from decimal import Decimal
+    
+    # Находим пользователя
+    user = db.query(models.User).filter(models.User.telegram_id == telegram_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Находим все pending транзакции без tx_hash для этого пользователя
+    failed_transactions = db.query(models.TonTransaction).filter(
+        models.TonTransaction.user_id == user.id,
+        models.TonTransaction.status == "pending",
+        models.TonTransaction.tx_hash.is_(None)
+    ).all()
+    
+    if not failed_transactions:
+        return {
+            "message": "No failed transactions found",
+            "telegram_id": telegram_id,
+            "refunded_count": 0,
+            "total_refunded": 0
+        }
+    
+    # Возвращаем средства на баланс
+    balance = db.query(models.UserBalance).filter(
+        models.UserBalance.user_id == user.id
+    ).first()
+    
+    if not balance:
+        raise HTTPException(status_code=404, detail="Balance not found")
+    
+    total_refunded = Decimal(0)
+    refunded_count = 0
+    
+    for tx in failed_transactions:
+        # Возвращаем средства
+        balance.ton_active_balance += tx.amount_nano
+        total_refunded += tx.amount_nano
+        
+        # Помечаем транзакцию как failed
+        tx.status = "failed"
+        tx.error_message = "Transaction failed: funds returned to balance"
+        
+        refunded_count += 1
+    
+    db.commit()
+    
+    return {
+        "message": "Funds returned successfully",
+        "telegram_id": telegram_id,
+        "refunded_count": refunded_count,
+        "total_refunded": float(total_refunded) / 10**9,
+        "new_balance": float(balance.ton_active_balance) / 10**9,
+        "transactions": [
+            {
+                "id": tx.id,
+                "amount": float(tx.amount_nano) / 10**9,
+                "to_address": tx.to_address,
+                "status": tx.status
+            }
+            for tx in failed_transactions
+        ]
+    }
+
