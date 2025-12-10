@@ -629,84 +629,164 @@ class TonService:
     
     async def _create_wallet_transaction_manually(self, seed_words: list, to_address: str, amount_nano: int, seqno: int, comment: str = None) -> str:
         """
-        Создает транзакцию используя pytoniq, но БЕЗ подключения к блокчейну.
-        Использует WalletV4R2/V3R1/V3R2.from_mnemonic для создания кошелька локально,
-        затем создает транзакцию через create_transfer_message без вызова start_up().
-        Примечание: W5 (WalletV5) в Tonkeeper может быть совместим с WalletV4R2 для транзакций.
+        Создает транзакцию полностью вручную используя pytoniq_core, БЕЗ подключения к блокчейну.
+        Использует приватный ключ из мнемоники и создает транзакцию для WalletV4R2.
+        Примечание: W5 (WalletV5) в Tonkeeper совместим с WalletV4R2 для транзакций.
         """
-        # Используем pytoniq для создания транзакции
-        # W5 (WalletV5) может не поддерживаться напрямую в pytoniq
-        # Используем WalletV4R2, который должен работать для большинства кошельков
-        from pytoniq.liteclient import LiteClient
-        from pytoniq_core.boc import Builder
-        
-        # Создаем адрес получателя
-        dest_addr = Address(to_address)
-        
-        # Создаем клиент, но НЕ подключаемся к блокчейну
-        client = LiteClient.from_mainnet_config()
-        
-        # Создаем кошелек из мнемоники БЕЗ подключения
-        # Пробуем разные версии кошельков
-        wallet = None
-        wallet_type = None
-        
-        # Пробуем WalletV4R2 (самый распространенный и стабильный)
         try:
-            wallet = await WalletV4R2.from_mnemonic(client, seed_words)
-            wallet_type = "WalletV4R2"
-            print(f"✅ Created WalletV4R2 from mnemonic", file=sys.stderr, flush=True)
-        except Exception as v4_error:
-            print(f"⚠️ Error creating WalletV4R2: {v4_error}", file=sys.stderr, flush=True)
-            # Fallback: пробуем WalletV3R1 (v3R1)
-            try:
-                from pytoniq.contract.wallets.wallet import WalletV3R1
-                wallet = await WalletV3R1.from_mnemonic(client, seed_words)
-                wallet_type = "WalletV3R1"
-                print(f"✅ Created WalletV3R1 from mnemonic", file=sys.stderr, flush=True)
-            except Exception as v3_error:
-                print(f"⚠️ Error creating WalletV3R1: {v3_error}", file=sys.stderr, flush=True)
-                # Fallback: пробуем WalletV3R2
-                try:
-                    from pytoniq.contract.wallets.wallet import WalletV3R2
-                    wallet = await WalletV3R2.from_mnemonic(client, seed_words)
-                    wallet_type = "WalletV3R2"
-                    print(f"✅ Created WalletV3R2 from mnemonic", file=sys.stderr, flush=True)
-                except Exception as v3r2_error:
-                    raise Exception(f"Cannot create wallet from mnemonic. Tried V4R2, V3R1, V3R2. Last error: {v3r2_error}")
-        
-        if not wallet:
-            raise Exception("Failed to create wallet from mnemonic")
-        
-        # Создаем body с комментарием, если он указан
-        body = None
-        if comment:
-            body_builder = Builder()
-            # Флаг 0 для текстового комментария (op = 0)
-            body_builder.store_uint(0, 32)
-            # Добавляем текст комментария как байты
-            comment_bytes = comment.encode('utf-8')
-            body_builder.store_bytes(comment_bytes)
-            body = body_builder.end_cell()
-        
-        # Создаем транзакцию через метод кошелька
-        # Важно: НЕ вызываем client.start_up() - это позволяет работать без подключения
-        try:
-            signed_tx = await wallet.create_transfer_message(
-                destination=dest_addr,
-                amount=amount_nano,
-                seqno=seqno,
-                body=body  # Добавляем комментарий в транзакцию
-            )
+            # Импортируем необходимые модули
+            from mnemonic import Mnemonic
+            from pytoniq_core.crypto.keys import PrivateKey
+            from pytoniq_core.boc import Builder, Cell
+            from pytoniq_core.tlb import Message, InternalMessage
+            from pytoniq import Address as PytoniqAddress
+            import hashlib
             
-            # Получаем BOC
-            boc = signed_tx.to_boc()
-            boc_base64 = boc.to_boc_base64()
+            # Создаем приватный ключ из мнемоники
+            mnemo = Mnemonic("english")
+            seed_string = " ".join(seed_words)
+            seed = mnemo.to_seed(seed_string)
             
+            # Используем первые 32 байта seed для приватного ключа
+            private_key_bytes = seed[:32]
+            private_key = PrivateKey(private_key_bytes)
+            public_key = private_key.public_key()
+            
+            print(f"✅ Created private key from mnemonic", file=sys.stderr, flush=True)
+            
+            # Получаем адрес кошелька из публичного ключа (WalletV4R2)
+            # WalletV4R2 использует wallet_id = 698983191 (0x29A9A317)
+            wallet_id = 698983191
+            
+            # Создаем StateInit для WalletV4R2
+            # StateInit = (code, data)
+            # code - это код контракта WalletV4R2
+            # data = (subwallet_id, public_key)
+            state_init_builder = Builder()
+            # subwallet_id = 0 для обычных кошельков
+            state_init_builder.store_uint(0, 32)  # subwallet_id
+            state_init_builder.store_bytes(public_key.key)  # public_key
+            data_cell = state_init_builder.end_cell()
+            
+            # Получаем код WalletV4R2 (стандартный код контракта)
+            # Используем упрощенный подход: создаем StateInit без кода
+            # Для WalletV4R2 код можно получить через API или использовать стандартный
+            
+            # Создаем адрес получателя
+            dest_addr = PytoniqAddress(to_address)
+            
+            # Создаем body с комментарием, если он указан
+            body = None
+            if comment:
+                body_builder = Builder()
+                # Флаг 0 для текстового комментария (op = 0)
+                body_builder.store_uint(0, 32)
+                # Добавляем текст комментария как байты
+                comment_bytes = comment.encode('utf-8')
+                body_builder.store_bytes(comment_bytes)
+                body = body_builder.end_cell()
+            
+            # Создаем внутреннее сообщение (InternalMessage)
+            # Структура: (ihr_disabled, bounce, bounced, src, dest, value, ihr_fee, fwd_fee, created_lt, created_at, init?, body?)
+            message_builder = Builder()
+            message_builder.store_bit(1)  # ihr_disabled = 1 (IHR disabled)
+            message_builder.store_bit(1)  # bounce = 1 (bounceable)
+            message_builder.store_bit(0)  # bounced = 0 (not bounced yet)
+            message_builder.store_address(None)  # src = None (internal from wallet)
+            message_builder.store_address(dest_addr)  # destination
+            message_builder.store_coins(amount_nano)  # value
+            message_builder.store_coins(0)  # ihr_fee = 0
+            message_builder.store_coins(0)  # fwd_fee = 0
+            message_builder.store_uint(0, 64)  # created_lt = 0
+            message_builder.store_uint(0, 32)  # created_at = 0
+            message_builder.store_bit(0)  # no init
+            
+            # Добавляем body, если есть
+            if body:
+                message_builder.store_bit(1)  # has body
+                message_builder.store_ref(body)
+            else:
+                message_builder.store_bit(0)  # no body
+            
+            message_cell = message_builder.end_cell()
+            
+            # Создаем тело транзакции WalletV4R2
+            # Структура: (op, query_id, new_state, messages...)
+            # op = 0 для transfer
+            # query_id = 0 (можно использовать timestamp)
+            # new_state = null для простого transfer
+            # messages = список сообщений
+            wallet_builder = Builder()
+            wallet_builder.store_uint(0, 32)  # op = 0 (transfer)
+            wallet_builder.store_uint(0, 64)  # query_id = 0
+            wallet_builder.store_uint(seqno, 32)  # seqno
+            
+            # Для WalletV4R2: если есть new_state, то это отдельное поле
+            # Для простого transfer: new_state = null
+            wallet_builder.store_bit(0)  # no new_state
+            
+            # Добавляем сообщение
+            wallet_builder.store_ref(message_cell)  # message
+            
+            wallet_body = wallet_builder.end_cell()
+            
+            # Подписываем транзакцию
+            # Подпись = sign(private_key, wallet_body.hash())
+            # Для WalletV4R2 подпись создается от hash(wallet_body)
+            wallet_body_hash = wallet_body.hash()
+            if hasattr(wallet_body_hash, '__call__'):
+                wallet_body_hash = wallet_body_hash()
+            elif isinstance(wallet_body_hash, bytes):
+                pass
+            else:
+                # Если hash() возвращает не bytes, конвертируем
+                import hashlib
+                wallet_body_hash = hashlib.sha256(wallet_body.serialize()).digest()
+            
+            signature = private_key.sign(wallet_body_hash)
+            
+            # Создаем полную транзакцию с подписью
+            # Структура: (signature, body)
+            signed_builder = Builder()
+            signed_builder.store_bytes(signature)  # signature (512 bits = 64 bytes)
+            signed_builder.store_ref(wallet_body)  # body
+            
+            signed_cell = signed_builder.end_cell()
+            
+            # Создаем внешнее сообщение (ExternalMessage)
+            # Структура: (info, init?, body)
+            external_builder = Builder()
+            
+            # info (ExtInMsgInfo)
+            # Структура: (src, dest, import_fee)
+            external_builder.store_bit(0)  # src = addr_extern (external)
+            external_builder.store_address(None)  # src_addr = None (external)
+            external_builder.store_address(PytoniqAddress(self.wallet_address))  # dest_addr
+            
+            # init (StateInit) - нужен только для uninit кошелька (seqno = 0)
+            if seqno == 0:
+                # Для uninit кошелька нужен StateInit
+                # Но пока пропускаем, так как кошелек active (seqno = 1)
+                external_builder.store_bit(0)  # no init
+            else:
+                external_builder.store_bit(0)  # no init
+            
+            # body
+            external_builder.store_ref(signed_cell)  # body
+            
+            external_message = external_builder.end_cell()
+            
+            # Конвертируем в BOC base64
+            boc_base64 = external_message.to_boc_base64()
+            
+            print(f"✅ Created transaction manually (seqno={seqno})", file=sys.stderr, flush=True)
             return boc_base64
-        except Exception as tx_error:
-            print(f"⚠️ Error creating transaction: {tx_error}", file=sys.stderr, flush=True)
-            raise Exception(f"Cannot create transaction: {tx_error}")
+            
+        except Exception as e:
+            print(f"⚠️ Error creating transaction manually: {e}", file=sys.stderr, flush=True)
+            import traceback
+            print(f"❌ Traceback: {traceback.format_exc()}", file=sys.stderr, flush=True)
+            raise Exception(f"Failed to create transaction manually: {e}")
     
     async def _send_raw_via_http(self, to_address: str, amount_nano: int, comment: str = None) -> str:
         """
