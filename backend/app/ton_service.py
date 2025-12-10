@@ -648,17 +648,35 @@ class TonService:
             seed = mnemo.to_seed(seed_string)
             private_key_bytes = seed[:32]
             
+            # Проверяем, что приватный ключ правильного формата (32 байта)
+            if len(private_key_bytes) != 32:
+                raise Exception(f"Invalid private key length: {len(private_key_bytes)}, expected 32 bytes")
+            
             # Создаем клиент (не подключаемся)
             client = LiteClient.from_mainnet_config()
             
             # Создаем кошелек напрямую из приватного ключа БЕЗ подключения к блокчейну
             # Используем from_private_key напрямую, минуя from_mnemonic
-            wallet = await WalletV4R2.from_private_key(
-                provider=client,
-                private_key=private_key_bytes,
-                wc=0,  # workchain 0
-                wallet_id=698983191  # WalletV4R2 wallet_id
-            )
+            # private_key должен быть bytes или правильным форматом
+            # Пробуем передать как bytes напрямую
+            try:
+                wallet = await WalletV4R2.from_private_key(
+                    provider=client,
+                    private_key=private_key_bytes,
+                    wc=0,  # workchain 0
+                    wallet_id=698983191  # WalletV4R2 wallet_id
+                )
+            except ValueError as key_error:
+                # Если ошибка с форматом ключа, пробуем использовать правильный формат
+                print(f"⚠️ Error with private key format: {key_error}, trying alternative format", file=sys.stderr, flush=True)
+                # Пробуем использовать правильный формат для Ed25519
+                # Ed25519 приватный ключ должен быть 32 байта
+                if isinstance(private_key_bytes, bytes) and len(private_key_bytes) == 32:
+                    # Ключ правильного формата, но может быть проблема с pytoniq
+                    # Пробуем использовать fallback метод
+                    raise Exception(f"Private key format issue: {key_error}")
+                else:
+                    raise Exception(f"Invalid private key: length={len(private_key_bytes) if isinstance(private_key_bytes, bytes) else 'not bytes'}")
             
             print(f"✅ Created wallet from private key using pytoniq", file=sys.stderr, flush=True)
             
