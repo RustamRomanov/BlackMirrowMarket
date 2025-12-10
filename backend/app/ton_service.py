@@ -129,33 +129,72 @@ class TonService:
             # Публичный mainnet конфиг. Для продакшена можно поменять на собственный endpoint.
             # Используем более надежные настройки для Railway
             # Пробуем подключиться несколько раз с увеличенными таймаутами
-            max_connection_attempts = 3
+            max_connection_attempts = 5
             last_conn_error = None
             
             for conn_attempt in range(1, max_connection_attempts + 1):
                 try:
                     print(f"🔄 Connection attempt {conn_attempt}/{max_connection_attempts} to TON blockchain...", file=sys.stderr, flush=True)
+                    
+                    # Создаем клиент
                     self._client = LiteBalancer.from_mainnet_config()
+                    
                     # Увеличиваем таймаут для Railway (может быть медленное подключение)
-                    await asyncio.wait_for(self._client.start_up(), timeout=45.0)
-                    print("✅ Connected to TON blockchain", file=sys.stderr, flush=True)
-                    break  # Успешно подключились
+                    # Также даем больше времени на поиск пиров
+                    print(f"🔄 Starting up LiteBalancer (this may take up to 60 seconds)...", file=sys.stderr, flush=True)
+                    await asyncio.wait_for(self._client.start_up(), timeout=60.0)
+                    
+                    # Проверяем, что клиент действительно подключен и имеет активные пиры
+                    print(f"🔄 Verifying connection...", file=sys.stderr, flush=True)
+                    try:
+                        # Пробуем сделать простой запрос для проверки подключения
+                        masterchain_info = await asyncio.wait_for(
+                            self._client.get_masterchain_info(), 
+                            timeout=15.0
+                        )
+                        print(f"✅ Connected to TON blockchain! Block seqno: {masterchain_info.last.seqno if hasattr(masterchain_info, 'last') else 'N/A'}", file=sys.stderr, flush=True)
+                        break  # Успешно подключились
+                    except Exception as verify_error:
+                        print(f"⚠️ Connection established but verification failed: {verify_error}", file=sys.stderr, flush=True)
+                        # Закрываем клиент и пробуем снова
+                        try:
+                            await self._client.close_all()
+                        except:
+                            pass
+                        self._client = None
+                        raise Exception(f"Connection verification failed: {verify_error}")
+                        
                 except asyncio.TimeoutError:
-                    last_conn_error = "Timeout connecting to TON blockchain"
+                    last_conn_error = "Timeout connecting to TON blockchain (60s timeout exceeded)"
                     print(f"❌ Attempt {conn_attempt} failed: {last_conn_error}", file=sys.stderr, flush=True)
+                    if self._client:
+                        try:
+                            await self._client.close_all()
+                        except:
+                            pass
+                        self._client = None
                     if conn_attempt < max_connection_attempts:
-                        print(f"🔄 Retrying connection in 3 seconds...", file=sys.stderr, flush=True)
-                        await asyncio.sleep(3)
+                        wait_time = min(conn_attempt * 3, 15)  # Увеличиваем время ожидания
+                        print(f"🔄 Retrying connection in {wait_time} seconds...", file=sys.stderr, flush=True)
+                        await asyncio.sleep(wait_time)
                     else:
                         raise Exception(f"Failed to connect to TON blockchain after {max_connection_attempts} attempts. "
+                                      f"Last error: {last_conn_error}. "
                                       f"This may be due to network restrictions on Railway. "
                                       f"Please check Railway network settings or try again later.")
                 except Exception as e:
                     last_conn_error = str(e)
                     print(f"❌ Attempt {conn_attempt} failed: {last_conn_error}", file=sys.stderr, flush=True)
+                    if self._client:
+                        try:
+                            await self._client.close_all()
+                        except:
+                            pass
+                        self._client = None
                     if conn_attempt < max_connection_attempts:
-                        print(f"🔄 Retrying connection in 3 seconds...", file=sys.stderr, flush=True)
-                        await asyncio.sleep(3)
+                        wait_time = min(conn_attempt * 3, 15)  # Увеличиваем время ожидания
+                        print(f"🔄 Retrying connection in {wait_time} seconds...", file=sys.stderr, flush=True)
+                        await asyncio.sleep(wait_time)
                     else:
                         raise Exception(f"Failed to connect to TON blockchain after {max_connection_attempts} attempts: {last_conn_error}")
         
