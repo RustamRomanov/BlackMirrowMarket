@@ -642,53 +642,47 @@ class TonService:
             
             print(f"🔄 Using pytoniq WalletV4R2.create_transfer_message (ready API method)", file=sys.stderr, flush=True)
             
-            # Создаем приватный ключ из мнемоники
+            # Создаем приватный ключ из мнемоники используя правильный метод для Ed25519
             mnemo = Mnemonic("english")
             seed_string = " ".join(seed_words)
-            seed = mnemo.to_seed(seed_string)
-            private_key_bytes = seed[:32]
+            # BIP39 seed (64 байта) -> берем первые 32 байта для Ed25519 seed
+            bip39_seed = mnemo.to_seed(seed_string)
+            ed25519_seed = bip39_seed[:32]
             
-            # Проверяем, что приватный ключ правильного формата (32 байта)
-            if len(private_key_bytes) != 32:
-                raise Exception(f"Invalid private key length: {len(private_key_bytes)}, expected 32 bytes")
+            # Проверяем, что seed правильного формата (32 байта)
+            if len(ed25519_seed) != 32:
+                raise Exception(f"Invalid seed length: {len(ed25519_seed)}, expected 32 bytes")
+            
+            # Используем pytoniq_core для правильной генерации приватного ключа Ed25519
+            try:
+                from pytoniq_core.crypto.keys import seed_to_private_key, private_key_to_public_key
+                # Генерируем приватный ключ из seed (32 байта -> 64 байта private key)
+                private_key_full = seed_to_private_key(ed25519_seed)
+                # from_private_key ожидает 32 байта seed, а не 64 байта private key
+                # Используем seed напрямую
+                private_key_for_wallet = ed25519_seed
+            except ImportError:
+                # Если pytoniq_core.crypto.keys недоступен, используем seed напрямую
+                print(f"⚠️ pytoniq_core.crypto.keys not available, using seed directly", file=sys.stderr, flush=True)
+                private_key_for_wallet = ed25519_seed
             
             # Создаем клиент (не подключаемся к блокчейну)
             # LiteClient нужен только для создания кошелька, не для подключения
             client = LiteClient.from_mainnet_config()
             
             # Создаем кошелек из приватного ключа БЕЗ подключения к блокчейну
-            # Используем правильный формат для Ed25519 приватного ключа
-            # Пробуем использовать PrivateKey из pytoniq_core, если доступен
+            # from_private_key ожидает 32 байта seed (Ed25519 seed)
             try:
-                # Пробуем импортировать PrivateKey из pytoniq_core
-                from pytoniq_core.crypto.keys import PrivateKey as CorePrivateKey
-                # Создаем PrivateKey объект из bytes
-                private_key_obj = CorePrivateKey(private_key_bytes)
-                # Используем PrivateKey объект для создания кошелька
                 wallet = await WalletV4R2.from_private_key(
                     provider=client,
-                    private_key=private_key_obj,
+                    private_key=private_key_for_wallet,  # 32 байта Ed25519 seed
                     wc=0,  # workchain 0
                     wallet_id=698983191  # WalletV4R2 wallet_id
                 )
-            except ImportError:
-                # Если PrivateKey не доступен, пробуем использовать bytes напрямую
-                print(f"⚠️ PrivateKey not available, trying bytes directly", file=sys.stderr, flush=True)
-                try:
-                    wallet = await WalletV4R2.from_private_key(
-                        provider=client,
-                        private_key=private_key_bytes,
-                        wc=0,  # workchain 0
-                        wallet_id=698983191  # WalletV4R2 wallet_id
-                    )
-                except (ValueError, TypeError) as key_error:
-                    print(f"⚠️ Error with from_private_key using bytes: {key_error}", file=sys.stderr, flush=True)
-                    raise Exception(f"Cannot create wallet from private key bytes: {key_error}")
             except (ValueError, TypeError) as key_error:
-                # Если ошибка с форматом ключа
-                print(f"⚠️ Error with from_private_key using PrivateKey object: {key_error}", file=sys.stderr, flush=True)
+                print(f"⚠️ Error with from_private_key: {key_error}", file=sys.stderr, flush=True)
                 if "Invalid secret key" in str(key_error):
-                    raise Exception(f"Invalid Ed25519 secret key format. Key length: {len(private_key_bytes)}, Key type: {type(private_key_bytes)}")
+                    raise Exception(f"Invalid Ed25519 secret key format. Seed length: {len(private_key_for_wallet)}, Seed type: {type(private_key_for_wallet)}")
                 raise Exception(f"Cannot create wallet from private key: {key_error}")
             
             print(f"✅ Created wallet from private key using pytoniq", file=sys.stderr, flush=True)
