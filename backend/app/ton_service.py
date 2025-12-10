@@ -1669,13 +1669,10 @@ class TonService:
                             "min_lt": 0  # Можно добавить фильтр по логическому времени
                         }
                         
-                        print(f"🌐 Запрос к tonapi.io: {url}", file=sys.stderr, flush=True)
-                        print(f"🔑 Используем TONAPI_KEY: {'*' * (len(self.api_key) - 4) + self.api_key[-4:] if len(self.api_key) > 4 else '***'}", file=sys.stderr, flush=True)
+                        # Убрано логирование каждого запроса - это нормальный процесс поиска правильного endpoint
                         
                         try:
                             async with session.get(url, headers=headers, params=params) as resp:
-                                print(f"📡 tonapi.io ответ: статус {resp.status} для адреса {addr[:30]}... (endpoint: {endpoint_template})", file=sys.stderr, flush=True)
-                                
                                 if resp.status == 200:
                                     data = await resp.json()
                                     transactions = data.get("transactions", [])
@@ -1686,7 +1683,8 @@ class TonService:
                                     else:
                                         print(f"⚠️ Ответ 200, но транзакций нет. Пробуем следующий вариант...", file=sys.stderr, flush=True)
                                 elif resp.status == 404:
-                                    print(f"⚠️ 404 для адреса {addr[:30]}... (endpoint: {endpoint_template}), пробуем следующий вариант...", file=sys.stderr, flush=True)
+                                    # 404 - это нормально, просто этот endpoint не поддерживает такой формат адреса
+                                    # Не логируем, чтобы не пугать пользователя
                                     continue
                                 else:
                                     text = await resp.text()
