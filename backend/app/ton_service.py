@@ -75,11 +75,34 @@ class TonService:
                 # Попытка разделить длинное слово (но это сложно без словаря)
                 # Пока просто предупреждаем
                 print(f"⚠️ Подозрительно длинное слово в мнемонике: {word[:20]}... (длина: {len(word)})", file=sys.stderr, flush=True)
-                fixed_words.append(word)
-            else:
-                fixed_words.append(word)
+            fixed_words.append(word)
         
         seed_words = fixed_words
+
+        # Дополнительная валидация: проверяем, что все слова есть в BIP39 wordlist
+        try:
+            from mnemonic import Mnemonic
+            mnemo = Mnemonic("english")
+            wordlist = set(mnemo.wordlist)
+            invalid_words = [w for w in seed_words if w not in wordlist]
+            if invalid_words:
+                preview = f"{' '.join(seed_words[:3])} ... {' '.join(seed_words[-3:])}"
+                raise Exception(
+                    "Invalid mnemonic: some words are not in the BIP39 English wordlist. "
+                    f"Invalid words (first 5): {invalid_words[:5]}. "
+                    f"Word count: {len(seed_words)}. Preview: {preview}"
+                )
+            # Дополнительно проверяем всю фразу целиком
+            seed_string = " ".join(seed_words)
+            if not mnemo.check(seed_string):
+                preview = f"{' '.join(seed_words[:3])} ... {' '.join(seed_words[-3:])}"
+                raise Exception(
+                    "Invalid mnemonic: BIP39 checksum failed. "
+                    f"Word count: {len(seed_words)}. Preview: {preview}"
+                )
+        except ImportError:
+            # Если mnemonic не установлен, продолжаем (но в requirements он есть)
+            pass
         
         # Детальная диагностика
         word_count = len(seed_words)
