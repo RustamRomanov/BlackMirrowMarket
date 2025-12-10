@@ -636,11 +636,11 @@ class TonService:
         try:
             # Импортируем необходимые модули
             from mnemonic import Mnemonic
-            from pytoniq_core.crypto.keys import PrivateKey
             from pytoniq_core.boc import Builder, Cell
-            from pytoniq_core.tlb import Message, InternalMessage
             from pytoniq import Address as PytoniqAddress
             import hashlib
+            import nacl.signing
+            import nacl.encoding
             
             # Создаем приватный ключ из мнемоники
             mnemo = Mnemonic("english")
@@ -649,10 +649,12 @@ class TonService:
             
             # Используем первые 32 байта seed для приватного ключа
             private_key_bytes = seed[:32]
-            private_key = PrivateKey(private_key_bytes)
-            public_key = private_key.public_key()
             
-            print(f"✅ Created private key from mnemonic", file=sys.stderr, flush=True)
+            # Создаем приватный ключ используя PyNaCl (nacl.signing)
+            signing_key = nacl.signing.SigningKey(private_key_bytes)
+            public_key_bytes = signing_key.verify_key.encode()
+            
+            print(f"✅ Created private key from mnemonic using PyNaCl", file=sys.stderr, flush=True)
             
             # Получаем адрес кошелька из публичного ключа (WalletV4R2)
             # WalletV4R2 использует wallet_id = 698983191 (0x29A9A317)
