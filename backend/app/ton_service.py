@@ -872,7 +872,7 @@ class TonService:
                 # Пробуем создать pytoniq Cell из pytoniq_core Cell
                 # Сначала получаем bytes через правильную сериализацию
                 indexes = []
-                byte_len = 0
+                byte_len = 4  # Длина в байтах для индексов (обычно 4)
                 boc_bytes = external_message.serialize(indexes=indexes, byte_len=byte_len)
                 # Конвертируем bytes в pytoniq Cell
                 pytoniq_cell = PytoniqCell.from_boc(boc_bytes)
