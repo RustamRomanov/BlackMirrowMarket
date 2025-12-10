@@ -856,40 +856,47 @@ class TonService:
                 from pytoniq import Cell as PytoniqCell
                 # Пробуем создать pytoniq Cell из pytoniq_core Cell
                 # Сначала получаем bytes через правильную сериализацию
-                indexes = []
-                byte_len = 4  # Длина в байтах для индексов (обычно 4)
+                # Используем правильную сериализацию Cell в BOC
+                # serialize() требует indexes (список, который будет заполнен) и byte_len
+                # indexes должен быть списком, который заполняется при сериализации
+                indexes = []  # Будет заполнен при сериализации
+                byte_len = 4  # Длина в байтах для индексов
+                
+                # Сериализуем Cell - indexes будет заполнен автоматически
                 boc_bytes = external_message.serialize(indexes=indexes, byte_len=byte_len)
-                # Конвертируем bytes в pytoniq Cell
+                
+                # Конвертируем bytes в pytoniq Cell и затем в BOC base64
                 pytoniq_cell = PytoniqCell.from_boc(boc_bytes)
                 boc_base64 = pytoniq_cell.to_boc_base64()
+                
             except Exception as pytoniq_error:
-                print(f"⚠️ Error converting via pytoniq: {pytoniq_error}, trying serialize with indexes", file=sys.stderr, flush=True)
+                print(f"⚠️ Error converting via pytoniq: {pytoniq_error}, trying direct base64 encoding", file=sys.stderr, flush=True)
                 try:
-                    # Пробуем использовать правильную сериализацию с индексами
+                    # Альтернативный способ: используем правильную сериализацию
                     indexes = []
-                    byte_len = 0
+                    byte_len = 4
                     boc_bytes = external_message.serialize(indexes=indexes, byte_len=byte_len)
-                    # Теперь конвертируем в base64
+                    # Конвертируем в base64 напрямую
                     import base64
                     boc_base64 = base64.b64encode(boc_bytes).decode('utf-8')
                 except Exception as serialize_error:
-                    print(f"⚠️ Error converting via serialize: {serialize_error}, trying pytoniq_core.boc.serialize", file=sys.stderr, flush=True)
+                    print(f"⚠️ Error converting via serialize: {serialize_error}, trying pytoniq Cell.to_boc()", file=sys.stderr, flush=True)
+                    # Последняя попытка: используем pytoniq Cell напрямую
                     try:
-                        # Пробуем использовать pytoniq_core.boc.serialize
-                        from pytoniq_core.boc import serialize
-                        boc_bytes = serialize(external_message)
-                        import base64
-                        boc_base64 = base64.b64encode(boc_bytes).decode('utf-8')
-                    except Exception as final_error:
-                        print(f"⚠️ Error converting via pytoniq_core.boc.serialize: {final_error}, using direct pytoniq conversion", file=sys.stderr, flush=True)
-                        # Последняя попытка: используем pytoniq напрямую через to_boc если доступно
-                        from pytoniq import Cell as PytoniqCell
+                        # Пробуем создать pytoniq Cell из pytoniq_core Cell
+                        # Конвертируем через bytes representation
                         if hasattr(external_message, 'to_boc'):
                             boc_bytes = external_message.to_boc()
-                            pytoniq_cell = PytoniqCell.from_boc(boc_bytes)
-                            boc_base64 = pytoniq_cell.to_boc_base64()
                         else:
-                            raise Exception(f"All conversion methods failed. Last error: {final_error}")
+                            # Используем правильную сериализацию
+                            indexes = []
+                            byte_len = 4
+                            boc_bytes = external_message.serialize(indexes=indexes, byte_len=byte_len)
+                        
+                        pytoniq_cell = PytoniqCell.from_boc(boc_bytes)
+                        boc_base64 = pytoniq_cell.to_boc_base64()
+                    except Exception as final_error:
+                        raise Exception(f"All conversion methods failed. Last error: {final_error}")
             
             print(f"✅ Created transaction manually (seqno={seqno})", file=sys.stderr, flush=True)
             return boc_base64
