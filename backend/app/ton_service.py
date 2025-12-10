@@ -629,26 +629,53 @@ class TonService:
     
     async def _create_wallet_transaction_manually(self, seed_words: list, to_address: str, amount_nano: int, seqno: int, comment: str = None) -> str:
         """
-        Создает транзакцию используя pytoniq WalletV4R2.create_transfer_message - готовый метод.
-        Это правильный способ создания транзакций без подключения к блокчейну.
+        Создает транзакцию используя pytoniq WalletV4R2, но БЕЗ подключения к блокчейну.
+        Создает кошелек напрямую из приватного ключа, минуя from_mnemonic который требует подключения.
         """
         try:
-            # Используем pytoniq для создания транзакции через готовый метод
+            # Используем pytoniq для создания транзакции, но без подключения к блокчейну
             from pytoniq.contract.wallets.wallet import WalletV4R2
             from pytoniq import Address as PytoniqAddress
             from pytoniq.liteclient import LiteClient
             from pytoniq_core.boc import Builder
+            from mnemonic import Mnemonic
+            from pytoniq_core.crypto.keys import PrivateKey as CorePrivateKey
             
-            print(f"🔄 Using pytoniq WalletV4R2.create_transfer_message", file=sys.stderr, flush=True)
+            print(f"🔄 Using pytoniq WalletV4R2 with direct private key (no blockchain connection)", file=sys.stderr, flush=True)
             
-            # Создаем клиент (не подключаемся, только для создания кошелька)
+            # Создаем приватный ключ из мнемоники
+            mnemo = Mnemonic("english")
+            seed_string = " ".join(seed_words)
+            seed = mnemo.to_seed(seed_string)
+            private_key_bytes = seed[:32]
+            
+            # Создаем приватный ключ для pytoniq
+            # Пробуем использовать pytoniq_core PrivateKey, если доступен
+            try:
+                private_key = CorePrivateKey(private_key_bytes)
+                public_key = private_key.public_key()
+                public_key_bytes = public_key.key if hasattr(public_key, 'key') else public_key
+            except:
+                # Fallback: используем PyNaCl
+                import nacl.signing
+                import nacl.encoding
+                signing_key = nacl.signing.SigningKey(private_key_bytes)
+                verify_key = signing_key.verify_key
+                public_key_bytes = verify_key.encode(encoder=nacl.encoding.RawEncoder)
+            
+            # Создаем клиент (не подключаемся)
             client = LiteClient.from_mainnet_config()
             
-            # Создаем кошелек из мнемоники
-            seed_string = " ".join(seed_words)
-            wallet = await WalletV4R2.from_mnemonic(client, seed_string.split())
+            # Создаем кошелек напрямую из приватного ключа БЕЗ подключения к блокчейну
+            # Используем from_private_key напрямую, минуя from_mnemonic
+            wallet = await WalletV4R2.from_private_key(
+                provider=client,
+                private_key=private_key_bytes,
+                wc=0,  # workchain 0
+                wallet_id=698983191  # WalletV4R2 wallet_id
+            )
             
-            print(f"✅ Created wallet from mnemonic using pytoniq", file=sys.stderr, flush=True)
+            print(f"✅ Created wallet from private key using pytoniq", file=sys.stderr, flush=True)
             
             # Создаем адрес получателя
             dest_addr = PytoniqAddress(to_address)
