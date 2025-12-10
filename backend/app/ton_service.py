@@ -730,14 +730,14 @@ class TonService:
             wallet_body_hash = wallet_body.hash()
             if hasattr(wallet_body_hash, '__call__'):
                 wallet_body_hash = wallet_body_hash()
-            elif isinstance(wallet_body_hash, bytes):
-                pass
-            else:
+            elif not isinstance(wallet_body_hash, bytes):
                 # Если hash() возвращает не bytes, конвертируем
-                import hashlib
                 wallet_body_hash = hashlib.sha256(wallet_body.serialize()).digest()
             
-            signature = private_key.sign(wallet_body_hash)
+            # Подписываем используя PyNaCl
+            # PyNaCl.sign() возвращает SignedMessage, извлекаем только signature (64 байта)
+            signed_message = signing_key.sign(wallet_body_hash)
+            signature = signed_message.signature  # 64 bytes для Ed25519
             
             # Создаем полную транзакцию с подписью
             # Структура: (signature, body)
