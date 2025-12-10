@@ -629,64 +629,57 @@ class TonService:
     
     async def _create_wallet_transaction_manually(self, seed_words: list, to_address: str, amount_nano: int, seqno: int, comment: str = None) -> str:
         """
-        Создает транзакцию используя tonutils - готовую библиотеку для работы с TON.
-        Это более надежный способ, который правильно создает транзакции для всех типов кошельков.
+        Создает транзакцию используя pytoniq WalletV4R2.create_transfer_message - готовый метод.
+        Это правильный способ создания транзакций без подключения к блокчейну.
         """
         try:
-            # Используем tonutils для создания транзакции
-            from tonutils.client import ToncenterV3Client
-            from tonutils.wallet import WalletV4R2
-            from tonutils import Address as TonutilsAddress
+            # Используем pytoniq для создания транзакции через готовый метод
+            from pytoniq.contract.wallets.wallet import WalletV4R2
+            from pytoniq import Address as PytoniqAddress
+            from pytoniq.liteclient import LiteClient
+            from pytoniq_core.boc import Builder
             
-            print(f"🔄 Using tonutils library for transaction creation", file=sys.stderr, flush=True)
+            print(f"🔄 Using pytoniq WalletV4R2.create_transfer_message", file=sys.stderr, flush=True)
             
-            # Создаем клиент (не подключаемся, только для создания транзакции)
-            client = ToncenterV3Client()
+            # Создаем клиент (не подключаемся, только для создания кошелька)
+            client = LiteClient.from_mainnet_config()
             
             # Создаем кошелек из мнемоники
             seed_string = " ".join(seed_words)
-            wallet, public_key, private_key, mnemonic = await WalletV4R2.from_mnemonic(client, seed_string)
+            wallet = await WalletV4R2.from_mnemonic(client, seed_string.split())
             
-            print(f"✅ Created wallet from mnemonic using tonutils", file=sys.stderr, flush=True)
+            print(f"✅ Created wallet from mnemonic using pytoniq", file=sys.stderr, flush=True)
             
             # Создаем адрес получателя
-            dest_addr = TonutilsAddress(to_address)
+            dest_addr = PytoniqAddress(to_address)
             
-            # Создаем транзакцию
-            # tonutils автоматически создает правильную структуру транзакции
-            # Используем create_transfer для создания транзакции без отправки
-            transfer = wallet.create_transfer(
+            # Создаем body с комментарием, если он указан
+            body = None
+            if comment:
+                body_builder = Builder()
+                body_builder.store_uint(0, 32)  # op = 0 для текстового комментария
+                body_builder.store_bytes(comment.encode('utf-8'))
+                body = body_builder.end_cell()
+            
+            # Используем готовый метод create_transfer_message
+            # Этот метод правильно создает транзакцию без подключения к блокчейну
+            message = await wallet.create_transfer_message(
                 destination=dest_addr,
                 amount=amount_nano,
                 seqno=seqno,
-                payload=comment.encode('utf-8') if comment else None
+                body=body
             )
             
-            # Получаем BOC base64
-            # tonutils возвращает Message, нужно получить BOC
-            if hasattr(transfer, 'to_boc_base64'):
-                boc_base64 = transfer.to_boc_base64()
-            elif hasattr(transfer, 'to_boc'):
-                boc_bytes = transfer.to_boc()
-                import base64
-                boc_base64 = base64.b64encode(boc_bytes).decode('utf-8')
-            else:
-                # Если это Message, получаем cell и конвертируем
-                cell = transfer.cell if hasattr(transfer, 'cell') else transfer
-                if hasattr(cell, 'to_boc_base64'):
-                    boc_base64 = cell.to_boc_base64()
-                else:
-                    raise Exception("Cannot convert transfer to BOC base64")
+            # Получаем BOC base64 из сообщения
+            boc_base64 = message.to_boc_base64()
             
-            print(f"✅ Created transaction using tonutils (seqno={seqno})", file=sys.stderr, flush=True)
+            print(f"✅ Created transaction using pytoniq (seqno={seqno})", file=sys.stderr, flush=True)
             return boc_base64
             
-        except ImportError:
-            print(f"⚠️ tonutils not available, falling back to manual creation", file=sys.stderr, flush=True)
-            # Fallback на старый метод, если tonutils не установлен
-            return await self._create_wallet_transaction_fallback(seed_words, to_address, amount_nano, seqno, comment)
         except Exception as e:
-            print(f"⚠️ Error creating transaction with tonutils: {e}, trying fallback", file=sys.stderr, flush=True)
+            print(f"⚠️ Error creating transaction with pytoniq: {e}, trying fallback", file=sys.stderr, flush=True)
+            import traceback
+            print(f"❌ Traceback: {traceback.format_exc()}", file=sys.stderr, flush=True)
             # Fallback на старый метод при ошибке
             return await self._create_wallet_transaction_fallback(seed_words, to_address, amount_nano, seqno, comment)
     
