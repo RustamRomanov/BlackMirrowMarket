@@ -639,7 +639,6 @@ class TonService:
             from pytoniq.liteclient import LiteClient
             from pytoniq_core.boc import Builder
             from mnemonic import Mnemonic
-            from pytoniq_core.crypto.keys import PrivateKey as CorePrivateKey
             
             print(f"🔄 Using pytoniq WalletV4R2 with direct private key (no blockchain connection)", file=sys.stderr, flush=True)
             
@@ -648,20 +647,6 @@ class TonService:
             seed_string = " ".join(seed_words)
             seed = mnemo.to_seed(seed_string)
             private_key_bytes = seed[:32]
-            
-            # Создаем приватный ключ для pytoniq
-            # Пробуем использовать pytoniq_core PrivateKey, если доступен
-            try:
-                private_key = CorePrivateKey(private_key_bytes)
-                public_key = private_key.public_key()
-                public_key_bytes = public_key.key if hasattr(public_key, 'key') else public_key
-            except:
-                # Fallback: используем PyNaCl
-                import nacl.signing
-                import nacl.encoding
-                signing_key = nacl.signing.SigningKey(private_key_bytes)
-                verify_key = signing_key.verify_key
-                public_key_bytes = verify_key.encode(encoder=nacl.encoding.RawEncoder)
             
             # Создаем клиент (не подключаемся)
             client = LiteClient.from_mainnet_config()
