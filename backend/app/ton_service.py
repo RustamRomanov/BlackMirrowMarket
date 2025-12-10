@@ -581,101 +581,65 @@ class TonService:
                 try:
                     from pytoniq_core.crypto import PrivateKey
                 except ImportError:
-                    # Используем альтернативный способ - создаем ключ через pytoniq напрямую
+                    # Используем альтернативный способ - создаем кошелек через pytoniq напрямую
+                    # БЕЗ подключения к блокчейну
                     from pytoniq.contract.wallets.wallet import WalletV4R2
                     from pytoniq.liteclient import LiteBalancer
-                    # Используем мнемонику напрямую для создания кошелька
-                    seed_words_list = seed_words
-                    # Создаем временный клиент (не подключаемся)
+                    
+                    print(f"🔄 Creating wallet from mnemonic (no blockchain connection)...", file=sys.stderr, flush=True)
+                    
+                    # Создаем временный клиент, но НЕ подключаемся к блокчейну
+                    # Используем только для инициализации кошелька
                     temp_client = LiteBalancer.from_mainnet_config()
-                    # Создаем кошелек из мнемоники
-                    wallet = await WalletV4R2.from_mnemonic(temp_client, seed_words_list)
-                    # Используем кошелек для создания транзакции
+                    
+                    # Создаем кошелек из мнемоники (не требует подключения для создания)
+                    try:
+                        wallet = await WalletV4R2.from_mnemonic(temp_client, seed_words)
+                    except Exception as wallet_error:
+                        # Если не получилось, пробуем другой способ
+                        print(f"⚠️ Wallet creation error: {wallet_error}, trying alternative...", file=sys.stderr, flush=True)
+                        raise Exception(f"Cannot create wallet without blockchain connection: {wallet_error}")
+                    
                     dest_addr = Address(to_address)
-                    print(f"🔄 Creating transfer message using wallet from mnemonic...", file=sys.stderr, flush=True)
-                    msg = wallet.transfer(destination=dest_addr, amount=amount_nano)
-                    # Создаем подписанную транзакцию
-                    signed_tx = await wallet.create_transfer_message(
-                        destination=dest_addr,
-                        amount=amount_nano,
-                        seqno=seqno
-                    )
+                    print(f"🔄 Creating transfer message locally...", file=sys.stderr, flush=True)
+                    
+                    # Создаем подписанную транзакцию БЕЗ подключения к блокчейну
+                    try:
+                        signed_tx = await wallet.create_transfer_message(
+                            destination=dest_addr,
+                            amount=amount_nano,
+                            seqno=seqno
+                        )
+                    except Exception as tx_error:
+                        print(f"⚠️ Transaction creation error: {tx_error}", file=sys.stderr, flush=True)
+                        raise Exception(f"Cannot create transaction: {tx_error}")
+                    
                     # Получаем BOC
                     boc = signed_tx.to_boc()
                     boc_base64 = boc.to_boc_base64()
                     print(f"✅ Transaction created and signed locally", file=sys.stderr, flush=True)
+                    
                     # Отправляем через HTTP
                     return await self._send_boc_via_http(boc_base64)
         
-        # Если PrivateKey импортирован успешно
+        # Если PrivateKey импортирован успешно, используем его
         from pytoniq.contract.wallets.wallet import WalletV4R2
         from pytoniq.liteclient import LiteBalancer
         
         private_key = PrivateKey(private_key_bytes)
         dest_addr = Address(to_address)
         
-        # Создаем кошелек из приватного ключа (без подключения к блокчейну)
-        # Для этого создаем минимальный клиент, который не подключается
-        print(f"🔄 Creating wallet from private key...", file=sys.stderr, flush=True)
+        print(f"🔄 Creating wallet from private key (no blockchain connection)...", file=sys.stderr, flush=True)
         
-        # Создаем кошелек локально
-        # Используем временный клиент только для инициализации кошелька
-        # Но не подключаемся к блокчейну
+        # Создаем временный клиент, но НЕ подключаемся к блокчейну
+        temp_client = LiteBalancer.from_mainnet_config()
+        
         try:
-            # Создаем кошелек из приватного ключа
-            # WalletV4R2.from_private_key требует клиент, но мы можем создать его локально
-            # и использовать только для создания транзакции
-            
-            # Альтернативный подход: создаем транзакцию вручную используя pytoniq_core
-            from pytoniq_core.boc import Builder, Cell
-            from pytoniq_core.tlb import Message as TLBMessage
-            
-            # Создаем внутреннее сообщение
-            builder = Builder()
-            builder.store_uint(0, 4)  # flags для простого перевода
-            builder.store_address(dest_addr)
-            builder.store_coins(amount_nano)
-            builder.store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)  # empty message body
-            message_cell = builder.end_cell()
-            
-            # Теперь нужно создать транзакцию кошелька V4R2
-            # Это требует знания структуры кошелька V4R2
-            # Используем более простой подход - создаем кошелек и используем его метод transfer
-            
-            # Создаем минимальный клиент (не подключаемся)
-            # Но для создания транзакции все равно нужен клиент...
-            
-            # Используем обходной путь: создаем кошелек с временным клиентом
-            # и используем его только для создания транзакции (не отправляем через него)
-            print(f"🔄 Creating wallet transaction using pytoniq...", file=sys.stderr, flush=True)
-            
-            # Пробуем создать кошелек и транзакцию локально
-            # Для этого нужно создать минимальный клиент, который не подключается
-            # Но pytoniq требует подключения для создания транзакции...
-            
-            # Используем другой подход: создаем транзакцию вручную используя структуру V4R2
-            # Это сложно, но возможно
-            
-            # Создаем кошелек локально используя временный клиент
-            # Создаем минимальный клиент только для инициализации кошелька
-            # НЕ подключаемся к блокчейну - используем только для создания транзакции
-            print(f"🔄 Initializing wallet locally (no blockchain connection)...", file=sys.stderr, flush=True)
-            
-            # Создаем временный клиент (не подключаемся)
-            # Используем from_mainnet_config, но не вызываем start_up()
-            temp_client = LiteBalancer.from_mainnet_config()
-            
-            # Создаем кошелек из приватного ключа
+            # Создаем кошелек из приватного ключа (не требует подключения для создания)
             wallet = await WalletV4R2.from_private_key(temp_client, private_key)
             
-            # Создаем транзакцию локально
+            # Создаем транзакцию локально БЕЗ подключения к блокчейну
             print(f"🔄 Creating transfer message locally...", file=sys.stderr, flush=True)
-            msg = wallet.transfer(destination=dest_addr, amount=amount_nano)
-            
-            # Получаем BOC транзакции
-            # Для этого нужно создать подписанную транзакцию
-            # Используем метод кошелька для создания подписанной транзакции
-            print(f"🔄 Signing transaction locally...", file=sys.stderr, flush=True)
             
             # Создаем подписанную транзакцию используя seqno
             signed_tx = await wallet.create_transfer_message(
@@ -747,57 +711,11 @@ class TonService:
     async def _send_raw(self, to_address: str, amount_nano: int) -> str:
         """
         Отправка TON. Возвращает tx_hash.
-        Использует прямое подключение к блокчейну с улучшенной обработкой ошибок.
+        Использует ТОЛЬКО HTTP API для максимальной скорости и надежности.
         """
-        import asyncio
-        
-        # Пробуем подключиться к блокчейну
-        print(f"🔄 Connecting to TON blockchain...", file=sys.stderr, flush=True)
-        try:
-            await self._ensure_client()
-        except Exception as conn_error:
-            error_msg = str(conn_error)
-            if "have no alive peers" in error_msg.lower() or "failed to connect" in error_msg.lower():
-                # Пробуем HTTP метод как fallback
-                print(f"⚠️ Direct connection failed: {conn_error}", file=sys.stderr, flush=True)
-                print(f"🔄 Trying HTTP-based method as fallback...", file=sys.stderr, flush=True)
-                try:
-                    return await self._send_raw_via_http(to_address, amount_nano)
-                except Exception as http_error:
-                    print(f"❌ HTTP method also failed: {http_error}", file=sys.stderr, flush=True)
-                    raise Exception(f"Both direct and HTTP methods failed. Direct error: {conn_error}. HTTP error: {http_error}")
-            else:
-                raise
-        
-        destination = Address(to_address)
-        try:
-            print(f"🔄 Getting wallet seqno...", file=sys.stderr, flush=True)
-            # Увеличиваем таймауты для Railway (может быть медленное подключение)
-            seqno = await asyncio.wait_for(self._wallet.get_seqno(), timeout=20.0)
-            print(f"✅ Seqno: {seqno}", file=sys.stderr, flush=True)
-            
-            print(f"🔄 Creating transfer message to {to_address[:20]}...", file=sys.stderr, flush=True)
-            msg = await asyncio.wait_for(
-                self._wallet.transfer(destination=destination, amount=amount_nano),
-                timeout=20.0
-            )
-            print(f"✅ Message created", file=sys.stderr, flush=True)
-            
-            print(f"🔄 Sending transaction to blockchain...", file=sys.stderr, flush=True)
-            result = await asyncio.wait_for(
-                self._wallet.raw_transfer([msg], seqno_from_get_meth=True),
-                timeout=30.0  # Увеличен таймаут для отправки на Railway
-            )
-            tx_hash = getattr(result, "hash", None)
-            hash_hex = tx_hash.hex() if tx_hash else "unknown"
-            print(f"✅ Transaction sent successfully! Hash: {hash_hex[:20]}...", file=sys.stderr, flush=True)
-            return hash_hex
-        except asyncio.TimeoutError as e:
-            print(f"❌ TON transaction timeout: {e}", file=sys.stderr, flush=True)
-            raise Exception(f"TON transaction timeout. Railway may have slow network connection. Please try again in a few moments.")
-        except Exception as e:
-            print(f"❌ TON transaction error: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
-            raise
+        # Сразу используем HTTP метод - он работает без подключения к блокчейну
+        print(f"🚀 Using HTTP-based transaction sending (fast and reliable)...", file=sys.stderr, flush=True)
+        return await self._send_raw_via_http(to_address, amount_nano)
 
     async def create_withdrawal(
         self,
