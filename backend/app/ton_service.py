@@ -194,28 +194,41 @@ class TonService:
                 )
                 print("✅ Successfully initialized wallet as V4R2", file=sys.stderr, flush=True)
                 
-                # Проверяем, что адрес кошелька соответствует TON_WALLET_ADDRESS
+                # Проверяем, что адрес кошелька соответствует TON_WALLET_ADDRESS (если можем получить адрес)
                 if self.wallet_address:
-                    wallet_addr = await self._wallet.get_address()
-                    wallet_addr_str = str(wallet_addr)
                     expected_addr = self.wallet_address.strip()
-                    
-                    # Нормализуем адреса для сравнения
                     try:
-                        wallet_addr_normalized = str(Address(wallet_addr_str))
-                        expected_addr_normalized = str(Address(expected_addr))
+                        if hasattr(self._wallet, "get_address"):
+                            wallet_addr = await self._wallet.get_address()
+                        elif hasattr(self._wallet, "address"):
+                            wallet_addr = self._wallet.address
+                        else:
+                            wallet_addr = None
                         
-                        # Сравниваем без учета формата (UQ vs EQ)
-                        if wallet_addr_normalized != expected_addr_normalized:
-                            # Пробуем сравнить в разных форматах
-                            wallet_addr_user = wallet_addr.to_str(is_user_friendly=True, is_bounceable=True)
-                            expected_addr_user = Address(expected_addr).to_str(is_user_friendly=True, is_bounceable=True)
-                            
-                            if wallet_addr_user != expected_addr_user:
-                                print(f"⚠️ Warning: Wallet address mismatch!", file=sys.stderr, flush=True)
-                                print(f"  Expected: {expected_addr}", file=sys.stderr, flush=True)
-                                print(f"  Got from mnemonic: {wallet_addr_str}", file=sys.stderr, flush=True)
-                                print(f"  This mnemonic may not match TON_WALLET_ADDRESS", file=sys.stderr, flush=True)
+                        if wallet_addr:
+                            wallet_addr_str = str(wallet_addr)
+                            # Нормализуем адреса для сравнения
+                            try:
+                                wallet_addr_normalized = str(Address(wallet_addr_str))
+                                expected_addr_normalized = str(Address(expected_addr))
+                                
+                                # Сравниваем без учета формата (UQ vs EQ)
+                                if wallet_addr_normalized != expected_addr_normalized:
+                                    # Пробуем сравнить в разных форматах
+                                    try:
+                                        wallet_addr_user = Address(wallet_addr_str).to_str(is_user_friendly=True, is_bounceable=True)
+                                        expected_addr_user = Address(expected_addr).to_str(is_user_friendly=True, is_bounceable=True)
+                                        if wallet_addr_user != expected_addr_user:
+                                            print(f"⚠️ Warning: Wallet address mismatch!", file=sys.stderr, flush=True)
+                                            print(f"  Expected: {expected_addr}", file=sys.stderr, flush=True)
+                                            print(f"  Got from mnemonic: {wallet_addr_str}", file=sys.stderr, flush=True)
+                                            print(f"  This mnemonic may not match TON_WALLET_ADDRESS", file=sys.stderr, flush=True)
+                                    except Exception:
+                                        pass
+                            except Exception:
+                                pass
+                        else:
+                            print("ℹ️ Skip address verification: wallet address not available from client", file=sys.stderr, flush=True)
                     except Exception as addr_check_error:
                         print(f"⚠️ Could not verify wallet address match: {addr_check_error}", file=sys.stderr, flush=True)
             except asyncio.TimeoutError:
