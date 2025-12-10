@@ -629,43 +629,64 @@ class TonService:
     
     async def _create_wallet_transaction_manually(self, seed_words: list, to_address: str, amount_nano: int, seqno: int, comment: str = None) -> str:
         """
-        Создает транзакцию используя готовую библиотеку `ton` (pytonlib).
-        Это более надежный способ создания и отправки транзакций.
+        Создает транзакцию используя pytoniq с правильной сериализацией BOC.
+        Использует готовый метод create_transfer_message из pytoniq.
         """
         try:
-            # Пробуем использовать библиотеку `ton` (pytonlib)
-            from ton import TonClient
-            from ton.wallet import Wallet
+            from pytoniq import LiteClient, WalletV4R2, Address as PytoniqAddress
+            from pytoniq_core.boc import Builder
+            from mnemonic import Mnemonic
             
-            print(f"🔄 Using 'ton' library for transaction creation", file=sys.stderr, flush=True)
+            print(f"🔄 Using pytoniq WalletV4R2.create_transfer_message (correct approach)", file=sys.stderr, flush=True)
             
-            # Создаем клиент (без подключения к блокчейну, используем HTTP API)
-            client = TonClient()
-            
-            # Загружаем кошелек из seed-фразы
+            # Создаем seed из мнемоники
+            mnemo = Mnemonic("english")
             seed_string = " ".join(seed_words)
-            wallet = Wallet.from_seed(client, seed_string)
+            bip39_seed = mnemo.to_seed(seed_string)
+            ed25519_seed = bip39_seed[:32]
             
-            # Создаем транзакцию и получаем BOC
-            # Используем внутренний метод для создания сообщения
+            # Создаем LiteClient (не подключаемся к блокчейну, только для создания кошелька)
+            # Используем фиктивный провайдер, который не требует подключения
+            client = LiteClient.from_mainnet_config()
+            
+            # Пробуем создать кошелек из seed используя правильный метод
+            # Используем from_mnemonic, который может работать без подключения
+            try:
+                wallet = await WalletV4R2.from_mnemonic(client, seed_words, wc=0)
+                print(f"✅ Created wallet from mnemonic", file=sys.stderr, flush=True)
+            except Exception as mnemonic_error:
+                print(f"⚠️ Error with from_mnemonic: {mnemonic_error}, trying alternative", file=sys.stderr, flush=True)
+                # Если не работает, используем fallback
+                return await self._create_wallet_transaction_fallback(seed_words, to_address, amount_nano, seqno, comment)
+            
+            # Создаем адрес получателя
+            dest_addr = PytoniqAddress(to_address)
+            
+            # Создаем body с комментарием
+            body = None
+            if comment:
+                body_builder = Builder()
+                body_builder.store_uint(0, 32)  # op = 0 для текстового комментария
+                body_builder.store_bytes(comment.encode('utf-8'))
+                body = body_builder.end_cell()
+            
+            # Используем готовый метод create_transfer_message
+            # Этот метод правильно создает транзакцию БЕЗ подключения к блокчейну
             message = await wallet.create_transfer_message(
-                destination=to_address,
+                destination=dest_addr,
                 amount=amount_nano,
                 seqno=seqno,
-                comment=comment
+                body=body
             )
             
-            # Получаем BOC base64
+            # Получаем BOC base64 из сообщения
             boc_base64 = message.to_boc_base64()
             
-            print(f"✅ Created transaction using 'ton' library (seqno={seqno})", file=sys.stderr, flush=True)
+            print(f"✅ Created transaction using pytoniq create_transfer_message (seqno={seqno})", file=sys.stderr, flush=True)
             return boc_base64
             
-        except ImportError:
-            print(f"⚠️ 'ton' library not available, using fallback method", file=sys.stderr, flush=True)
-            return await self._create_wallet_transaction_fallback(seed_words, to_address, amount_nano, seqno, comment)
         except Exception as e:
-            print(f"⚠️ Error with 'ton' library: {e}, using fallback method", file=sys.stderr, flush=True)
+            print(f"⚠️ Error creating transaction with pytoniq: {e}, using fallback", file=sys.stderr, flush=True)
             import traceback
             print(f"❌ Traceback: {traceback.format_exc()}", file=sys.stderr, flush=True)
             return await self._create_wallet_transaction_fallback(seed_words, to_address, amount_nano, seqno, comment)
