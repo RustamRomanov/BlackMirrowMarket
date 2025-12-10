@@ -406,28 +406,50 @@ async def cleanup_test_tasks(db: Session = Depends(get_db)):
 async def fix_failed_withdrawal(telegram_id: int, db: Session = Depends(get_db)):
     """
     Исправляет проблему с выводом средств: возвращает средства на баланс,
-    если транзакция не была отправлена (нет tx_hash).
+    если транзакция не была отправлена (нет tx_hash или tx_hash не подтвержден).
     """
     from decimal import Decimal
+    from sqlalchemy import or_
     
     # Находим пользователя
     user = db.query(models.User).filter(models.User.telegram_id == telegram_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Находим все pending транзакции без tx_hash для этого пользователя
-    failed_transactions = db.query(models.TonTransaction).filter(
+    # Находим ВСЕ pending транзакции для этого пользователя
+    # Включая те, у которых нет tx_hash или tx_hash не подтвержден
+    all_pending = db.query(models.TonTransaction).filter(
         models.TonTransaction.user_id == user.id,
-        models.TonTransaction.status == "pending",
-        models.TonTransaction.tx_hash.is_(None)
+        models.TonTransaction.status == "pending"
     ).all()
     
+    # Фильтруем: берем только те, которые точно не были отправлены
+    # (нет tx_hash или tx_hash = "unknown")
+    failed_transactions = [
+        tx for tx in all_pending 
+        if not tx.tx_hash or tx.tx_hash == "unknown" or tx.tx_hash == ""
+    ]
+    
     if not failed_transactions:
+        # Если нет транзакций без tx_hash, проверяем все pending
+        # Возможно, средства уже списались, но транзакция не подтверждена
         return {
-            "message": "No failed transactions found",
+            "message": "Checking all pending transactions...",
             "telegram_id": telegram_id,
-            "refunded_count": 0,
-            "total_refunded": 0
+            "all_pending_count": len(all_pending),
+            "failed_count": 0,
+            "total_refunded": 0,
+            "pending_transactions": [
+                {
+                    "id": tx.id,
+                    "amount": float(tx.amount_nano) / 10**9,
+                    "to_address": tx.to_address,
+                    "tx_hash": tx.tx_hash,
+                    "status": tx.status,
+                    "created_at": str(tx.created_at)
+                }
+                for tx in all_pending
+            ]
         }
     
     # Возвращаем средства на баланс
@@ -437,6 +459,9 @@ async def fix_failed_withdrawal(telegram_id: int, db: Session = Depends(get_db))
     
     if not balance:
         raise HTTPException(status_code=404, detail="Balance not found")
+    
+    # Запоминаем старый баланс
+    old_balance = balance.ton_active_balance
     
     total_refunded = Decimal(0)
     refunded_count = 0
@@ -448,26 +473,104 @@ async def fix_failed_withdrawal(telegram_id: int, db: Session = Depends(get_db))
         
         # Помечаем транзакцию как failed
         tx.status = "failed"
-        tx.error_message = "Transaction failed: funds returned to balance"
+        tx.error_message = f"Transaction failed: funds returned to balance. Original error: {tx.error_message or 'No tx_hash'}"
         
         refunded_count += 1
     
-    db.commit()
+    # Коммитим изменения
+    try:
+        db.commit()
+        db.refresh(balance)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to commit changes: {str(e)}")
     
     return {
         "message": "Funds returned successfully",
         "telegram_id": telegram_id,
         "refunded_count": refunded_count,
-        "total_refunded": float(total_refunded) / 10**9,
-        "new_balance": float(balance.ton_active_balance) / 10**9,
+        "total_refunded_ton": float(total_refunded) / 10**9,
+        "old_balance_ton": float(old_balance) / 10**9,
+        "new_balance_ton": float(balance.ton_active_balance) / 10**9,
         "transactions": [
             {
                 "id": tx.id,
-                "amount": float(tx.amount_nano) / 10**9,
+                "amount_ton": float(tx.amount_nano) / 10**9,
                 "to_address": tx.to_address,
-                "status": tx.status
+                "status": tx.status,
+                "error_message": tx.error_message
             }
             for tx in failed_transactions
+        ]
+    }
+
+@router.post("/force-refund/{telegram_id}")
+async def force_refund(telegram_id: int, db: Session = Depends(get_db)):
+    """
+    Принудительный возврат средств: возвращает средства для ВСЕХ pending транзакций,
+    независимо от наличия tx_hash. Используйте только в крайнем случае!
+    """
+    from decimal import Decimal
+    
+    # Находим пользователя
+    user = db.query(models.User).filter(models.User.telegram_id == telegram_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Находим ВСЕ pending транзакции
+    all_pending = db.query(models.TonTransaction).filter(
+        models.TonTransaction.user_id == user.id,
+        models.TonTransaction.status == "pending"
+    ).all()
+    
+    if not all_pending:
+        return {
+            "message": "No pending transactions found",
+            "telegram_id": telegram_id
+        }
+    
+    # Возвращаем средства на баланс
+    balance = db.query(models.UserBalance).filter(
+        models.UserBalance.user_id == user.id
+    ).first()
+    
+    if not balance:
+        raise HTTPException(status_code=404, detail="Balance not found")
+    
+    old_balance = balance.ton_active_balance
+    total_refunded = Decimal(0)
+    
+    for tx in all_pending:
+        # Возвращаем средства
+        balance.ton_active_balance += tx.amount_nano
+        total_refunded += tx.amount_nano
+        
+        # Помечаем транзакцию как failed
+        tx.status = "failed"
+        tx.error_message = f"FORCE REFUND: Transaction cancelled and funds returned. Original tx_hash: {tx.tx_hash or 'none'}"
+    
+    try:
+        db.commit()
+        db.refresh(balance)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to commit: {str(e)}")
+    
+    return {
+        "message": "FORCE REFUND completed",
+        "telegram_id": telegram_id,
+        "refunded_count": len(all_pending),
+        "total_refunded_ton": float(total_refunded) / 10**9,
+        "old_balance_ton": float(old_balance) / 10**9,
+        "new_balance_ton": float(balance.ton_active_balance) / 10**9,
+        "transactions": [
+            {
+                "id": tx.id,
+                "amount_ton": float(tx.amount_nano) / 10**9,
+                "to_address": tx.to_address,
+                "tx_hash": tx.tx_hash
+            }
+            for tx in all_pending
         ]
     }
 
