@@ -652,23 +652,15 @@ class TonService:
             
             # Создаем приватный ключ используя PyNaCl (nacl.signing)
             signing_key = nacl.signing.SigningKey(private_key_bytes)
-            public_key_bytes = signing_key.verify_key.encode()
+            # Получаем публичный ключ (32 байта) в raw формате
+            verify_key = signing_key.verify_key
+            public_key_bytes = verify_key.encode(encoder=nacl.encoding.RawEncoder)
             
             print(f"✅ Created private key from mnemonic using PyNaCl", file=sys.stderr, flush=True)
             
             # Получаем адрес кошелька из публичного ключа (WalletV4R2)
             # WalletV4R2 использует wallet_id = 698983191 (0x29A9A317)
             wallet_id = 698983191
-            
-            # Создаем StateInit для WalletV4R2
-            # StateInit = (code, data)
-            # code - это код контракта WalletV4R2
-            # data = (subwallet_id, public_key)
-            state_init_builder = Builder()
-            # subwallet_id = 0 для обычных кошельков
-            state_init_builder.store_uint(0, 32)  # subwallet_id
-            state_init_builder.store_bytes(public_key.key)  # public_key
-            data_cell = state_init_builder.end_cell()
             
             # Получаем код WalletV4R2 (стандартный код контракта)
             # Используем упрощенный подход: создаем StateInit без кода
