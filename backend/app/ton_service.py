@@ -658,30 +658,36 @@ class TonService:
             
             # Создаем кошелек из приватного ключа БЕЗ подключения к блокчейну
             # Используем правильный формат для Ed25519 приватного ключа
-            # pytoniq ожидает bytes длиной 32 байта для Ed25519
-            # Пробуем создать кошелек через from_private_key
+            # Пробуем использовать PrivateKey из pytoniq_core, если доступен
             try:
-                # from_private_key требует правильный формат приватного ключа
-                # Проверяем, что ключ правильного формата
-                if not isinstance(private_key_bytes, bytes) or len(private_key_bytes) != 32:
-                    raise Exception(f"Invalid private key format: type={type(private_key_bytes)}, length={len(private_key_bytes) if isinstance(private_key_bytes, bytes) else 'N/A'}")
-                
-                # Создаем кошелек из приватного ключа
-                # provider нужен только для создания кошелька, не для подключения
+                # Пробуем импортировать PrivateKey из pytoniq_core
+                from pytoniq_core.crypto.keys import PrivateKey as CorePrivateKey
+                # Создаем PrivateKey объект из bytes
+                private_key_obj = CorePrivateKey(private_key_bytes)
+                # Используем PrivateKey объект для создания кошелька
                 wallet = await WalletV4R2.from_private_key(
                     provider=client,
-                    private_key=private_key_bytes,
+                    private_key=private_key_obj,
                     wc=0,  # workchain 0
                     wallet_id=698983191  # WalletV4R2 wallet_id
                 )
-            except (ValueError, TypeError, Exception) as key_error:
-                # Если ошибка с форматом ключа, пробуем использовать правильный формат
-                print(f"⚠️ Error with from_private_key: {key_error}, checking key format", file=sys.stderr, flush=True)
-                # Проверяем формат ключа - может быть проблема с Ed25519
-                # Ed25519 требует правильный формат приватного ключа
+            except ImportError:
+                # Если PrivateKey не доступен, пробуем использовать bytes напрямую
+                print(f"⚠️ PrivateKey not available, trying bytes directly", file=sys.stderr, flush=True)
+                try:
+                    wallet = await WalletV4R2.from_private_key(
+                        provider=client,
+                        private_key=private_key_bytes,
+                        wc=0,  # workchain 0
+                        wallet_id=698983191  # WalletV4R2 wallet_id
+                    )
+                except (ValueError, TypeError) as key_error:
+                    print(f"⚠️ Error with from_private_key using bytes: {key_error}", file=sys.stderr, flush=True)
+                    raise Exception(f"Cannot create wallet from private key bytes: {key_error}")
+            except (ValueError, TypeError) as key_error:
+                # Если ошибка с форматом ключа
+                print(f"⚠️ Error with from_private_key using PrivateKey object: {key_error}", file=sys.stderr, flush=True)
                 if "Invalid secret key" in str(key_error):
-                    # Пробуем использовать правильный формат для Ed25519
-                    # Может быть проблема с тем, как мы создаем ключ из seed
                     raise Exception(f"Invalid Ed25519 secret key format. Key length: {len(private_key_bytes)}, Key type: {type(private_key_bytes)}")
                 raise Exception(f"Cannot create wallet from private key: {key_error}")
             
