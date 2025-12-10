@@ -629,70 +629,51 @@ class TonService:
     
     async def _create_wallet_transaction_manually(self, seed_words: list, to_address: str, amount_nano: int, seqno: int, comment: str = None) -> str:
         """
-        Создает транзакцию используя готовый сервис - pytoniq.
-        Использует готовые методы pytoniq для создания транзакции и правильной сериализации BOC.
+        Создает транзакцию используя готовый сервис - tontools (TonTools).
+        Это библиотека, которая использует API и правильно создает транзакции.
         """
         try:
-            from pytoniq import LiteClient, WalletV4R2, Address as PytoniqAddress
-            from pytoniq_core.boc import Builder
+            from TonTools import TonApiClient, Wallet
             from mnemonic import Mnemonic
             
-            print(f"🔄 Using ready-made pytoniq service for transaction creation", file=sys.stderr, flush=True)
+            print(f"🔄 Using ready-made tontools service for transaction creation", file=sys.stderr, flush=True)
             
-            # Создаем seed из мнемоники
-            mnemo = Mnemonic("english")
+            if not self.api_key:
+                raise Exception("TONAPI_KEY is required for tontools")
+            
+            # Создаем TonApiClient (использует API, не требует подключения к блокчейну)
+            client = TonApiClient(api_key=self.api_key, is_testnet=False)
+            
+            # Создаем кошелек из мнемоники используя готовый метод tontools
             seed_string = " ".join(seed_words)
+            wallet = Wallet(provider=client, mnemonics=seed_string, version='v4r2')
             
-            # Создаем LiteClient (не подключаемся к блокчейну)
-            # Используем фиктивный провайдер, который не требует подключения
-            client = LiteClient.from_mainnet_config()
+            print(f"✅ Created wallet from mnemonic using tontools", file=sys.stderr, flush=True)
             
-            # Создаем кошелек из мнемоники используя готовый метод pytoniq
-            # Этот метод может работать без подключения к блокчейну для создания транзакции
-            try:
-                # Пробуем создать кошелек без подключения к блокчейну
-                # Используем timeout=0 чтобы не ждать подключения
-                wallet = await WalletV4R2.from_mnemonic(client, seed_words, wc=0)
-                print(f"✅ Created wallet from mnemonic using pytoniq", file=sys.stderr, flush=True)
-            except Exception as wallet_error:
-                print(f"⚠️ Error creating wallet: {wallet_error}, wallet may need connection", file=sys.stderr, flush=True)
-                # Если не получилось, пробуем использовать fallback
-                return await self._create_wallet_transaction_fallback(seed_words, to_address, amount_nano, seqno, comment)
+            # Конвертируем amount_nano в TON (float)
+            amount_ton = float(amount_nano) / 10**9
             
-            # Создаем адрес получателя
-            dest_addr = PytoniqAddress(to_address)
+            # Используем готовый метод transfer_ton из tontools
+            # Этот метод правильно создает транзакцию и отправляет её через API
+            tx_hash = await wallet.transfer_ton(
+                destination_address=to_address,
+                amount=amount_ton,
+                message=comment if comment else None
+            )
             
-            # Создаем body с комментарием
-            body = None
-            if comment:
-                body_builder = Builder()
-                body_builder.store_uint(0, 32)  # op = 0 для текстового комментария
-                body_builder.store_bytes(comment.encode('utf-8'))
-                body = body_builder.end_cell()
+            print(f"✅ Transaction sent using ready-made tontools service (tx_hash={tx_hash})", file=sys.stderr, flush=True)
             
-            # Используем готовый метод create_transfer_message из pytoniq
-            # Этот метод правильно создает транзакцию и сериализует BOC
-            try:
-                message = await wallet.create_transfer_message(
-                    destination=dest_addr,
-                    amount=amount_nano,
-                    seqno=seqno,
-                    body=body
-                )
-                
-                # Используем готовый метод to_boc_base64() для правильной сериализации BOC
-                boc_base64 = message.to_boc_base64()
-                
-                print(f"✅ Created transaction using ready-made pytoniq service (seqno={seqno})", file=sys.stderr, flush=True)
-                return boc_base64
-                
-            except Exception as transfer_error:
-                print(f"⚠️ Error creating transfer message: {transfer_error}, using fallback", file=sys.stderr, flush=True)
-                # Если не получилось, используем fallback
-                return await self._create_wallet_transaction_fallback(seed_words, to_address, amount_nano, seqno, comment)
+            # Закрываем клиент
+            await client.close()
             
+            # Возвращаем tx_hash (tontools отправляет транзакцию напрямую, не возвращает BOC)
+            return tx_hash
+            
+        except ImportError:
+            print(f"⚠️ tontools not available, using fallback", file=sys.stderr, flush=True)
+            return await self._create_wallet_transaction_fallback(seed_words, to_address, amount_nano, seqno, comment)
         except Exception as e:
-            print(f"⚠️ Error with ready-made pytoniq service: {e}, using fallback", file=sys.stderr, flush=True)
+            print(f"⚠️ Error with ready-made tontools service: {e}, using fallback", file=sys.stderr, flush=True)
             import traceback
             print(f"❌ Traceback: {traceback.format_exc()}", file=sys.stderr, flush=True)
             return await self._create_wallet_transaction_fallback(seed_words, to_address, amount_nano, seqno, comment)
@@ -1091,9 +1072,18 @@ class TonService:
         if comment:
             print(f"📝 Adding comment to transaction: {comment}", file=sys.stderr, flush=True)
         try:
-            boc_base64 = await self._create_wallet_transaction_manually(seed_words, to_address, amount_nano, seqno, comment)
-            print(f"✅ Transaction created and signed manually", file=sys.stderr, flush=True)
-            return await self._send_boc_via_http(boc_base64)
+            result = await self._create_wallet_transaction_manually(seed_words, to_address, amount_nano, seqno, comment)
+            
+            # Проверяем, что вернулось - tx_hash (от tontools) или BOC (от fallback)
+            # tx_hash обычно выглядит как hex строка длиной 64 символа
+            if len(result) == 64 and all(c in '0123456789abcdefABCDEF' for c in result):
+                # Это tx_hash от tontools - транзакция уже отправлена
+                print(f"✅ Transaction sent directly via tontools (tx_hash={result})", file=sys.stderr, flush=True)
+                return result
+            else:
+                # Это BOC от fallback метода - нужно отправить через toncenter.com
+                print(f"✅ Transaction created and signed manually (BOC)", file=sys.stderr, flush=True)
+                return await self._send_boc_via_http(result)
         except Exception as manual_error:
             print(f"⚠️ Manual transaction creation failed: {manual_error}", file=sys.stderr, flush=True)
             # Fallback на использование pytoniq (может потребовать подключения)
