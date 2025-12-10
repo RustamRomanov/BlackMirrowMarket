@@ -553,25 +553,12 @@ class TonService:
     async def _create_wallet_transaction_manually(self, seed_words: list, to_address: str, amount_nano: int, seqno: int, comment: str = None) -> str:
         """
         Создает транзакцию WalletV4R2 используя pytoniq, но без подключения к блокчейну.
-        Использует обходной путь - создает кошелек локально и транзакцию без вызова методов, требующих подключения.
+        Использует WalletV4R2.from_mnemonic напрямую без подключения.
         """
         from mnemonic import Mnemonic
         from pytoniq.contract.wallets.wallet import WalletV4R2
         from pytoniq.liteclient import LiteClient
-        from pytoniq_core.boc import Builder, Cell
-        
-        # Создаем приватный ключ из мнемоники
-        mnemo = Mnemonic("english")
-        seed_string = " ".join(seed_words)
-        seed_bytes = mnemo.to_seed(seed_string)
-        private_key_bytes = seed_bytes[:32]
-        
-        # Импортируем PrivateKey
-        try:
-            from pytoniq_core.crypto.keys import PrivateKey
-            private_key = PrivateKey(private_key_bytes)
-        except ImportError:
-            raise Exception("Cannot import PrivateKey from pytoniq_core. Please check installation.")
+        from pytoniq_core.boc import Builder
         
         # Создаем адрес получателя
         dest_addr = Address(to_address)
@@ -586,9 +573,13 @@ class TonService:
             from pytoniq.liteclient import LiteBalancer
             client = LiteBalancer.from_mainnet_config()
         
-        # Создаем кошелек из приватного ключа
-        # WalletV4R2.from_private_key может работать без подключения для создания транзакции
-        wallet = await WalletV4R2.from_private_key(client, private_key)
+        # Создаем кошелек из мнемоники напрямую
+        # WalletV4R2.from_mnemonic может работать без подключения для создания транзакции
+        try:
+            wallet = await WalletV4R2.from_mnemonic(client, seed_words)
+        except Exception as wallet_error:
+            print(f"⚠️ Error creating wallet from mnemonic: {wallet_error}", file=sys.stderr, flush=True)
+            raise Exception(f"Cannot create wallet from mnemonic: {wallet_error}")
         
         # Создаем транзакцию используя внутренние методы кошелька
         # Используем метод, который не требует подключения
@@ -607,6 +598,7 @@ class TonService:
                 body = builder.end_cell()
             
             # Пробуем создать транзакцию напрямую через внутренние методы
+            # Важно: не вызываем start_up() на клиенте, чтобы не подключаться к блокчейну
             signed_tx = await wallet.create_transfer_message(
                 destination=dest_addr,
                 amount=amount_nano,
