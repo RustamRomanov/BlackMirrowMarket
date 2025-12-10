@@ -654,17 +654,25 @@ class TonService:
                 raise Exception(f"Invalid seed length: {len(ed25519_seed)}, expected 32 bytes")
             
             # Используем pytoniq_core для правильной генерации приватного ключа Ed25519
+            # В Ed25519: seed (32 байта) -> private key (64 байта = seed + public_key)
+            # from_private_key может ожидать либо 32 байта seed, либо 64 байта private key
             try:
-                from pytoniq_core.crypto.keys import seed_to_private_key, private_key_to_public_key
-                # Генерируем приватный ключ из seed (32 байта -> 64 байта private key)
+                from pytoniq_core.crypto.keys import seed_to_private_key
+                # Генерируем полный приватный ключ из seed (32 байта -> 64 байта)
                 private_key_full = seed_to_private_key(ed25519_seed)
-                # from_private_key ожидает 32 байта seed, а не 64 байта private key
-                # Используем seed напрямую
-                private_key_for_wallet = ed25519_seed
+                # Пробуем использовать полный private key (64 байта)
+                private_key_for_wallet = private_key_full
+                print(f"✅ Generated full private key (64 bytes) from seed", file=sys.stderr, flush=True)
             except ImportError:
-                # Если pytoniq_core.crypto.keys недоступен, используем seed напрямую
-                print(f"⚠️ pytoniq_core.crypto.keys not available, using seed directly", file=sys.stderr, flush=True)
-                private_key_for_wallet = ed25519_seed
+                # Если pytoniq_core.crypto.keys недоступен, используем PyNaCl для генерации
+                print(f"⚠️ pytoniq_core.crypto.keys not available, using PyNaCl", file=sys.stderr, flush=True)
+                import nacl.signing
+                # PyNaCl создает SigningKey из seed (32 байта)
+                signing_key = nacl.signing.SigningKey(ed25519_seed)
+                # Получаем полный private key (64 байта) из SigningKey
+                # В PyNaCl private key = seed + public_key (64 байта)
+                private_key_for_wallet = bytes(signing_key)  # 64 bytes
+                print(f"✅ Generated full private key (64 bytes) using PyNaCl", file=sys.stderr, flush=True)
             
             # Создаем клиент (не подключаемся к блокчейну)
             # LiteClient нужен только для создания кошелька, не для подключения
@@ -876,57 +884,54 @@ class TonService:
             external_message = external_builder.end_cell()
             
             # Конвертируем в BOC base64
-            # В pytoniq_core нужно использовать правильный метод для сериализации
+            # Используем правильный метод для сериализации BOC из pytoniq_core
             try:
-                # Пробуем использовать pytoniq для конвертации напрямую
-                from pytoniq import Cell as PytoniqCell
-                # Пробуем создать pytoniq Cell из pytoniq_core Cell
-                # Сначала получаем bytes через правильную сериализацию
-                # Используем правильную сериализацию Cell в BOC
-                # serialize() требует indexes (словарь для хранения индексов) и byte_len
-                indexes = {}  # Словарь для хранения индексов, не список!
-                byte_len = 4  # Длина в байтах для индексов
+                # Пробуем использовать serialize_boc из pytoniq_core
+                from pytoniq_core.boc import serialize_boc
+                import base64
                 
-                # Сериализуем Cell
-                boc_bytes = external_message.serialize(indexes=indexes, byte_len=byte_len)
+                # serialize_boc принимает Cell и возвращает bytes
+                boc_bytes = serialize_boc(external_message)
+                boc_base64 = base64.b64encode(boc_bytes).decode('utf-8')
+                print(f"✅ Serialized BOC using serialize_boc", file=sys.stderr, flush=True)
                 
-                # Конвертируем bytes в pytoniq Cell
-                # from_boc может вернуть список, берем первый элемент
-                pytoniq_cells = PytoniqCell.from_boc(boc_bytes)
-                if isinstance(pytoniq_cells, list):
-                    pytoniq_cell = pytoniq_cells[0]
-                else:
-                    pytoniq_cell = pytoniq_cells
-                
-                boc_base64 = pytoniq_cell.to_boc_base64()
-                
-            except Exception as pytoniq_error:
-                print(f"⚠️ Error converting via pytoniq with dict indexes: {pytoniq_error}, trying direct base64", file=sys.stderr, flush=True)
+            except ImportError:
+                # Если serialize_boc недоступен, используем pytoniq
+                print(f"⚠️ serialize_boc not available, using pytoniq", file=sys.stderr, flush=True)
                 try:
-                    # Альтернативный способ: используем правильную сериализацию
-                    indexes = {}  # Словарь для индексов
-                    byte_len = 4
-                    boc_bytes = external_message.serialize(indexes=indexes, byte_len=byte_len)
-                    # Конвертируем в base64 напрямую
-                    import base64
-                    boc_base64 = base64.b64encode(boc_bytes).decode('utf-8')
-                except Exception as serialize_error:
-                    print(f"⚠️ Error converting via serialize: {serialize_error}, trying alternative", file=sys.stderr, flush=True)
-                    # Последняя попытка: используем pytoniq Cell напрямую
+                    from pytoniq import Cell as PytoniqCell
+                    # Конвертируем pytoniq_core Cell в pytoniq Cell через BOC
+                    # Сначала сериализуем в BOC bytes
+                    from pytoniq_core.boc import serialize_boc as core_serialize_boc
+                    boc_bytes = core_serialize_boc(external_message)
+                    
+                    # Конвертируем в pytoniq Cell
+                    pytoniq_cells = PytoniqCell.from_boc(boc_bytes)
+                    if isinstance(pytoniq_cells, list):
+                        pytoniq_cell = pytoniq_cells[0]
+                    else:
+                        pytoniq_cell = pytoniq_cells
+                    
+                    boc_base64 = pytoniq_cell.to_boc_base64()
+                    print(f"✅ Serialized BOC using pytoniq", file=sys.stderr, flush=True)
+                    
+                except Exception as pytoniq_error:
+                    print(f"⚠️ Error converting via pytoniq: {pytoniq_error}, trying manual serialize", file=sys.stderr, flush=True)
+                    # Последняя попытка: используем правильную сериализацию с правильным заполнением indexes
                     try:
-                        # Пробуем создать pytoniq Cell из pytoniq_core Cell
-                        # Используем правильную сериализацию
-                        indexes = {}
-                        byte_len = 4
+                        # Правильная сериализация требует правильного заполнения indexes
+                        # indexes должен быть словарем, который заполняется при сериализации
+                        indexes = {}  # Словарь для индексов
+                        byte_len = 4  # Длина в байтах для индексов
+                        
+                        # Сериализуем Cell - indexes будет заполнен автоматически
                         boc_bytes = external_message.serialize(indexes=indexes, byte_len=byte_len)
                         
-                        pytoniq_cells = PytoniqCell.from_boc(boc_bytes)
-                        if isinstance(pytoniq_cells, list):
-                            pytoniq_cell = pytoniq_cells[0]
-                        else:
-                            pytoniq_cell = pytoniq_cells
+                        # Конвертируем в base64
+                        import base64
+                        boc_base64 = base64.b64encode(boc_bytes).decode('utf-8')
+                        print(f"✅ Serialized BOC using manual serialize", file=sys.stderr, flush=True)
                         
-                        boc_base64 = pytoniq_cell.to_boc_base64()
                     except Exception as final_error:
                         raise Exception(f"All conversion methods failed. Last error: {final_error}")
             
