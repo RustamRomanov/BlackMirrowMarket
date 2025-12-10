@@ -14,7 +14,7 @@ from app.models import (
     TonTransaction,
     Deposit,
 )
-from sqlalchemy import func, and_
+from sqlalchemy import func, and_, or_
 from app.database import SessionLocal
 from datetime import datetime, timedelta
 from app.ton_service import get_ton_service
@@ -1685,7 +1685,7 @@ async def get_user_balance_html(request: Request):
     error_msg = None
     
     try:
-        # Обработка пополнения баланса
+        # Обработка пополнения баланса и возврата средств
         if request.method == "POST":
             form = await request.form()
             action = form.get("action")
@@ -1727,6 +1727,55 @@ async def get_user_balance_html(request: Request):
                         error_msg = "Неверный формат данных"
                     except Exception as e:
                         error_msg = f"Ошибка: {str(e)}"
+            
+            elif action == "refund":
+                # Возврат средств для failed транзакций
+                telegram_id = form.get("telegram_id")
+                
+                if not telegram_id:
+                    error_msg = "Укажите Telegram ID"
+                else:
+                    try:
+                        telegram_id_int = int(telegram_id)
+                        user = db.query(User).filter(User.telegram_id == telegram_id_int).first()
+                        if not user:
+                            error_msg = f"Пользователь с Telegram ID {telegram_id} не найден"
+                        else:
+                            # Находим все pending транзакции без tx_hash
+                            failed_transactions = db.query(TonTransaction).filter(
+                                TonTransaction.user_id == user.id,
+                                TonTransaction.status == "pending",
+                                or_(
+                                    TonTransaction.tx_hash.is_(None),
+                                    TonTransaction.tx_hash == "",
+                                    TonTransaction.tx_hash == "unknown"
+                                )
+                            ).all()
+                            
+                            if not failed_transactions:
+                                error_msg = f"Нет failed транзакций для пользователя {telegram_id}"
+                            else:
+                                balance = db.query(UserBalance).filter(UserBalance.user_id == user.id).first()
+                                if not balance:
+                                    error_msg = "Баланс пользователя не найден"
+                                else:
+                                    old_balance = balance.ton_active_balance
+                                    total_refunded = Decimal(0)
+                                    
+                                    for tx in failed_transactions:
+                                        balance.ton_active_balance += tx.amount_nano
+                                        total_refunded += tx.amount_nano
+                                        tx.status = "failed"
+                                        tx.error_message = "Transaction failed: funds returned to balance via admin panel"
+                                    
+                                    db.commit()
+                                    refunded_ton = float(total_refunded) / 10**9
+                                    new_balance_ton = float(balance.ton_active_balance) / 10**9
+                                    success_msg = f"✅ Возвращено {refunded_ton:.4f} TON пользователю {telegram_id}. Новый баланс: {new_balance_ton:.4f} TON. Исправлено транзакций: {len(failed_transactions)}"
+                    except ValueError:
+                        error_msg = "Неверный формат Telegram ID"
+                    except Exception as e:
+                        error_msg = f"Ошибка при возврате средств: {str(e)}"
         
         balances = db.query(UserBalance).join(User).order_by(UserBalance.created_at.desc()).limit(100).all()
         
@@ -1818,6 +1867,24 @@ async def get_user_balance_html(request: Request):
             <p class="muted" style="margin-top:15px; font-size:12px;">
                 <strong>Автоматическое пополнение:</strong> Сервисный кошелек: <code style="background:#f5f5f5; padding:2px 6px; border-radius:3px;">{os.getenv("TON_WALLET_ADDRESS", "не настроен")}</code><br>
                 Пользователи переводят TON на этот адрес с комментарием (Telegram ID), и баланс зачисляется автоматически в течение 1-2 минут.
+            </p>
+        </div>
+        
+        <div class="card" style="background:#fff3cd; border-left:4px solid #f44336; padding:25px; border-radius:10px; box-shadow:0 2px 4px rgba(0,0,0,0.1); margin:20px 0;">
+            <h3>🔄 Вернуть средства при failed выводе</h3>
+            <p class="muted" style="color:#d32f2f; margin-bottom:15px;"><strong>⚠️ Используйте эту функцию, если средства списались с баланса, но транзакция не была отправлена в блокчейн.</strong> Средства будут возвращены на баланс пользователя.</p>
+            <form method="POST" style="display:flex; gap:12px; align-items:flex-end;">
+                <input type="hidden" name="action" value="refund">
+                <div style="flex:1;">
+                    <label><strong>Telegram ID пользователя</strong></label>
+                    <input type="number" name="telegram_id" required placeholder="8032604270" value="8032604270" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px;">
+                </div>
+                <div>
+                    <button type="submit" class="btn" style="background:#f44336; color:white; border:none; padding:12px 24px; border-radius:6px; cursor:pointer; font-weight:600; white-space:nowrap;">🔄 Вернуть средства</button>
+                </div>
+            </form>
+            <p class="muted" style="margin-top:15px; font-size:12px; color:#d32f2f;">
+                <strong>⚠️ Внимание:</strong> Эта функция вернет средства только для pending транзакций без tx_hash (не отправленных в блокчейн).
             </p>
         </div>
         
