@@ -501,11 +501,24 @@ class TonService:
                                         if method_resp.status == 200:
                                             method_data = await method_resp.json()
                                             if "stack" in method_data and len(method_data["stack"]) > 0:
-                                                seqno_value = method_data["stack"][0].get("value", method_data["stack"][0])
+                                                stack_item = method_data["stack"][0]
+                                                # stack_item может быть словарем с ключами "type" и "value"
+                                                if isinstance(stack_item, dict):
+                                                    seqno_value = stack_item.get("value", stack_item)
+                                                else:
+                                                    seqno_value = stack_item
+                                                
+                                                # Преобразуем в int
                                                 if isinstance(seqno_value, str):
                                                     seqno = int(seqno_value, 16) if seqno_value.startswith("0x") else int(seqno_value)
-                                                else:
+                                                elif isinstance(seqno_value, (int, float)):
                                                     seqno = int(seqno_value)
+                                                elif isinstance(seqno_value, dict):
+                                                    # Если это словарь, пробуем получить значение из него
+                                                    seqno = int(seqno_value.get("value", 0))
+                                                else:
+                                                    seqno = 0
+                                                
                                                 print(f"✅ Got seqno via runGetMethod: {seqno}", file=sys.stderr, flush=True)
                                                 return seqno
                                 except Exception as method_error:
@@ -642,10 +655,10 @@ class TonService:
                     # W5 (WalletV5) имеет wallet_id = 0x4 = 4
                     # V4R2 имеет wallet_id = 698983191
                     # Проверяем адрес кошелька - если это W5, используем wallet_id = 4
-                    wallet_id = 4  # По умолчанию W5 (WalletV5) - более новый формат
-                    
-                    # Если адрес кошелька известен, можно проверить его тип
-                    # Но для простоты используем W5, так как это активный кошелек
+                    # Определяем wallet_id по типу кошелька
+                    # WalletV5R1 имеет wallet_id = 0x4 = 4
+                    # WalletV4R2 имеет wallet_id = 698983191
+                    wallet_id = 4  # WalletV5R1 (wallet_v5r1) - более новый формат
                     
                     # Создаем StateInit для WalletV5
                     state_init_builder = Builder()
@@ -744,17 +757,26 @@ class TonService:
                     print(f"⚠️ Error using pytoniq for conversion: {pytoniq_error}", file=sys.stderr, flush=True)
                     # Fallback: конвертируем напрямую в base64 из bytes
                     try:
-                        # Пробуем получить bytes напрямую
-                        if hasattr(final_cell, 'to_boc'):
+                        # Пробуем получить bytes напрямую из pytoniq_core Cell
+                        # pytoniq_core Cell имеет метод serialize_boc() или to_boc()
+                        if hasattr(final_cell, 'serialize_boc'):
+                            try:
+                                boc_bytes = final_cell.serialize_boc()
+                            except:
+                                # Если serialize_boc не работает, пробуем другой способ
+                                from pytoniq_core.boc import serialize_boc
+                                boc_bytes = serialize_boc(final_cell)
+                        elif hasattr(final_cell, 'to_boc'):
                             boc_bytes = final_cell.to_boc()
-                        elif hasattr(final_cell, 'serialize_boc'):
-                            boc_bytes = final_cell.serialize_boc()
                         else:
-                            # Последняя попытка: используем repr или другой способ
-                            raise Exception("Cannot get bytes from Cell using any method")
+                            # Используем pytoniq_core.boc.serialize_boc напрямую
+                            from pytoniq_core.boc import serialize_boc
+                            boc_bytes = serialize_boc(final_cell)
                         
                         boc_base64 = base64.b64encode(boc_bytes).decode('utf-8')
+                        print(f"✅ Converted Cell to BOC base64 using direct method", file=sys.stderr, flush=True)
                     except Exception as final_error:
+                        print(f"⚠️ Error in direct conversion: {final_error}", file=sys.stderr, flush=True)
                         raise Exception(f"Cannot convert Cell to BOC base64. Tried pytoniq and direct conversion. Last error: {final_error}")
                 
                 return boc_base64
@@ -825,15 +847,16 @@ class TonService:
                 except Exception as tonapi_error:
                     print(f"⚠️ Error: {tonapi_error}", file=sys.stderr, flush=True)
             
-            # Используем toncenter.com (без API ключа, он не обязателен для sendBoc)
-            # toncenter.com ожидает параметры в query string для GET запроса
+            # Используем toncenter.com API
+            # toncenter.com ожидает POST запрос с JSON body или form-data
             url = "https://toncenter.com/api/v2/sendBoc"
-            params = {
+            
+            # Пробуем POST с JSON body
+            payload = {
                 "boc": boc_base64
             }
             
-            # Пробуем GET запрос с параметрами в query string (стандартный способ для toncenter.com)
-            async with session.get(url, params=params) as resp:
+            async with session.post(url, json=payload) as resp:
                 if resp.status == 200:
                     data = await resp.json()
                     if data.get("ok"):
