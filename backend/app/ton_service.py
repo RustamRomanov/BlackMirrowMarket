@@ -489,6 +489,29 @@ class TonService:
                                 print(f"🔍 Debug: API response structure: {str(data)[:500]}", file=sys.stderr, flush=True)
                                 
                                 # Получаем seqno из состояния кошелька
+                                # Для uninit кошелька seqno = 0, но это нормально
+                                status = data.get("status", "")
+                                
+                                # Пробуем получить seqno через runGetMethod
+                                # Используем другой endpoint для получения seqno
+                                try:
+                                    # Пробуем получить seqno через runGetMethod
+                                    method_url = f"https://tonapi.io/v2/blockchain/accounts/{addr}/methods/seqno"
+                                    async with session.get(method_url, headers=headers) as method_resp:
+                                        if method_resp.status == 200:
+                                            method_data = await method_resp.json()
+                                            if "stack" in method_data and len(method_data["stack"]) > 0:
+                                                seqno_value = method_data["stack"][0].get("value", method_data["stack"][0])
+                                                if isinstance(seqno_value, str):
+                                                    seqno = int(seqno_value, 16) if seqno_value.startswith("0x") else int(seqno_value)
+                                                else:
+                                                    seqno = int(seqno_value)
+                                                print(f"✅ Got seqno via runGetMethod: {seqno}", file=sys.stderr, flush=True)
+                                                return seqno
+                                except Exception as method_error:
+                                    print(f"⚠️ Error getting seqno via runGetMethod: {method_error}", file=sys.stderr, flush=True)
+                                
+                                # Получаем seqno из состояния кошелька
                                 # interfaces может быть списком или словарем
                                 interfaces = data.get("interfaces", [])
                                 if isinstance(interfaces, list):
@@ -506,17 +529,10 @@ class TonService:
                                         print(f"✅ Got seqno via API: {seqno}", file=sys.stderr, flush=True)
                                         return int(seqno)
                                 
-                                # Альтернативный способ - через состояние
-                                state = data.get("state", {})
-                                if isinstance(state, dict):
-                                    # Пробуем получить seqno из данных состояния
-                                    account_state = state.get("account", {})
-                                    if isinstance(account_state, dict):
-                                        # Seqno может быть в разных местах в зависимости от типа кошелька
-                                        seqno = account_state.get("seqno")
-                                        if seqno is not None:
-                                            print(f"✅ Got seqno via API (from state): {seqno}", file=sys.stderr, flush=True)
-                                            return int(seqno)
+                                # Для uninit кошелька seqno = 0
+                                if status == "uninit":
+                                    print(f"ℹ️ Wallet is uninit, using seqno = 0", file=sys.stderr, flush=True)
+                                    return 0
                                 
                                 # Пробуем получить seqno напрямую из data
                                 seqno = data.get("seqno")
@@ -534,6 +550,65 @@ class TonService:
             print(f"⚠️ Error getting seqno via API: {e}, using 0", file=sys.stderr, flush=True)
             return 0
     
+    async def _create_wallet_transaction_manually(self, seed_words: list, to_address: str, amount_nano: int, seqno: int) -> str:
+        """
+        Создает транзакцию WalletV4R2 используя pytoniq, но без подключения к блокчейну.
+        Использует обходной путь - создает кошелек локально и транзакцию без вызова методов, требующих подключения.
+        """
+        from mnemonic import Mnemonic
+        from pytoniq.contract.wallets.wallet import WalletV4R2
+        from pytoniq.liteclient import LiteClient
+        
+        # Создаем приватный ключ из мнемоники
+        mnemo = Mnemonic("english")
+        seed_string = " ".join(seed_words)
+        seed_bytes = mnemo.to_seed(seed_string)
+        private_key_bytes = seed_bytes[:32]
+        
+        # Импортируем PrivateKey
+        try:
+            from pytoniq_core.crypto.keys import PrivateKey
+            private_key = PrivateKey(private_key_bytes)
+        except ImportError:
+            raise Exception("Cannot import PrivateKey from pytoniq_core. Please check installation.")
+        
+        # Создаем адрес получателя
+        dest_addr = Address(to_address)
+        
+        # Создаем минимальный клиент (не подключаемся)
+        # Используем LiteClient вместо LiteBalancer для более простого использования
+        try:
+            from pytoniq.liteclient import LiteClient
+            # Создаем клиент, но не подключаемся
+            client = LiteClient.from_mainnet_config()
+        except:
+            from pytoniq.liteclient import LiteBalancer
+            client = LiteBalancer.from_mainnet_config()
+        
+        # Создаем кошелек из приватного ключа
+        # WalletV4R2.from_private_key может работать без подключения для создания транзакции
+        wallet = await WalletV4R2.from_private_key(client, private_key)
+        
+        # Создаем транзакцию используя внутренние методы кошелька
+        # Используем метод, который не требует подключения
+        try:
+            # Пробуем создать транзакцию напрямую через внутренние методы
+            signed_tx = await wallet.create_transfer_message(
+                destination=dest_addr,
+                amount=amount_nano,
+                seqno=seqno
+            )
+            
+            # Получаем BOC
+            boc = signed_tx.to_boc()
+            boc_base64 = boc.to_boc_base64()
+            
+            return boc_base64
+        except Exception as tx_error:
+            # Если не получилось, пробуем альтернативный способ
+            print(f"⚠️ Error creating transaction: {tx_error}", file=sys.stderr, flush=True)
+            raise Exception(f"Cannot create transaction: {tx_error}")
+    
     async def _send_raw_via_http(self, to_address: str, amount_nano: int) -> str:
         """
         Отправка TON через HTTP API без прямого подключения к блокчейну.
@@ -546,9 +621,6 @@ class TonService:
         print(f"🔄 Getting wallet seqno via HTTP API...", file=sys.stderr, flush=True)
         seqno = await self._get_seqno_via_api()
         print(f"✅ Seqno: {seqno}", file=sys.stderr, flush=True)
-        
-        # Создаем и подписываем транзакцию локально
-        print(f"🔄 Creating and signing transaction locally...", file=sys.stderr, flush=True)
         
         # Очищаем и валидируем мнемонику
         cleaned_seed = self.seed_phrase.strip()
@@ -563,104 +635,16 @@ class TonService:
         if len(seed_words) != 24:
             raise Exception(f"Invalid mnemonic: expected 24 words, got {len(seed_words)}")
         
-        # Создаем приватный ключ из мнемоники
-        from mnemonic import Mnemonic
-        mnemo = Mnemonic("english")
-        seed_string = " ".join(seed_words)
-        seed_bytes = mnemo.to_seed(seed_string)
-        private_key_bytes = seed_bytes[:32]
-        
-        # Импортируем необходимые модули
-        # Пробуем разные способы импорта PrivateKey
+        # Создаем транзакцию вручную
+        print(f"🔄 Creating transaction manually (no blockchain connection)...", file=sys.stderr, flush=True)
         try:
-            from pytoniq_core.crypto.keys import PrivateKey
-        except ImportError:
-            try:
-                from pytoniq.crypto.keys import PrivateKey
-            except ImportError:
-                try:
-                    from pytoniq_core.crypto import PrivateKey
-                except ImportError:
-                    # Используем альтернативный способ - создаем кошелек через pytoniq напрямую
-                    # БЕЗ подключения к блокчейну
-                    from pytoniq.contract.wallets.wallet import WalletV4R2
-                    from pytoniq.liteclient import LiteBalancer
-                    
-                    print(f"🔄 Creating wallet from mnemonic (no blockchain connection)...", file=sys.stderr, flush=True)
-                    
-                    # Создаем временный клиент, но НЕ подключаемся к блокчейну
-                    # Используем только для инициализации кошелька
-                    temp_client = LiteBalancer.from_mainnet_config()
-                    
-                    # Создаем кошелек из мнемоники (не требует подключения для создания)
-                    try:
-                        wallet = await WalletV4R2.from_mnemonic(temp_client, seed_words)
-                    except Exception as wallet_error:
-                        # Если не получилось, пробуем другой способ
-                        print(f"⚠️ Wallet creation error: {wallet_error}, trying alternative...", file=sys.stderr, flush=True)
-                        raise Exception(f"Cannot create wallet without blockchain connection: {wallet_error}")
-                    
-                    dest_addr = Address(to_address)
-                    print(f"🔄 Creating transfer message locally...", file=sys.stderr, flush=True)
-                    
-                    # Создаем подписанную транзакцию БЕЗ подключения к блокчейну
-                    try:
-                        signed_tx = await wallet.create_transfer_message(
-                            destination=dest_addr,
-                            amount=amount_nano,
-                            seqno=seqno
-                        )
-                    except Exception as tx_error:
-                        print(f"⚠️ Transaction creation error: {tx_error}", file=sys.stderr, flush=True)
-                        raise Exception(f"Cannot create transaction: {tx_error}")
-                    
-                    # Получаем BOC
-                    boc = signed_tx.to_boc()
-                    boc_base64 = boc.to_boc_base64()
-                    print(f"✅ Transaction created and signed locally", file=sys.stderr, flush=True)
-                    
-                    # Отправляем через HTTP
-                    return await self._send_boc_via_http(boc_base64)
-        
-        # Если PrivateKey импортирован успешно, используем его
-        from pytoniq.contract.wallets.wallet import WalletV4R2
-        from pytoniq.liteclient import LiteBalancer
-        
-        private_key = PrivateKey(private_key_bytes)
-        dest_addr = Address(to_address)
-        
-        print(f"🔄 Creating wallet from private key (no blockchain connection)...", file=sys.stderr, flush=True)
-        
-        # Создаем временный клиент, но НЕ подключаемся к блокчейну
-        temp_client = LiteBalancer.from_mainnet_config()
-        
-        try:
-            # Создаем кошелек из приватного ключа (не требует подключения для создания)
-            wallet = await WalletV4R2.from_private_key(temp_client, private_key)
-            
-            # Создаем транзакцию локально БЕЗ подключения к блокчейну
-            print(f"🔄 Creating transfer message locally...", file=sys.stderr, flush=True)
-            
-            # Создаем подписанную транзакцию используя seqno
-            signed_tx = await wallet.create_transfer_message(
-                destination=dest_addr,
-                amount=amount_nano,
-                seqno=seqno
-            )
-            
-            # Получаем BOC из подписанной транзакции
-            boc = signed_tx.to_boc()
-            boc_base64 = boc.to_boc_base64()
-            
-            print(f"✅ Transaction created and signed locally", file=sys.stderr, flush=True)
-            
-            # Отправляем BOC через HTTP endpoint
+            boc_base64 = await self._create_wallet_transaction_manually(seed_words, to_address, amount_nano, seqno)
+            print(f"✅ Transaction created and signed manually", file=sys.stderr, flush=True)
             return await self._send_boc_via_http(boc_base64)
-            
-        except Exception as e:
-            error_msg = str(e)
-            print(f"⚠️ HTTP method error: {error_msg}", file=sys.stderr, flush=True)
-            raise Exception(f"HTTP method failed: {error_msg}")
+        except Exception as manual_error:
+            print(f"⚠️ Manual transaction creation failed: {manual_error}", file=sys.stderr, flush=True)
+            # Fallback на использование pytoniq (может потребовать подключения)
+            raise Exception(f"Failed to create transaction manually: {manual_error}")
     
     async def _send_boc_via_http(self, boc_base64: str) -> str:
         """Отправляет подписанную транзакцию (BOC) через TON Center API."""
