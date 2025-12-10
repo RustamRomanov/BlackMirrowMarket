@@ -629,12 +629,46 @@ class TonService:
     
     async def _create_wallet_transaction_manually(self, seed_words: list, to_address: str, amount_nano: int, seqno: int, comment: str = None) -> str:
         """
-        Создает транзакцию используя готовый API toncenter.com.
-        Использует fallback метод для создания транзакции вручную через pytoniq_core.
+        Создает транзакцию используя готовую библиотеку `ton` (pytonlib).
+        Это более надежный способ создания и отправки транзакций.
         """
-        # Сразу используем fallback метод, так как from_private_key не работает
-        print(f"🔄 Using fallback method for transaction creation (from_private_key bypassed)", file=sys.stderr, flush=True)
-        return await self._create_wallet_transaction_fallback(seed_words, to_address, amount_nano, seqno, comment)
+        try:
+            # Пробуем использовать библиотеку `ton` (pytonlib)
+            from ton import TonClient
+            from ton.wallet import Wallet
+            
+            print(f"🔄 Using 'ton' library for transaction creation", file=sys.stderr, flush=True)
+            
+            # Создаем клиент (без подключения к блокчейну, используем HTTP API)
+            client = TonClient()
+            
+            # Загружаем кошелек из seed-фразы
+            seed_string = " ".join(seed_words)
+            wallet = Wallet.from_seed(client, seed_string)
+            
+            # Создаем транзакцию и получаем BOC
+            # Используем внутренний метод для создания сообщения
+            message = await wallet.create_transfer_message(
+                destination=to_address,
+                amount=amount_nano,
+                seqno=seqno,
+                comment=comment
+            )
+            
+            # Получаем BOC base64
+            boc_base64 = message.to_boc_base64()
+            
+            print(f"✅ Created transaction using 'ton' library (seqno={seqno})", file=sys.stderr, flush=True)
+            return boc_base64
+            
+        except ImportError:
+            print(f"⚠️ 'ton' library not available, using fallback method", file=sys.stderr, flush=True)
+            return await self._create_wallet_transaction_fallback(seed_words, to_address, amount_nano, seqno, comment)
+        except Exception as e:
+            print(f"⚠️ Error with 'ton' library: {e}, using fallback method", file=sys.stderr, flush=True)
+            import traceback
+            print(f"❌ Traceback: {traceback.format_exc()}", file=sys.stderr, flush=True)
+            return await self._create_wallet_transaction_fallback(seed_words, to_address, amount_nano, seqno, comment)
     
     async def _create_wallet_transaction_fallback(self, seed_words: list, to_address: str, amount_nano: int, seqno: int, comment: str = None) -> str:
         """
