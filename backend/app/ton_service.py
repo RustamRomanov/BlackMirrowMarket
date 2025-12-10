@@ -727,11 +727,23 @@ class TonService:
             # Подписываем транзакцию
             # Подпись = sign(private_key, wallet_body.hash())
             # Для WalletV4R2 подпись создается от hash(wallet_body)
-            wallet_body_hash = wallet_body.hash()
-            if hasattr(wallet_body_hash, '__call__'):
-                wallet_body_hash = wallet_body_hash()
-            elif not isinstance(wallet_body_hash, bytes):
-                # Если hash() возвращает не bytes, конвертируем
+            # В pytoniq_core hash может быть свойством (bytes) или методом
+            try:
+                if hasattr(wallet_body, 'hash'):
+                    wallet_body_hash = wallet_body.hash
+                    # Проверяем, это свойство (bytes) или метод
+                    if callable(wallet_body_hash):
+                        wallet_body_hash = wallet_body_hash()
+                    # Если это уже bytes, используем как есть
+                    if not isinstance(wallet_body_hash, bytes):
+                        # Если это не bytes, конвертируем через serialize
+                        wallet_body_hash = hashlib.sha256(wallet_body.serialize()).digest()
+                else:
+                    # Если hash не существует, используем serialize
+                    wallet_body_hash = hashlib.sha256(wallet_body.serialize()).digest()
+            except Exception as hash_error:
+                # Fallback: используем serialize
+                print(f"⚠️ Error getting hash from wallet_body: {hash_error}, using serialize", file=sys.stderr, flush=True)
                 wallet_body_hash = hashlib.sha256(wallet_body.serialize()).digest()
             
             # Подписываем используя PyNaCl
