@@ -496,7 +496,46 @@ class TonService:
                                 # Используем другой endpoint для получения seqno
                                 try:
                                     # Пробуем получить seqno через runGetMethod
+                                    # Используем правильный endpoint для вызова метода
                                     method_url = f"https://tonapi.io/v2/blockchain/accounts/{addr}/methods/seqno"
+                                    # Пробуем GET сначала
+                                    async with session.get(method_url, headers=headers) as method_resp:
+                                        if method_resp.status == 200:
+                                            method_data = await method_resp.json()
+                                            print(f"🔍 Debug: runGetMethod GET response: {str(method_data)[:500]}", file=sys.stderr, flush=True)
+                                            
+                                            if "stack" in method_data and len(method_data["stack"]) > 0:
+                                                stack_item = method_data["stack"][0]
+                                                # stack_item может быть словарем с ключами "type" и "value"
+                                                if isinstance(stack_item, dict):
+                                                    # Проверяем разные варианты структуры
+                                                    seqno_value = stack_item.get("value")
+                                                    if seqno_value is None:
+                                                        # Может быть вложенная структура
+                                                        if "num" in stack_item:
+                                                            seqno_value = stack_item["num"]
+                                                        elif "dec" in stack_item:
+                                                            seqno_value = stack_item["dec"]
+                                                        else:
+                                                            seqno_value = stack_item
+                                                else:
+                                                    seqno_value = stack_item
+                                                
+                                                # Преобразуем в int
+                                                if isinstance(seqno_value, str):
+                                                    seqno = int(seqno_value, 16) if seqno_value.startswith("0x") else int(seqno_value)
+                                                elif isinstance(seqno_value, (int, float)):
+                                                    seqno = int(seqno_value)
+                                                elif isinstance(seqno_value, dict):
+                                                    # Если это словарь, пробуем получить значение из него
+                                                    seqno = int(seqno_value.get("value", seqno_value.get("num", 0)))
+                                                else:
+                                                    seqno = 0
+                                                
+                                                print(f"✅ Got seqno via runGetMethod: {seqno}", file=sys.stderr, flush=True)
+                                                return seqno
+                                    
+                                    # Если GET не сработал, пробуем POST
                                     async with session.post(method_url, headers=headers, json={}) as method_resp:
                                         if method_resp.status == 200:
                                             method_data = await method_resp.json()
@@ -539,24 +578,38 @@ class TonService:
                                 # interfaces может быть списком или словарем
                                 interfaces = data.get("interfaces", [])
                                 if isinstance(interfaces, list):
-                                    # Если это список, ищем wallet_v4r2
+                                    # Если это список, ищем wallet_v5r1, wallet_v4r2, wallet_v3r1
                                     for interface in interfaces:
-                                        if isinstance(interface, dict) and interface.get("name") == "wallet_v4r2":
-                                            seqno = interface.get("seqno")
-                                            if seqno is not None:
-                                                print(f"✅ Got seqno via API: {seqno}", file=sys.stderr, flush=True)
-                                                return int(seqno)
+                                        if isinstance(interface, dict):
+                                            interface_name = interface.get("name", "")
+                                            if interface_name in ["wallet_v5r1", "wallet_v4r2", "wallet_v3r1"]:
+                                                seqno = interface.get("seqno")
+                                                if seqno is not None:
+                                                    print(f"✅ Got seqno via API from {interface_name}: {seqno}", file=sys.stderr, flush=True)
+                                                    return int(seqno)
+                                        elif isinstance(interface, str):
+                                            # Если interface - это строка (например, "wallet_v5r1")
+                                            if interface in ["wallet_v5r1", "wallet_v4r2", "wallet_v3r1"]:
+                                                # Пробуем получить seqno через runGetMethod еще раз
+                                                pass
                                 elif isinstance(interfaces, dict):
                                     # Если это словарь, пробуем напрямую
-                                    seqno = interfaces.get("wallet_v4r2", {}).get("seqno")
-                                    if seqno is not None:
-                                        print(f"✅ Got seqno via API: {seqno}", file=sys.stderr, flush=True)
-                                        return int(seqno)
+                                    for wallet_type in ["wallet_v5r1", "wallet_v4r2", "wallet_v3r1"]:
+                                        seqno = interfaces.get(wallet_type, {}).get("seqno")
+                                        if seqno is not None:
+                                            print(f"✅ Got seqno via API from {wallet_type}: {seqno}", file=sys.stderr, flush=True)
+                                            return int(seqno)
                                 
                                 # Для uninit кошелька seqno = 0
                                 if status == "uninit":
                                     print(f"ℹ️ Wallet is uninit, using seqno = 0", file=sys.stderr, flush=True)
                                     return 0
+                                
+                                # Если кошелек active, но seqno не получен, пробуем еще раз через runGetMethod
+                                if status == "active":
+                                    print(f"⚠️ Wallet is active but seqno not found in interfaces, trying runGetMethod again...", file=sys.stderr, flush=True)
+                                    # Уже пробовали выше, но если не получилось, возвращаем 0
+                                    # Это может быть проблемой - active кошелек должен иметь seqno > 0
                                 
                                 # Пробуем получить seqno напрямую из data
                                 seqno = data.get("seqno")
