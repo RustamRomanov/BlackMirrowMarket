@@ -113,7 +113,8 @@ export default function CreateTaskModal({ onClose, onSubmit, averageTonPrice = 0
   const slots = parseInt(formData.total_slots) || 0
   const campaignBudget = price * slots
   const maxSlots = price > 0 ? Math.floor(userBalance / price) : 0
-  const fiatRate = fiatCurrency === 'TON' ? 1 : 250
+  const storedRate = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('fiatRatePerTon') || '0') : 0
+  const fiatRate = storedRate > 0 ? storedRate : 250
 
   function validateForm(): boolean {
     const newErrors: Record<string, string> = {}

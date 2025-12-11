@@ -61,11 +61,12 @@ export default function TaskCard({ task, onStart, fiatCurrency }: TaskCardProps)
   const title = task.title === 'Задание' ? '' : task.title
   const userCurrency = fiatCurrency || (typeof window !== 'undefined' ? localStorage.getItem('fiatCurrency') || 'RUB' : 'RUB')
   const priceTon = parseFloat(task.price_per_slot_ton) / 10 ** 9
-  const priceFiat = parseFloat(task.price_per_slot_fiat)
+  const storedRate = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('fiatRatePerTon') || '0') : 0
+  const rate = storedRate > 0 ? storedRate : 250
   const displayPrice =
     userCurrency === 'TON'
       ? `${priceTon.toFixed(4)} TON`
-      : `${priceFiat.toFixed(2)} ${currencySymbol(userCurrency)}`
+      : `${(priceTon * rate).toFixed(2)} ${currencySymbol(userCurrency)}`
 
   return (
     <div className={`task-card task-${task.task_type}`}>

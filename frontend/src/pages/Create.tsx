@@ -195,7 +195,8 @@ export default function Create() {
     if (typeof window === 'undefined') return 'RUB'
     return localStorage.getItem('fiatCurrency') || 'RUB'
   })
-  const fiatRate = fiatCurrency === 'TON' ? 1 : 250
+  const storedRate = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('fiatRatePerTon') || '0') : 0
+  const fiatRate = storedRate > 0 ? storedRate : 250
 
   return (
     <div className="create-page">

@@ -247,8 +247,24 @@ export default function Balance() {
   const tonActive = parseFloat(balance.ton_active_balance) / 10**9
   const tonEscrow = parseFloat(balance.ton_escrow_balance) / 10**9
   const fiatActive = parseFloat(balance.fiat_balance)
-  const fiatRate = tonActive > 0 ? fiatActive / tonActive : 250
+  const fiatRate = tonActive > 0 ? fiatActive / tonActive : (() => {
+    if (typeof window !== 'undefined') {
+      const stored = parseFloat(localStorage.getItem('fiatRatePerTon') || '0')
+      if (stored > 0) return stored
+    }
+    return 250
+  })()
   const isTonCurrency = fiatCurrency === 'TON'
+
+  // Сохраняем актуальный курс и базовую валюту для использования на других страницах
+  if (typeof window !== 'undefined') {
+    if (fiatRate > 0) {
+      localStorage.setItem('fiatRatePerTon', fiatRate.toString())
+    }
+    if (balance.fiat_currency) {
+      localStorage.setItem('fiatBaseCurrency', balance.fiat_currency)
+    }
+  }
   
   // Показываем реальные значения (0 если 0, без виртуальных сумм)
   const displayTonActive = Math.max(0, tonActive)  // Убеждаемся, что не отрицательное
