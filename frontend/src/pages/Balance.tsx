@@ -83,9 +83,11 @@ export default function Balance() {
     try {
       const response = await axios.get(`${API_URL}/api/balance/${user.telegram_id}`)
       setBalance(response.data)
-      if (response.data?.fiat_currency && fiatCurrency !== 'TON') {
-        setFiatCurrency(response.data.fiat_currency)
-        if (typeof window !== 'undefined') {
+      // Если пользователь ещё не выбирал валюту, возьмём с бэка (только один раз)
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem('fiatCurrency')
+        if (!stored && response.data?.fiat_currency) {
+          setFiatCurrency(response.data.fiat_currency)
           localStorage.setItem('fiatCurrency', response.data.fiat_currency)
         }
       }
