@@ -47,6 +47,8 @@ const currencySymbol = (cur?: string) => {
       return '$'
     case 'EUR':
       return '€'
+    case 'TON':
+      return 'TON'
     case 'RUB':
     default:
       return '₽'
@@ -56,6 +58,7 @@ const currencySymbol = (cur?: string) => {
 export default function TaskCard({ task, onStart, fiatCurrency = 'RUB' }: TaskCardProps) {
   const config = taskTypeConfig[task.task_type]
   const Icon = config.icon
+  const title = task.title === 'Задание' ? '' : task.title
 
   return (
     <div className="task-card">
@@ -78,13 +81,10 @@ export default function TaskCard({ task, onStart, fiatCurrency = 'RUB' }: TaskCa
           )}
         </div>
         <div className="task-content">
-          <h3 className="task-title">{task.title}</h3>
+          {title && <h3 className="task-title">{title}</h3>}
           {task.description && (
             <p className="task-description">{task.description}</p>
           )}
-        </div>
-        <div className="task-remaining">
-          Осталось: <strong>{task.remaining_slots}</strong>
         </div>
       </div>
       <div className="task-card-right">
@@ -94,6 +94,12 @@ export default function TaskCard({ task, onStart, fiatCurrency = 'RUB' }: TaskCa
         <button className="earn-button" onClick={onStart}>
           Заработать
         </button>
+        <div className="task-remaining" style={{ marginTop: '6px', textAlign: 'center' }}>
+          Осталось: <strong>{task.remaining_slots}</strong>
+        </div>
+        <div className="task-remaining" style={{ marginTop: '6px', textAlign: 'center' }}>
+          Осталось: <strong>{task.remaining_slots}</strong>
+        </div>
       </div>
     </div>
   )

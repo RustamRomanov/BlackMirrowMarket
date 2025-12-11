@@ -242,7 +242,7 @@ export default function CreateTaskModal({ onClose, onSubmit, averageTonPrice = 0
               <div className="form-row-pricing">
                 <div className="form-field-group">
                   <label className="form-label">
-                    Стоимость слота
+                    Стоимость слота ({fiatCurrency})
                   </label>
                   <input
                     type="number"
@@ -279,7 +279,7 @@ export default function CreateTaskModal({ onClose, onSubmit, averageTonPrice = 0
 
                 <div className="form-field-group budget-group">
                   <label className="form-label">
-                    Бюджет кампании
+                    Бюджет кампании ({fiatCurrency})
                   </label>
                   <div className="budget-display">
                     {campaignBudget > 0 ? campaignBudget.toFixed(2) : '0'}
@@ -289,7 +289,8 @@ export default function CreateTaskModal({ onClose, onSubmit, averageTonPrice = 0
               <div className="average-price-hint">
                 {(() => {
                   const avgTon = averageTonPrice && Number.isFinite(averageTonPrice) ? averageTonPrice : 0
-                  return `Средняя стоимость за слот: ${avgTon.toFixed(2)} TON`
+                  const avgFiat = avgTon * fiatRate
+                  return `Средняя стоимость за слот: ${avgFiat.toFixed(2)} ${fiatCurrency}`
                 })()}
               </div>
             </div>
