@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Node-based TON sender using @ton/ton (supports wallet v5r1). Built to avoid Python-side BOC assembly.
+// Node-based TON sender using @ton/ton (supports wallet v5r1).
+// Updated for @ton/ton 16.x API (no getWalletSeqno; use client.open(wallet).getSeqno()).
 import { TonClient, WalletContractV5R1, WalletContractV4, internal, beginCell, SendMode, Address } from "@ton/ton";
 import { mnemonicToPrivateKey } from "@ton/crypto";
 
@@ -35,11 +36,7 @@ async function main() {
 
   const { publicKey, secretKey } = await mnemonicToPrivateKey(mnemonic);
 
-  const client = new TonClient({
-    endpoint: apiUrl,
-    apiKey,
-    timeout: 20000
-  });
+  const client = new TonClient({ endpoint: apiUrl, apiKey, timeout: 20000 });
 
   // Prefer wallet v5r1 (Tonkeeper W5). Fallback to v4 if v5 is not supported.
   let wallet;
@@ -57,13 +54,14 @@ async function main() {
     }
   }
 
-  const seqno = await client.getWalletSeqno(wallet.address);
+  const opened = client.open(wallet);
+  const seqno = await opened.getSeqno();
 
   const body = comment
     ? beginCell().storeUint(0, 32).storeStringTail(comment).endCell()
     : undefined;
 
-  const transfer = wallet.createTransfer({
+  await opened.sendTransfer({
     seqno,
     secretKey,
     sendMode: SendMode.PAY_GAS_SEPARATELY,
@@ -72,15 +70,12 @@ async function main() {
         to: Address.parse(to),
         value: BigInt(amount),
         bounce: true,
-        body
-      })
-    ]
+        body,
+      }),
+    ],
   });
 
-  await client.sendExternalMessage(wallet, transfer);
-  const txHash = transfer.hash().toString("hex");
-
-  console.log(JSON.stringify({ ok: true, txHash, seqno }));
+  console.log(JSON.stringify({ ok: true, seqno }));
 }
 
 main().catch((err) => {
