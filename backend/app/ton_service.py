@@ -1083,19 +1083,57 @@ class TonService:
             node_bin = await self._ensure_node_binary()
             if not node_bin:
                 raise Exception("Node binary not found in PATH and download failed")
+        npm_bin = node_bin.replace("/node", "/npm")
+        if not os.path.exists(npm_bin):
+            npm_bin = shutil.which("npm")
         
         cmd = [node_bin, script_path, "--to", to_address, "--amount", str(amount_nano)]
         if comment:
             cmd.extend(["--comment", str(comment)])
         
         env = os.environ.copy()
-        # Обеспечиваем поиск модулей рядом со скриптом (backend/node_modules)
-        node_modules_dir = os.path.join(workdir, "node_modules")
-        if os.path.isdir(node_modules_dir):
+        # Обеспечиваем поиск модулей рядом со скриптом и в backend/node_modules
+        node_modules_candidates = [
+            os.path.join(workdir, "node_modules"),
+            os.path.join(workdir, "backend", "node_modules"),
+            os.path.join(os.path.dirname(workdir), "backend", "node_modules"),
+            os.path.join(os.path.dirname(workdir), "node_modules"),
+        ]
+        found_modules = [p for p in node_modules_candidates if os.path.isdir(p)]
+        if found_modules:
             existing_np = env.get("NODE_PATH", "")
-            env["NODE_PATH"] = node_modules_dir + (f":{existing_np}" if existing_np else "")
+            env["NODE_PATH"] = ":".join(found_modules + ([existing_np] if existing_np else []))
         else:
-            print(f"⚠️ node_modules not found in {node_modules_dir}; module resolution may fail", file=sys.stderr, flush=True)
+            print(f"⚠️ node_modules not found; will try npm install if npm is available", file=sys.stderr, flush=True)
+            # Попытка npm install, если есть package.json
+            pkg_dirs = [
+                workdir,
+                os.path.join(workdir, "backend"),
+                os.path.join(os.path.dirname(workdir), "backend"),
+            ]
+            pkg_dir = next((d for d in pkg_dirs if os.path.exists(os.path.join(d, "package.json"))), None)
+            if pkg_dir and npm_bin:
+                try:
+                    print(f"🔧 Running npm install in {pkg_dir} ...", file=sys.stderr, flush=True)
+                    proc_npm = await asyncio.create_subprocess_exec(
+                        npm_bin, "install",
+                        cwd=pkg_dir,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                        env=env,
+                    )
+                    out_npm, err_npm = await proc_npm.communicate()
+                    if proc_npm.returncode != 0:
+                        print(f"⚠️ npm install failed ({proc_npm.returncode}): {err_npm.decode()}", file=sys.stderr, flush=True)
+                    else:
+                        print(f"✅ npm install completed", file=sys.stderr, flush=True)
+                        node_modules_candidates.insert(0, os.path.join(pkg_dir, "node_modules"))
+                        found_modules = [p for p in node_modules_candidates if os.path.isdir(p)]
+                        if found_modules:
+                            existing_np = env.get("NODE_PATH", "")
+                            env["NODE_PATH"] = ":".join(found_modules + ([existing_np] if existing_np else []))
+                except Exception as npm_err:
+                    print(f"⚠️ npm install error: {npm_err}", file=sys.stderr, flush=True)
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
