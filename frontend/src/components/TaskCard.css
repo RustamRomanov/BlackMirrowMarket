@@ -47,9 +47,10 @@
 .task-card-top {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   position: relative;
   z-index: 1;
+  gap: 8px;
 }
 
 .task-type-badge {
@@ -106,24 +107,24 @@
 }
 
 .task-card-bottom {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 8px;
-  position: relative;
-  z-index: 1;
+  display: none;
 }
 
-.task-action-stack {
+.task-action-inline {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .task-remaining strong {
   color: #d84315;
   font-weight: 700;
+}
+
+.task-remaining.inline {
+  font-size: 11px;
 }
 
 .task-price {

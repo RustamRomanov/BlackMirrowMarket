@@ -82,6 +82,14 @@ export default function TaskCard({ task, onStart, fiatCurrency }: TaskCardProps)
         <div className="task-price">
           {displayPrice}
         </div>
+        <div className="task-action-inline">
+          <span className="task-remaining inline">
+            Осталось слотов <strong>{task.remaining_slots}</strong>
+          </span>
+          <button className="earn-button sheen" onClick={onStart}>
+            Заработать
+          </button>
+        </div>
       </div>
 
       <div className="task-content">
@@ -89,16 +97,6 @@ export default function TaskCard({ task, onStart, fiatCurrency }: TaskCardProps)
         {task.description && <p className="task-description">{task.description}</p>}
       </div>
 
-      <div className="task-card-bottom">
-        <div className="task-action-stack">
-          <span className="task-remaining">
-            Осталось слотов - <strong>{task.remaining_slots}</strong>
-          </span>
-          <button className="earn-button sheen" onClick={onStart}>
-            Заработать
-          </button>
-        </div>
-      </div>
     </div>
   )
 }
