@@ -47,24 +47,18 @@
 .task-card-top {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   position: relative;
   z-index: 1;
   gap: 8px;
 }
 
-.task-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
 .task-right {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: center;
   gap: 6px;
+  min-width: 110px;
 }
 
 .task-type-badge {
@@ -129,15 +123,17 @@
   font-weight: 700;
 }
 
-.task-remaining.inline {
-  font-size: 10px;
-  text-align: right;
+.task-remaining.inline.right {
+  font-size: 9px;
+  text-align: center;
 }
 
 .task-price {
   font-size: 20px;
   font-weight: 800;
   color: #1b5e20;
+  text-align: center;
+  width: 100%;
 }
 
 .earn-button {
