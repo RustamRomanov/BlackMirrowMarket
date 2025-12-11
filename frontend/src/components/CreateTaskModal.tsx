@@ -54,12 +54,12 @@ export interface TaskFormData {
   target_age_max: string
 }
 
-export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalProps) {
+export default function CreateTaskModal({ onClose, onSubmit, averageTonPrice = 0 }: CreateTaskModalProps) {
   const { user } = useAuth()
   const [userBalance, setUserBalance] = useState<number>(0)
   const [userBalanceFiat, setUserBalanceFiat] = useState<number>(0)
   const [fiatCurrency, setFiatCurrency] = useState<string>('RUB')
-  const [fiatRate, setFiatRate] = useState<number>(250)
+  const [fiatRate, setFiatRate] = useState<number>(250) // курс фиата за 1 TON
   
   const [formData, setFormData] = useState<TaskFormData>({
     title: '',
@@ -113,20 +113,10 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
 
 
   // Расчет бюджета и макс слотов
-  const price = parseFloat(formData.price_per_slot_ton) || 0 // вводим в выбранной валюте
+  const price = parseFloat(formData.price_per_slot_ton) || 0 // ввод в выбранной валюте
   const slots = parseInt(formData.total_slots) || 0
   const campaignBudget = price * slots
   const maxSlots = price > 0 ? Math.floor(userBalanceFiat / price) : 0
-
-  // Средняя стоимость за слот по типу задания
-  const getAveragePrice = (taskType: string): string => {
-    const averages: Record<string, string> = {
-      'view': '0.3',
-      'subscription': '0.5',
-      'comment': '0.7'
-    }
-    return averages[taskType] || '0.5'
-  }
 
   function validateForm(): boolean {
     const newErrors: Record<string, string> = {}
@@ -311,7 +301,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
               </div>
               <div className="average-price-hint">
                 {(() => {
-                  const avgTon = parseFloat(getAveragePrice(formData.task_type)) || 0
+                  const avgTon = averageTonPrice && Number.isFinite(averageTonPrice) ? averageTonPrice : 0
                   const avgFiat = avgTon * fiatRate
                   return `Средняя стоимость за слот: ${avgFiat.toFixed(2)} ${fiatCurrency}`
                 })()}
