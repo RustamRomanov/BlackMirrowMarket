@@ -41,7 +41,10 @@ export default function Balance() {
   const { showSuccess } = useToast()
   const [balance, setBalance] = useState<Balance | null>(null)
   const [loading, setLoading] = useState(true)
-  const [fiatCurrency, setFiatCurrency] = useState<string>('RUB')
+  const [fiatCurrency, setFiatCurrency] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'RUB'
+    return localStorage.getItem('fiatCurrency') || 'RUB'
+  })
   const [showDepositInfo, setShowDepositInfo] = useState(false)
   const [showWithdrawForm, setShowWithdrawForm] = useState(false)
   const [depositInfo, setDepositInfo] = useState<{service_wallet_address: string, telegram_id?: number, username?: string, note?: string} | null>(null)
@@ -80,8 +83,11 @@ export default function Balance() {
     try {
       const response = await axios.get(`${API_URL}/api/balance/${user.telegram_id}`)
       setBalance(response.data)
-      if (response.data?.fiat_currency) {
+      if (response.data?.fiat_currency && fiatCurrency !== 'TON') {
         setFiatCurrency(response.data.fiat_currency)
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('fiatCurrency', response.data.fiat_currency)
+        }
       }
     } catch (error: any) {
       console.error('Error loading balance:', error)
@@ -149,16 +155,15 @@ export default function Balance() {
 
   async function changeCurrency(currency: string) {
     if (!user || !balance) return
-    // Для TON не дергаем backend (может не поддерживать), просто показываем в TON
-    if (currency === 'TON') {
-      setFiatCurrency('TON')
-      return
+    setFiatCurrency(currency)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('fiatCurrency', currency)
     }
+    if (currency === 'TON') return
     try {
       await axios.patch(`${API_URL}/api/balance/${user.telegram_id}/currency`, null, {
         params: { currency }
       })
-      setFiatCurrency(currency)
       loadBalance()
     } catch (error) {
       console.error('Error changing currency:', error)

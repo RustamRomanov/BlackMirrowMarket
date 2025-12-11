@@ -177,6 +177,26 @@ export default function Create() {
     view: { icon: Eye, color: '#FF9800', label: 'Просмотр' }
   }
 
+  const currencySymbol = (cur?: string) => {
+    switch (cur) {
+      case 'USD':
+        return '$'
+      case 'EUR':
+        return '€'
+      case 'TON':
+        return 'TON'
+      case 'RUB':
+      default:
+        return '₽'
+    }
+  }
+
+  const [fiatCurrency, setFiatCurrency] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'RUB'
+    return localStorage.getItem('fiatCurrency') || 'RUB'
+  })
+  const fiatRate = fiatCurrency === 'TON' ? 1 : 250
+
   return (
     <div className="create-page">
       <button
@@ -206,7 +226,8 @@ export default function Create() {
                   }
                   
                   const Icon = config.icon
-                  const priceFiat = (parseFloat(String(task.price_per_slot_ton)) / 10**9) * 250
+                  const priceTon = parseFloat(String(task.price_per_slot_ton)) / 10**9
+                  const priceFiat = priceTon * fiatRate
                   
                   return (
                     <div key={task.id} className="example-task-card">
@@ -219,10 +240,13 @@ export default function Create() {
                            taskStatus === 'completed' ? 'Завершено' : 'Отменено'}
                         </span>
                       </div>
-                      <h4>{task.title}</h4>
+                      <h4>{task.title === 'Задание' ? '' : task.title}</h4>
                       {task.description && <p>{task.description}</p>}
                       <div className="example-task-stats">
-                        <span>Цена: {priceFiat.toFixed(2)} ₽</span>
+                        <span>Цена: {fiatCurrency === 'TON'
+                          ? `${priceTon.toFixed(4)} TON`
+                          : `${priceFiat.toFixed(2)} ${currencySymbol(fiatCurrency)}`
+                        }</span>
                         <span>Слотов: {task.total_slots}</span>
                         <span>Выполнено: {task.completed_slots || 0} / {task.total_slots}</span>
                       </div>

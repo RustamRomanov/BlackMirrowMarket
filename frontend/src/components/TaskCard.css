@@ -4,14 +4,14 @@
   flex-direction: column;
   background: white;
   border-radius: 14px;
-  padding: 16px;
+  padding: 12px 14px;
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
   transition: transform 0.2s, box-shadow 0.2s;
-  gap: 12px;
+  gap: 10px;
   animation: slideInUp 0.3s ease-out;
   animation-fill-mode: both;
   overflow: hidden;
-  min-height: 180px;
+  min-height: 100px;
 }
 
 .task-card-bg {

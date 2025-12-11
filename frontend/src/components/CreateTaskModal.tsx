@@ -58,6 +58,10 @@ export interface TaskFormData {
 export default function CreateTaskModal({ onClose, onSubmit, averageTonPrice = 0 }: CreateTaskModalProps) {
   const { user } = useAuth()
   const [userBalance, setUserBalance] = useState<number>(0)
+  const [fiatCurrency, setFiatCurrency] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'RUB'
+    return localStorage.getItem('fiatCurrency') || 'RUB'
+  })
   
   const [formData, setFormData] = useState<TaskFormData>({
     title: '',
@@ -109,6 +113,7 @@ export default function CreateTaskModal({ onClose, onSubmit, averageTonPrice = 0
   const slots = parseInt(formData.total_slots) || 0
   const campaignBudget = price * slots
   const maxSlots = price > 0 ? Math.floor(userBalance / price) : 0
+  const fiatRate = fiatCurrency === 'TON' ? 1 : 250
 
   function validateForm(): boolean {
     const newErrors: Record<string, string> = {}

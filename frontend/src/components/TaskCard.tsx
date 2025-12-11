@@ -86,9 +86,6 @@ export default function TaskCard({ task, onStart, fiatCurrency = 'RUB' }: TaskCa
           <span className="task-remaining">
             Осталось: <strong>{task.remaining_slots}</strong>
           </span>
-          <span className="task-slots">
-            Слотов: {task.completed_slots}/{task.total_slots}
-          </span>
         </div>
         <button className="earn-button sheen" onClick={onStart}>
           Заработать
