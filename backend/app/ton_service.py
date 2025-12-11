@@ -1083,9 +1083,8 @@ class TonService:
             node_bin = await self._ensure_node_binary()
             if not node_bin:
                 raise Exception("Node binary not found in PATH and download failed")
-        npm_bin = node_bin.replace("/node", "/npm")
-        if not os.path.exists(npm_bin):
-            npm_bin = shutil.which("npm")
+        npm_candidate = os.path.join(os.path.dirname(node_bin), "npm")
+        npm_bin = npm_candidate if os.path.exists(npm_candidate) else shutil.which("npm")
         print(f"🔍 node_bin={node_bin}, npm_bin={npm_bin}", file=sys.stderr, flush=True)
         
         cmd = [node_bin, script_path, "--to", to_address, "--amount", str(amount_nano)]
