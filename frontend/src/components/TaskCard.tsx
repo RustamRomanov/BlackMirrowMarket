@@ -72,20 +72,22 @@ export default function TaskCard({ task, onStart, fiatCurrency }: TaskCardProps)
     <div className={`task-card task-${task.task_type}`}>
       <div className="task-card-bg" style={{ background: config.bg }} />
       <div className="task-card-top">
-        <div className="task-type-badge">
-          <Icon size={16} color={config.color} />
-          <span style={{ color: config.color }}>{config.label}</span>
-          {task.is_test && (
-            <span className="task-test-chip">ПРИМЕР</span>
-          )}
-        </div>
-        <div className="task-price">
-          {displayPrice}
-        </div>
-        <div className="task-action-inline">
+        <div className="task-left">
+          <div className="task-type-badge">
+            <Icon size={16} color={config.color} />
+            <span style={{ color: config.color }}>{config.label}</span>
+            {task.is_test && (
+              <span className="task-test-chip">ПРИМЕР</span>
+            )}
+          </div>
           <span className="task-remaining inline">
             Осталось слотов <strong>{task.remaining_slots}</strong>
           </span>
+        </div>
+        <div className="task-right">
+          <div className="task-price">
+            {displayPrice}
+          </div>
           <button className="earn-button sheen" onClick={onStart}>
             Заработать
           </button>
