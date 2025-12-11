@@ -1092,6 +1092,9 @@ class TonService:
             cmd.extend(["--comment", str(comment)])
         
         env = os.environ.copy()
+        # Важно: добавить путь к скачанному node/npm в PATH, иначе shebang "/usr/bin/env node" внутри npm ломается
+        node_dir = os.path.dirname(node_bin)
+        env["PATH"] = f"{node_dir}:{env.get('PATH', '')}"
         # Обеспечиваем поиск модулей рядом со скриптом и в backend/node_modules
         node_modules_candidates = [
             os.path.join(workdir, "node_modules"),
