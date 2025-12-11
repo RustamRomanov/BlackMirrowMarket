@@ -57,6 +57,9 @@ export interface TaskFormData {
 export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalProps) {
   const { user } = useAuth()
   const [userBalance, setUserBalance] = useState<number>(0)
+  const [userBalanceFiat, setUserBalanceFiat] = useState<number>(0)
+  const [fiatCurrency, setFiatCurrency] = useState<string>('RUB')
+  const [fiatRate, setFiatRate] = useState<number>(250)
   
   const [formData, setFormData] = useState<TaskFormData>({
     title: '',
@@ -92,9 +95,15 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
       if (!user) return
       try {
         const response = await axios.get(`${API_URL}/api/balance/${user.telegram_id}`)
-        if (response.data && response.data.ton_active_balance) {
-          setUserBalance(parseFloat(response.data.ton_active_balance) / 10**9)
-        }
+        const tonActive = response.data?.ton_active_balance ? parseFloat(response.data.ton_active_balance) / 10**9 : 0
+        const fiatActive = response.data?.fiat_balance ? parseFloat(response.data.fiat_balance) : 0
+        const currency = response.data?.fiat_currency || 'RUB'
+        const rate = tonActive > 0 ? fiatActive / tonActive : fiatRate
+
+        setUserBalance(tonActive)
+        setUserBalanceFiat(tonActive * rate)
+        setFiatCurrency(currency)
+        setFiatRate(rate || fiatRate)
       } catch (error) {
         console.error('Failed to fetch balance', error)
       }
@@ -104,10 +113,10 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
 
 
   // Расчет бюджета и макс слотов
-  const price = parseFloat(formData.price_per_slot_ton) || 0
+  const price = parseFloat(formData.price_per_slot_ton) || 0 // вводим в выбранной валюте
   const slots = parseInt(formData.total_slots) || 0
   const campaignBudget = price * slots
-  const maxSlots = price > 0 ? Math.floor(userBalance / price) : 0
+  const maxSlots = price > 0 ? Math.floor(userBalanceFiat / price) : 0
 
   // Средняя стоимость за слот по типу задания
   const getAveragePrice = (taskType: string): string => {
@@ -140,8 +149,8 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
       newErrors.total_slots = 'Количество слотов должно быть не менее 1'
     }
 
-    if (campaignBudget > userBalance) {
-      newErrors.total_slots = `Недостаточно средств. Ваш баланс: ${userBalance.toFixed(2)}`
+    if (campaignBudget > userBalanceFiat) {
+      newErrors.total_slots = `Недостаточно средств. Ваш баланс: ${userBalanceFiat.toFixed(2)} ${fiatCurrency}`
     }
     
     
@@ -181,7 +190,12 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
 
     setSubmitting(true)
     try {
-      await onSubmit(submissionData)
+      const priceFiat = parseFloat(formData.price_per_slot_ton) || 0
+      const tonPrice = fiatRate > 0 ? priceFiat / fiatRate : 0
+      await onSubmit({
+        ...submissionData,
+        price_per_slot_ton: tonPrice.toString()
+      })
       onClose()
     } catch (error) {
       // Ошибка обрабатывается в родительском компоненте
@@ -251,7 +265,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
               <div className="form-row-pricing">
                 <div className="form-field-group">
                   <label className="form-label">
-                    Стоимость слота
+                    Стоимость слота ({fiatCurrency})
                   </label>
                   <input
                     type="number"
@@ -288,7 +302,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
 
                 <div className="form-field-group budget-group">
                   <label className="form-label">
-                    Бюджет кампании
+                    Бюджет кампании ({fiatCurrency})
                   </label>
                   <div className="budget-display">
                     {campaignBudget > 0 ? campaignBudget.toFixed(2) : '0'}
@@ -296,7 +310,11 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
                 </div>
               </div>
               <div className="average-price-hint">
-                Средняя стоимость за слот: {getAveragePrice(formData.task_type)} TON
+                {(() => {
+                  const avgTon = parseFloat(getAveragePrice(formData.task_type)) || 0
+                  const avgFiat = avgTon * fiatRate
+                  return `Средняя стоимость за слот: ${avgFiat.toFixed(2)} ${fiatCurrency}`
+                })()}
               </div>
             </div>
 
@@ -340,7 +358,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
                     setFormData({ ...formData, telegram_post_id: e.target.value })
                     if (errors.telegram_post_id) setErrors({ ...errors, telegram_post_id: '' })
                   }}
-                  placeholder="Ссылка на пост"
+                  placeholder="Например: https://t.me/username/123"
                   className={`form-input ${errors.telegram_post_id ? 'error' : ''}`}
                 />
                 {errors.telegram_post_id && <div className="form-error">{errors.telegram_post_id}</div>}
