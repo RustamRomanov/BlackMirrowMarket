@@ -130,7 +130,8 @@
 }
 
 .task-remaining.inline {
-  font-size: 11px;
+  font-size: 10px;
+  text-align: right;
 }
 
 .task-price {
