@@ -28,6 +28,10 @@ export default function Earn() {
   const { user } = useAuth()
   const { showError } = useToast()
   const navigate = useNavigate()
+  const [fiatCurrency, setFiatCurrency] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'RUB'
+    return localStorage.getItem('fiatCurrency') || 'RUB'
+  })
   const [tasks, setTasks] = useState<Task[]>([])
   const [allTasks, setAllTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)

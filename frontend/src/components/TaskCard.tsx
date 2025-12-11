@@ -55,10 +55,11 @@ const currencySymbol = (cur?: string) => {
   }
 }
 
-export default function TaskCard({ task, onStart, fiatCurrency = 'RUB' }: TaskCardProps) {
+export default function TaskCard({ task, onStart, fiatCurrency }: TaskCardProps) {
   const config = taskTypeConfig[task.task_type]
   const Icon = config.icon
   const title = task.title === 'Задание' ? '' : task.title
+  const userCurrency = fiatCurrency || (typeof window !== 'undefined' ? localStorage.getItem('fiatCurrency') || 'RUB' : 'RUB')
 
   return (
     <div className={`task-card task-${task.task_type}`}>
@@ -72,7 +73,7 @@ export default function TaskCard({ task, onStart, fiatCurrency = 'RUB' }: TaskCa
           )}
         </div>
         <div className="task-price">
-          {parseFloat(task.price_per_slot_fiat).toFixed(2)} {currencySymbol(fiatCurrency)}
+          {parseFloat(task.price_per_slot_fiat).toFixed(2)} {currencySymbol(userCurrency)}
         </div>
       </div>
 
