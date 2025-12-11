@@ -61,7 +61,8 @@ async function main() {
     ? beginCell().storeUint(0, 32).storeStringTail(comment).endCell()
     : undefined;
 
-  await opened.sendTransfer({
+  // Явно создаём и отправляем трансфер, чтобы получить хеш
+  const transfer = wallet.createTransfer({
     seqno,
     secretKey,
     sendMode: SendMode.PAY_GAS_SEPARATELY,
@@ -75,7 +76,10 @@ async function main() {
     ],
   });
 
-  console.log(JSON.stringify({ ok: true, seqno }));
+  await opened.send(transfer);
+  const txHash = transfer.hash().toString("hex");
+
+  console.log(JSON.stringify({ ok: true, seqno, txHash }));
 }
 
 main().catch((err) => {
