@@ -37,8 +37,6 @@ export default function Earn() {
   const [loading, setLoading] = useState(true)
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc')
   const [selectedTaskType, setSelectedTaskType] = useState<'subscription' | 'comment' | 'view' | null>(null)
-  const [fiatCurrency, setFiatCurrency] = useState<string>('RUB')
-
   // Debounce для оптимизации запросов
   const [updateCounter, setUpdateCounter] = useState(0)
 
@@ -51,7 +49,6 @@ export default function Earn() {
     // Убрана автоматическая инициализация тестовых заданий
     // Тестовые задания создаются вручную через админку и помечаются как примеры
     loadTasks()
-    loadCurrency()
     
     // Обновляем счетчик каждые 3 секунды (вместо каждой секунды)
     const interval = setInterval(() => {
@@ -64,20 +61,7 @@ export default function Earn() {
   useEffect(() => {
     if (!user || updateCounter === 0) return
     loadTasks()
-    loadCurrency()
   }, [updateCounter, user])
-
-  async function loadCurrency() {
-    if (!user) return
-    try {
-      const response = await axios.get(`${API_URL}/api/balance/${user.telegram_id}`)
-      if (response.data?.fiat_currency) {
-        setFiatCurrency(response.data.fiat_currency)
-      }
-    } catch (error) {
-      console.error('Error loading currency:', error)
-    }
-  }
 
   async function loadTasks() {
     if (!user) return
