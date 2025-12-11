@@ -116,6 +116,14 @@
   font-weight: 700;
 }
 
+.task-remaining.inline.left {
+  font-size: 12px;
+  text-align: left;
+  color: #666;
+  font-weight: 500;
+  margin-top: 4px;
+}
+
 .task-remaining.inline.right {
   font-size: 11px;
   text-align: center;

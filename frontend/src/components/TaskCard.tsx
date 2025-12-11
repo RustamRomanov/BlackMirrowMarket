@@ -80,18 +80,15 @@ export default function TaskCard({ task, onStart, fiatCurrency }: TaskCardProps)
               <span className="task-test-chip">ПРИМЕР</span>
             )}
           </div>
-          {task.description && (
-            <p className="task-description">{task.description}</p>
-          )}
+          <span className="task-remaining inline left">
+            Осталось слотов <strong>{task.remaining_slots}</strong>
+          </span>
         </div>
         <div className="task-right">
           <button className="earn-button sheen" onClick={onStart}>
             <span className="earn-button-text">Заработать</span>
             <span className="earn-button-price">{displayPrice}</span>
           </button>
-          <span className="task-remaining inline right">
-            Осталось слотов <strong>{task.remaining_slots}</strong>
-          </span>
         </div>
       </div>
 
