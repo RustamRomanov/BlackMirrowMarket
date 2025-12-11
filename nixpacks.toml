@@ -1,10 +1,11 @@
 [phases.setup]
-nixPkgs = ["python39", "nodejs-20_x"]
+nixPkgs = ["python39", "nodejs-18_x"]
 
 [phases.install]
 cmds = [
   "pip install -r requirements.txt",
-  "if [ -f package.json ]; then npm install; elif [ -f backend/package.json ]; then cd backend && npm install; fi"
+  "if [ -f package.json ]; then npm install; elif [ -f backend/package.json ]; then cd backend && npm install; fi",
+  "node -v"
 ]
 
 [phases.build]
