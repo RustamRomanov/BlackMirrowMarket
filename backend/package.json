@@ -4,8 +4,8 @@
   "type": "module",
   "license": "MIT",
   "dependencies": {
-    "@ton/ton": "0.56.0",
-    "@ton/core": "0.56.0",
+    "@ton/ton": "16.1.0",
+    "@ton/core": "0.62.0",
     "@ton/crypto": "3.2.0"
   }
 }
