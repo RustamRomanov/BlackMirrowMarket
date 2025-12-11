@@ -1086,6 +1086,7 @@ class TonService:
         npm_bin = node_bin.replace("/node", "/npm")
         if not os.path.exists(npm_bin):
             npm_bin = shutil.which("npm")
+        print(f"🔍 node_bin={node_bin}, npm_bin={npm_bin}", file=sys.stderr, flush=True)
         
         cmd = [node_bin, script_path, "--to", to_address, "--amount", str(amount_nano)]
         if comment:
@@ -1127,11 +1128,12 @@ class TonService:
                         print(f"⚠️ npm install failed ({proc_npm.returncode}): {err_npm.decode()}", file=sys.stderr, flush=True)
                     else:
                         print(f"✅ npm install completed", file=sys.stderr, flush=True)
-                        node_modules_candidates.insert(0, os.path.join(pkg_dir, "node_modules"))
-                        found_modules = [p for p in node_modules_candidates if os.path.isdir(p)]
-                        if found_modules:
-                            existing_np = env.get("NODE_PATH", "")
-                            env["NODE_PATH"] = ":".join(found_modules + ([existing_np] if existing_np else []))
+                    # После попытки npm install — обновляем поиск node_modules даже если ошибка
+                    node_modules_candidates.insert(0, os.path.join(pkg_dir, "node_modules"))
+                    found_modules = [p for p in node_modules_candidates if os.path.isdir(p)]
+                    if found_modules:
+                        existing_np = env.get("NODE_PATH", "")
+                        env["NODE_PATH"] = ":".join(found_modules + ([existing_np] if existing_np else []))
                 except Exception as npm_err:
                     print(f"⚠️ npm install error: {npm_err}", file=sys.stderr, flush=True)
         proc = await asyncio.create_subprocess_exec(
