@@ -1117,6 +1117,7 @@ class TonService:
             pkg_dir = next((d for d in pkg_dirs if os.path.exists(os.path.join(d, "package.json"))), None)
             if pkg_dir and npm_bin:
                 try:
+                    env["npm_config_registry"] = env.get("npm_config_registry") or "https://registry.npmjs.org/"
                     print(f"🔧 Running npm install in {pkg_dir} ...", file=sys.stderr, flush=True)
                     proc_npm = await asyncio.create_subprocess_exec(
                         npm_bin, "install",
