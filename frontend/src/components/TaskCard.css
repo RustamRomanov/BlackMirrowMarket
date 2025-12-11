@@ -108,9 +108,9 @@
 .task-card-bottom {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   justify-content: flex-start;
-  gap: 8px;
+  gap: 6px;
   position: relative;
   z-index: 1;
 }
@@ -118,7 +118,7 @@
 .task-meta {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   font-size: 12px;
   color: #424242;
   margin-bottom: 2px;
@@ -153,7 +153,6 @@
   transition: transform 0.3s, box-shadow 0.3s;
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
   min-width: 110px;
-  align-self: stretch;
 }
 
 .earn-button:hover {

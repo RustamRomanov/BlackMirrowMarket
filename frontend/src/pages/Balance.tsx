@@ -308,7 +308,7 @@ export default function Balance() {
           </div>
           <div className="balance-value-secondary">
             {isTonCurrency
-              ? `${displayFiatActive.toFixed(2)} ${balance.fiat_currency}`
+              ? `${displayTonActive.toFixed(4)} TON`
               : `${displayTonActive.toFixed(4)} TON`}
           </div>
         </div>
@@ -322,7 +322,7 @@ export default function Balance() {
           </div>
           <div className="balance-value-tertiary">
             {isTonCurrency
-              ? `${(displayTonEscrow * fiatRate).toFixed(2)} ${balance.fiat_currency}`
+              ? `${displayTonEscrow.toFixed(4)} TON`
               : `${displayTonEscrow.toFixed(4)} TON`}
           </div>
         </div>
@@ -336,7 +336,7 @@ export default function Balance() {
           </div>
           <div className="balance-value-tertiary">
             {isTonCurrency
-              ? `${displayFiatActive.toFixed(2)} ${balance.fiat_currency}`
+              ? `${displayTonActive.toFixed(4)} TON`
               : `${displayTonActive.toFixed(4)} TON`}
           </div>
         </div>

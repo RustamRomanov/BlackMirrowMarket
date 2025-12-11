@@ -60,6 +60,12 @@ export default function TaskCard({ task, onStart, fiatCurrency }: TaskCardProps)
   const Icon = config.icon
   const title = task.title === 'Задание' ? '' : task.title
   const userCurrency = fiatCurrency || (typeof window !== 'undefined' ? localStorage.getItem('fiatCurrency') || 'RUB' : 'RUB')
+  const priceTon = parseFloat(task.price_per_slot_ton) / 10 ** 9
+  const priceFiat = parseFloat(task.price_per_slot_fiat)
+  const displayPrice =
+    userCurrency === 'TON'
+      ? `${priceTon.toFixed(4)} TON`
+      : `${priceFiat.toFixed(2)} ${currencySymbol(userCurrency)}`
 
   return (
     <div className={`task-card task-${task.task_type}`}>
@@ -73,7 +79,7 @@ export default function TaskCard({ task, onStart, fiatCurrency }: TaskCardProps)
           )}
         </div>
         <div className="task-price">
-          {parseFloat(task.price_per_slot_fiat).toFixed(2)} {currencySymbol(userCurrency)}
+          {displayPrice}
         </div>
       </div>
 
@@ -85,7 +91,7 @@ export default function TaskCard({ task, onStart, fiatCurrency }: TaskCardProps)
       <div className="task-card-bottom">
         <div className="task-meta">
           <span className="task-remaining">
-            Осталось: <strong>{task.remaining_slots}</strong>
+            Осталось слотов - <strong>{task.remaining_slots}</strong>
           </span>
         </div>
         <button className="earn-button sheen" onClick={onStart}>
