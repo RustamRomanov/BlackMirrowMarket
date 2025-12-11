@@ -43,6 +43,8 @@ class TonService:
         self.wallet_address = os.getenv("TON_WALLET_ADDRESS")
         self._client = None
         self._wallet = None
+        # Глобальный лок для последовательной отправки (seqno)
+        self._send_lock = asyncio.Lock()
 
         # Делаем переменные опциональными, чтобы приложение могло запуститься без них
         # (TON функции просто не будут работать)
@@ -1199,16 +1201,18 @@ class TonService:
         Отправка TON. Возвращает tx_hash.
         Сначала пробует Node-отправку через @ton/ton (wallet v5r1), затем fallback на HTTP/manual.
         """
-        # 1) Пробуем отправить через Node (@ton/ton) — новый подход
-        try:
-            print(f"🚀 Using Node sender (@ton/ton) with wallet v5r1 support...", file=sys.stderr, flush=True)
-            return await self._send_via_node(to_address, amount_nano, comment)
-        except Exception as node_error:
-            print(f"⚠️ Node sender failed: {node_error}, falling back to HTTP/manual BOC", file=sys.stderr, flush=True)
-        
-        # 2) Fallback: старый HTTP/manual путь
-        print(f"🚀 Using HTTP-based transaction sending (fallback)...", file=sys.stderr, flush=True)
-        return await self._send_raw_via_http(to_address, amount_nano, comment)
+        # Обеспечиваем последовательность отправок для корректного seqno
+        async with self._send_lock:
+            # 1) Пробуем отправить через Node (@ton/ton) — новый подход
+            try:
+                print(f"🚀 Using Node sender (@ton/ton) with wallet v5r1 support...", file=sys.stderr, flush=True)
+                return await self._send_via_node(to_address, amount_nano, comment)
+            except Exception as node_error:
+                print(f"⚠️ Node sender failed: {node_error}, falling back to HTTP/manual BOC", file=sys.stderr, flush=True)
+            
+            # 2) Fallback: старый HTTP/manual путь
+            print(f"🚀 Using HTTP-based transaction sending (fallback)...", file=sys.stderr, flush=True)
+            return await self._send_raw_via_http(to_address, amount_nano, comment)
 
     async def create_withdrawal(
         self,
