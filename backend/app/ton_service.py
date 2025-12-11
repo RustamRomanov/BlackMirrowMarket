@@ -1062,11 +1062,21 @@ class TonService:
         """
         Отправка через Node-скрипт (ton_sender.js) с использованием @ton/ton (поддержка wallet v5r1).
         """
-        script_path = os.path.join(os.path.dirname(__file__), "..", "ton_sender.js")
-        if not os.path.exists(script_path):
-            raise Exception("Node sender script not found")
+        base_dir = os.path.dirname(__file__)
+        script_candidates = [
+            os.path.normpath(os.path.join(base_dir, "..", "ton_sender.js")),            # /app/ton_sender.js (backend root)
+            os.path.normpath(os.path.join(base_dir, "ton_sender.js")),                  # /app/app/ton_sender.js (same dir)
+            os.path.normpath(os.path.join(base_dir, "..", "backend", "ton_sender.js")), # /app/backend/ton_sender.js (if repo root used)
+        ]
+        script_path = next((p for p in script_candidates if os.path.exists(p)), None)
+        if not script_path:
+            raise Exception(f"Node sender script not found. Tried: {script_candidates}")
         
-        cmd = ["node", script_path, "--to", to_address, "--amount", str(amount_nano)]
+        node_bin = shutil.which("node")
+        if not node_bin:
+            raise Exception("Node binary not found in PATH")
+        
+        cmd = [node_bin, script_path, "--to", to_address, "--amount", str(amount_nano)]
         if comment:
             cmd.extend(["--comment", str(comment)])
         
