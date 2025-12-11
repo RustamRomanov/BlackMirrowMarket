@@ -50,10 +50,10 @@ export default function Earn() {
     // Тестовые задания создаются вручную через админку и помечаются как примеры
     loadTasks()
     
-    // Обновляем счетчик каждые 3 секунды (вместо каждой секунды)
+    // Обновляем счетчик каждую секунду
     const interval = setInterval(() => {
       setUpdateCounter(prev => prev + 1)
-    }, 3000)
+    }, 1000)
 
     return () => clearInterval(interval)
   }, [user, sortOrder, selectedTaskType])
