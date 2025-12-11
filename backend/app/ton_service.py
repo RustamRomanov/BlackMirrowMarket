@@ -1075,6 +1075,7 @@ class TonService:
         script_path = next((p for p in script_candidates if os.path.exists(p)), None)
         if not script_path:
             raise Exception(f"Node sender script not found. Tried: {script_candidates}")
+        workdir = os.path.dirname(script_path)
         
         node_bin = shutil.which("node") or shutil.which("nodejs")
         if not node_bin:
@@ -1088,11 +1089,19 @@ class TonService:
             cmd.extend(["--comment", str(comment)])
         
         env = os.environ.copy()
+        # Обеспечиваем поиск модулей рядом со скриптом (backend/node_modules)
+        node_modules_dir = os.path.join(workdir, "node_modules")
+        if os.path.isdir(node_modules_dir):
+            existing_np = env.get("NODE_PATH", "")
+            env["NODE_PATH"] = node_modules_dir + (f":{existing_np}" if existing_np else "")
+        else:
+            print(f"⚠️ node_modules not found in {node_modules_dir}; module resolution may fail", file=sys.stderr, flush=True)
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env=env,
+            cwd=workdir,
         )
         stdout, stderr = await proc.communicate()
         out_text = stdout.decode().strip()
