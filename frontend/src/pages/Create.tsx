@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import axios from 'axios'
@@ -26,6 +26,13 @@ export default function Create() {
   const [showModal, setShowModal] = useState(false)
   const [myTasks, setMyTasks] = useState<MyTask[]>([])
   const [loading, setLoading] = useState(true)
+  const averageTonPrice = useMemo(() => {
+    const prices = myTasks
+      .map((task) => parseFloat(String(task.price_per_slot_ton)) / 10**9)
+      .filter((p) => Number.isFinite(p) && p > 0)
+    if (prices.length === 0) return 0
+    return prices.reduce((a, b) => a + b, 0) / prices.length
+  }, [myTasks])
 
   useEffect(() => {
     if (user) {
@@ -270,6 +277,7 @@ export default function Create() {
         <CreateTaskModal
           onClose={() => setShowModal(false)}
           onSubmit={handleCreateTask}
+          averageTonPrice={averageTonPrice}
         />
       )}
     </div>
