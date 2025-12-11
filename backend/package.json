@@ -1,0 +1,12 @@
+{
+  "name": "blackmirrow-backend-ton",
+  "version": "1.0.0",
+  "type": "module",
+  "license": "MIT",
+  "dependencies": {
+    "@ton/ton": "^0.58.0",
+    "@ton/core": "^0.58.0",
+    "@ton/crypto": "^3.2.0"
+  }
+}
+

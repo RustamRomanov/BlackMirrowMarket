@@ -4,6 +4,7 @@ import uuid
 import ssl
 import asyncio
 import aiohttp
+import json
 import re
 from decimal import Decimal
 from typing import Optional, Tuple
@@ -1057,13 +1058,60 @@ class TonService:
             print(f"⚠️ HTTP-based sending failed: {http_error}, trying direct method...", file=sys.stderr, flush=True)
             return await self._send_raw(to_address, amount_nano)
     
+    async def _send_via_node(self, to_address: str, amount_nano: int, comment: str = None) -> str:
+        """
+        Отправка через Node-скрипт (ton_sender.js) с использованием @ton/ton (поддержка wallet v5r1).
+        """
+        script_path = os.path.join(os.path.dirname(__file__), "..", "ton_sender.js")
+        if not os.path.exists(script_path):
+            raise Exception("Node sender script not found")
+        
+        cmd = ["node", script_path, "--to", to_address, "--amount", str(amount_nano)]
+        if comment:
+            cmd.extend(["--comment", str(comment)])
+        
+        env = os.environ.copy()
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=env,
+        )
+        stdout, stderr = await proc.communicate()
+        out_text = stdout.decode().strip()
+        err_text = stderr.decode().strip()
+        
+        if proc.returncode != 0:
+            raise Exception(f"Node sender failed (exit {proc.returncode}): {err_text or out_text}")
+        
+        try:
+            data = json.loads(out_text)
+        except Exception as parse_error:
+            raise Exception(f"Failed to parse node sender output: {parse_error}. Raw: {out_text}")
+        
+        if not data.get("ok"):
+            raise Exception(f"Node sender error: {data.get('error') or out_text}")
+        
+        tx_hash = data.get("txHash") or data.get("hash") or data.get("tx_hash")
+        if not tx_hash:
+            raise Exception(f"Node sender returned no tx_hash. Raw: {out_text}")
+        
+        return tx_hash
+    
     async def _send_raw(self, to_address: str, amount_nano: int, comment: str = None) -> str:
         """
         Отправка TON. Возвращает tx_hash.
-        Использует ТОЛЬКО HTTP API для максимальной скорости и надежности.
+        Сначала пробует Node-отправку через @ton/ton (wallet v5r1), затем fallback на HTTP/manual.
         """
-        # Сразу используем HTTP метод - он работает без подключения к блокчейну
-        print(f"🚀 Using HTTP-based transaction sending (fast and reliable)...", file=sys.stderr, flush=True)
+        # 1) Пробуем отправить через Node (@ton/ton) — новый подход
+        try:
+            print(f"🚀 Using Node sender (@ton/ton) with wallet v5r1 support...", file=sys.stderr, flush=True)
+            return await self._send_via_node(to_address, amount_nano, comment)
+        except Exception as node_error:
+            print(f"⚠️ Node sender failed: {node_error}, falling back to HTTP/manual BOC", file=sys.stderr, flush=True)
+        
+        # 2) Fallback: старый HTTP/manual путь
+        print(f"🚀 Using HTTP-based transaction sending (fallback)...", file=sys.stderr, flush=True)
         return await self._send_raw_via_http(to_address, amount_nano, comment)
 
     async def create_withdrawal(
