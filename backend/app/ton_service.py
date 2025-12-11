@@ -6,6 +6,9 @@ import asyncio
 import aiohttp
 import json
 import shutil
+import tarfile
+import tempfile
+import urllib.request
 import re
 from decimal import Decimal
 from typing import Optional, Tuple
@@ -1073,9 +1076,12 @@ class TonService:
         if not script_path:
             raise Exception(f"Node sender script not found. Tried: {script_candidates}")
         
-        node_bin = shutil.which("node")
+        node_bin = shutil.which("node") or shutil.which("nodejs")
         if not node_bin:
-            raise Exception("Node binary not found in PATH")
+            # Автозагрузка node в /tmp, если недоступен в PATH (Railway buildpacks могли не подтянуть)
+            node_bin = await self._ensure_node_binary()
+            if not node_bin:
+                raise Exception("Node binary not found in PATH and download failed")
         
         cmd = [node_bin, script_path, "--to", to_address, "--amount", str(amount_nano)]
         if comment:
@@ -1108,6 +1114,33 @@ class TonService:
             raise Exception(f"Node sender returned no tx_hash. Raw: {out_text}")
         
         return tx_hash
+
+    async def _ensure_node_binary(self) -> str:
+        """
+        Гарантирует наличие бинаря node, скачивая его в /tmp, если не найден.
+        Возвращает путь к бинарю или None при ошибке.
+        """
+        cached_path = "/tmp/node-v18.19.0-linux-x64/bin/node"
+        if os.path.exists(cached_path):
+            return cached_path
+
+        url = "https://nodejs.org/dist/v18.19.0/node-v18.19.0-linux-x64.tar.xz"
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                archive_path = os.path.join(tmpdir, "node.tar.xz")
+                print(f"⬇️ Downloading Node.js from {url} ...", file=sys.stderr, flush=True)
+                urllib.request.urlretrieve(url, archive_path)
+
+                print(f"📦 Extracting Node.js to /tmp ...", file=sys.stderr, flush=True)
+                with tarfile.open(archive_path) as tar:
+                    tar.extractall("/tmp")
+
+            if os.path.exists(cached_path):
+                os.chmod(cached_path, 0o755)
+                return cached_path
+        except Exception as e:
+            print(f"⚠️ Failed to download/extract node: {e}", file=sys.stderr, flush=True)
+            return None
     
     async def _send_raw(self, to_address: str, amount_nano: int, comment: str = None) -> str:
         """
