@@ -5,6 +5,7 @@ import ssl
 import asyncio
 import aiohttp
 import json
+import shutil
 import re
 from decimal import Decimal
 from typing import Optional, Tuple
