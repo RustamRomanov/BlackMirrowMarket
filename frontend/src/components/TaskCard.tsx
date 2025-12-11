@@ -72,11 +72,16 @@ export default function TaskCard({ task, onStart, fiatCurrency }: TaskCardProps)
     <div className={`task-card task-${task.task_type}`}>
       <div className="task-card-bg" style={{ background: config.bg }} />
       <div className="task-card-top">
-        <div className="task-type-badge">
-          <Icon size={16} color={config.color} />
-          <span style={{ color: config.color }}>{config.label}</span>
-          {task.is_test && (
-            <span className="task-test-chip">ПРИМЕР</span>
+        <div className="task-left">
+          <div className="task-type-badge">
+            <Icon size={16} color={config.color} />
+            <span style={{ color: config.color }}>{config.label}</span>
+            {task.is_test && (
+              <span className="task-test-chip">ПРИМЕР</span>
+            )}
+          </div>
+          {task.description && (
+            <p className="task-description">{task.description}</p>
           )}
         </div>
         <div className="task-right">
@@ -89,12 +94,6 @@ export default function TaskCard({ task, onStart, fiatCurrency }: TaskCardProps)
           </span>
         </div>
       </div>
-
-      {task.description && (
-        <div className="task-description-box">
-          <p className="task-description">{task.description}</p>
-        </div>
-      )}
 
     </div>
   )
