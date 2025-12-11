@@ -23,22 +23,22 @@ interface TaskCardProps {
 const taskTypeConfig = {
   subscription: {
     icon: Bell,
-    color: '#4CAF50',
+    color: '#2e7d32',
     label: 'Подписка',
-    bgColor: '#E8F5E9'
+    bg: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)',
   },
   comment: {
     icon: MessageSquare,
-    color: '#2196F3',
+    color: '#1565c0',
     label: 'Комментарий',
-    bgColor: '#E3F2FD'
+    bg: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
   },
   view: {
     icon: Eye,
-    color: '#FF9800',
+    color: '#ef6c00',
     label: 'Просмотр',
-    bgColor: '#FFF3E0'
-  }
+    bg: 'linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)',
+  },
 }
 
 const currencySymbol = (cur?: string) => {
@@ -61,45 +61,38 @@ export default function TaskCard({ task, onStart, fiatCurrency = 'RUB' }: TaskCa
   const title = task.title === 'Задание' ? '' : task.title
 
   return (
-    <div className="task-card">
-      <div className="task-card-left">
-        <div className="task-type-badge" style={{ backgroundColor: config.bgColor }}>
+    <div className={`task-card task-${task.task_type}`}>
+      <div className="task-card-bg" style={{ background: config.bg }} />
+      <div className="task-card-top">
+        <div className="task-type-badge">
           <Icon size={16} color={config.color} />
           <span style={{ color: config.color }}>{config.label}</span>
           {task.is_test && (
-            <span style={{ 
-              marginLeft: '8px', 
-              padding: '2px 6px', 
-              background: '#ff9800', 
-              color: 'white', 
-              borderRadius: '4px', 
-              fontSize: '10px',
-              fontWeight: '600'
-            }}>
-              ПРИМЕР
-            </span>
+            <span className="task-test-chip">ПРИМЕР</span>
           )}
         </div>
-        <div className="task-content">
-          {title && <h3 className="task-title">{title}</h3>}
-          {task.description && (
-            <p className="task-description">{task.description}</p>
-          )}
-        </div>
-      </div>
-      <div className="task-card-right">
         <div className="task-price">
           {parseFloat(task.price_per_slot_fiat).toFixed(2)} {currencySymbol(fiatCurrency)}
         </div>
-        <button className="earn-button" onClick={onStart}>
+      </div>
+
+      <div className="task-content">
+        {title && <h3 className="task-title">{title}</h3>}
+        {task.description && <p className="task-description">{task.description}</p>}
+      </div>
+
+      <div className="task-card-bottom">
+        <div className="task-meta">
+          <span className="task-remaining">
+            Осталось: <strong>{task.remaining_slots}</strong>
+          </span>
+          <span className="task-slots">
+            Слотов: {task.completed_slots}/{task.total_slots}
+          </span>
+        </div>
+        <button className="earn-button sheen" onClick={onStart}>
           Заработать
         </button>
-        <div className="task-remaining" style={{ marginTop: '6px', textAlign: 'center' }}>
-          Осталось: <strong>{task.remaining_slots}</strong>
-        </div>
-        <div className="task-remaining" style={{ marginTop: '6px', textAlign: 'center' }}>
-          Осталось: <strong>{task.remaining_slots}</strong>
-        </div>
       </div>
     </div>
   )

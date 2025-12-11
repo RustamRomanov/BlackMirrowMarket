@@ -164,9 +164,14 @@ export default function CreateTaskModal({ onClose, onSubmit, averageTonPrice = 0
     if (genderSelection.male && !genderSelection.female) finalGender = 'male'
     if (!genderSelection.male && genderSelection.female) finalGender = 'female'
 
+    const fallbackTitle =
+      formData.title.trim() ||
+      formData.description.trim().split(/\s+/).slice(0, 6).join(' ') ||
+      'Без названия'
+
     const submissionData = {
       ...formData,
-      title: formData.title.trim() || 'Задание',
+      title: fallbackTitle,
       target_gender: finalGender
     }
 

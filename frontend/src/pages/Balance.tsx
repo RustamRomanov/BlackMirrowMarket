@@ -149,9 +149,12 @@ export default function Balance() {
 
   async function changeCurrency(currency: string) {
     if (!user || !balance) return
-    
+    // Для TON не дергаем backend (может не поддерживать), просто показываем в TON
+    if (currency === 'TON') {
+      setFiatCurrency('TON')
+      return
+    }
     try {
-      // Обновляем валюту на бэкенде
       await axios.patch(`${API_URL}/api/balance/${user.telegram_id}/currency`, null, {
         params: { currency }
       })
@@ -238,6 +241,7 @@ export default function Balance() {
   const tonEscrow = parseFloat(balance.ton_escrow_balance) / 10**9
   const fiatActive = parseFloat(balance.fiat_balance)
   const fiatRate = tonActive > 0 ? fiatActive / tonActive : 250
+  const isTonCurrency = fiatCurrency === 'TON'
   
   // Показываем реальные значения (0 если 0, без виртуальных сумм)
   const displayTonActive = Math.max(0, tonActive)  // Убеждаемся, что не отрицательное
@@ -256,6 +260,7 @@ export default function Balance() {
           <option value="RUB">₽ RUB</option>
           <option value="USD">$ USD</option>
           <option value="EUR">€ EUR</option>
+          <option value="TON">TON</option>
         </select>
       </div>
 
@@ -290,30 +295,42 @@ export default function Balance() {
         <div className="balance-section">
           <div className="balance-label">Общий Баланс</div>
           <div className="balance-value-primary">
-            {displayFiatActive.toFixed(2)} {fiatCurrency}
+            {isTonCurrency
+              ? `${displayTonActive.toFixed(4)} TON`
+              : `${displayFiatActive.toFixed(2)} ${fiatCurrency}`}
           </div>
           <div className="balance-value-secondary">
-            {displayTonActive.toFixed(4)} TON
+            {isTonCurrency
+              ? `${displayFiatActive.toFixed(2)} ${balance.fiat_currency}`
+              : `${displayTonActive.toFixed(4)} TON`}
           </div>
         </div>
 
         <div className="balance-section">
           <div className="balance-label">В эскроу (в проверке)</div>
           <div className="balance-value-secondary">
-            {(displayTonEscrow * fiatRate).toFixed(2)} {fiatCurrency}
+            {isTonCurrency
+              ? `${displayTonEscrow.toFixed(4)} TON`
+              : `${(displayTonEscrow * fiatRate).toFixed(2)} ${fiatCurrency}`}
           </div>
           <div className="balance-value-tertiary">
-            {displayTonEscrow.toFixed(4)} TON
+            {isTonCurrency
+              ? `${(displayTonEscrow * fiatRate).toFixed(2)} ${balance.fiat_currency}`
+              : `${displayTonEscrow.toFixed(4)} TON`}
           </div>
         </div>
 
         <div className="balance-section">
           <div className="balance-label">Доступно для вывода</div>
           <div className="balance-value-secondary">
-            {displayFiatActive.toFixed(2)} {fiatCurrency}
+            {isTonCurrency
+              ? `${displayTonActive.toFixed(4)} TON`
+              : `${displayFiatActive.toFixed(2)} ${fiatCurrency}`}
           </div>
           <div className="balance-value-tertiary">
-            {displayTonActive.toFixed(4)} TON
+            {isTonCurrency
+              ? `${displayFiatActive.toFixed(2)} ${balance.fiat_currency}`
+              : `${displayTonActive.toFixed(4)} TON`}
           </div>
         </div>
 

@@ -27,6 +27,10 @@
   padding: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   border-left: 4px solid #667eea;
+  min-height: 170px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .example-task-header {
@@ -42,6 +46,11 @@
   font-weight: 600;
   margin-bottom: 8px;
   color: #333;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .example-task-card p {
@@ -49,6 +58,10 @@
   color: #666;
   margin-bottom: 12px;
   line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .example-task-header {
@@ -91,6 +104,10 @@
   color: #999;
   margin-bottom: 12px;
   flex-wrap: wrap;
+}
+
+.example-task-actions {
+  margin-top: auto;
 }
 
 .example-task-actions {
