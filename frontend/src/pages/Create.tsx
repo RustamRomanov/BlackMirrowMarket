@@ -50,21 +50,19 @@ export default function Create() {
   async function loadFiat() {
     if (!user) return
     try {
-      const response = await axios.get(`${API_URL}/api/users/${user.telegram_id}`)
-      if (response.data?.last_fiat_rate) {
-        setFiatCurrency(response.data.last_fiat_rate)
-      }
-      // Получаем курс из баланса
       const balanceResponse = await axios.get(`${API_URL}/api/balance/${user.telegram_id}`)
       if (balanceResponse.data) {
+        const selectedCurrency = balanceResponse.data.fiat_currency || 'RUB'
+        setFiatCurrency(selectedCurrency)
+        
         const tonActive = parseFloat(balanceResponse.data.ton_active_balance) / 10**9
         const fiatActive = parseFloat(balanceResponse.data.fiat_balance)
-        if (tonActive > 0) {
+        
+        if (tonActive > 0 && fiatActive > 0) {
           setFiatRate(fiatActive / tonActive)
         } else {
-          // Дефолтные курсы если нет баланса
           const defaultRates: Record<string, number> = { 'RUB': 250, 'USD': 2.5, 'EUR': 2.3, 'TON': 1 }
-          setFiatRate(defaultRates[response.data?.last_fiat_rate || 'RUB'] || 250)
+          setFiatRate(defaultRates[selectedCurrency] || 250)
         }
       }
     } catch (error) {
