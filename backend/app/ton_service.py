@@ -1264,6 +1264,21 @@ class TonService:
             )
 
         # Создаем запись о транзакции БЕЗ списания средств
+        # ВАЖНО: Проверяем, не была ли уже создана транзакция с таким idempotency_key
+        # и не был ли уже списан баланс
+        existing_tx = (
+            db.query(models.TonTransaction)
+            .filter(models.TonTransaction.idempotency_key == key)
+            .first()
+        )
+        if existing_tx:
+            # Если транзакция уже существует, проверяем, был ли списан баланс
+            if existing_tx.tx_hash:
+                # Транзакция уже отправлена, баланс уже списан
+                return existing_tx, False
+            # Транзакция существует, но еще не отправлена - возвращаем ее
+            return existing_tx, False
+        
         tx = models.TonTransaction(
             user_id=user.id,
             to_address=to_address,
@@ -1295,17 +1310,23 @@ class TonService:
             last_error = None
             tx_hash = None
             
+            # Флаг для отслеживания, были ли списаны средства
+            funds_deducted = False
             for attempt in range(1, max_retries + 1):
                 try:
                     print(f"🔄 Attempt {attempt}/{max_retries} to send transaction...", file=sys.stderr, flush=True)
                     tx_hash = await self._send_raw(to_address, int(amount_nano), comment)
-                    # ТОЛЬКО после успешной отправки списываем средства
-                    balance.ton_active_balance -= amount_nano
+                    # ТОЛЬКО после успешной отправки списываем средства (ОДИН РАЗ)
+                    if not funds_deducted:
+                        balance.ton_active_balance -= amount_nano
+                        funds_deducted = True
+                        print(f"✅ Transaction sent successfully on attempt {attempt}. Funds deducted from balance.", file=sys.stderr, flush=True)
+                    else:
+                        print(f"✅ Transaction sent successfully on attempt {attempt}. Funds already deducted, skipping.", file=sys.stderr, flush=True)
                     tx.tx_hash = tx_hash
                     tx.status = "pending"
                     db.commit()
                     db.refresh(tx)
-                    print(f"✅ Transaction sent successfully on attempt {attempt}. Funds deducted from balance.", file=sys.stderr, flush=True)
                     break  # Успешно отправили
                 except Exception as send_error:
                     last_error = send_error
@@ -1957,6 +1978,7 @@ class TonService:
         from datetime import datetime, timedelta
         
         # Находим все pending транзакции без tx_hash (средства еще не списаны)
+        # ВАЖНО: tx_hash.is_(None) проверяет, что tx_hash действительно NULL в БД
         pending_txs = db.query(TonTransaction).filter(
             TonTransaction.status == "pending",
             TonTransaction.tx_hash.is_(None)
@@ -1990,18 +2012,30 @@ class TonService:
                     if user:
                         comment = str(user.telegram_id)
                 
+                # КРИТИЧНО: Проверяем, не были ли уже списаны средства для этой транзакции
+                # Если у транзакции уже есть tx_hash, значит она была отправлена и баланс уже списан
+                if tx.tx_hash:
+                    print(f"⚠️ Transaction {tx.id} already has tx_hash {tx.tx_hash[:20]}..., skipping (funds already deducted).", file=sys.stderr, flush=True)
+                    continue
+                
                 # Пробуем отправить транзакцию
                 print(f"🔄 Attempting to send pending transaction {tx.id}...", file=sys.stderr, flush=True)
                 tx_hash = await self._send_raw(tx.to_address, int(tx.amount_nano), comment)
                 
-                # ТОЛЬКО после успешной отправки списываем средства
+                # ТОЛЬКО после успешной отправки списываем средства (если еще не списаны)
                 if tx.user_id and user:
                     balance = db.query(models.UserBalance).filter(
                         models.UserBalance.user_id == user.id
                     ).first()
                     if balance:
-                        balance.ton_active_balance -= tx.amount_nano
-                        print(f"✅ Funds deducted from balance after successful send: {float(tx.amount_nano) / 10**9:.4f} TON", file=sys.stderr, flush=True)
+                        # Проверяем, не были ли средства уже списаны (по наличию tx_hash в БД)
+                        # Перезагружаем транзакцию из БД для проверки актуального состояния
+                        db.refresh(tx)
+                        if not tx.tx_hash:  # Если tx_hash все еще None, списываем
+                            balance.ton_active_balance -= tx.amount_nano
+                            print(f"✅ Funds deducted from balance after successful send: {float(tx.amount_nano) / 10**9:.4f} TON", file=sys.stderr, flush=True)
+                        else:
+                            print(f"⚠️ Transaction {tx.id} already has tx_hash, funds already deducted, skipping.", file=sys.stderr, flush=True)
                 
                 tx.tx_hash = tx_hash
                 tx.status = "pending"  # Остается pending до подтверждения
