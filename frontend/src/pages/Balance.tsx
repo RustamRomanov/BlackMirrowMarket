@@ -287,33 +287,6 @@ export default function Balance() {
         </select>
       </div>
 
-      {/* Статистика выполненных заданий */}
-      {taskStats && (
-        <div className="task-stats-blocks-container">
-          <div className="task-stat-block task-stat-block-subscription">
-            <div className="task-stat-title">Подписка</div>
-            <div className="task-stat-today">сегодня</div>
-            <div className="task-stat-value">{taskStats.subscription.today_count}</div>
-            <div className="task-stat-total">всего</div>
-            <div className="task-stat-value">{taskStats.subscription.total_count}</div>
-          </div>
-          <div className="task-stat-block task-stat-block-comment">
-            <div className="task-stat-title">Комментарий</div>
-            <div className="task-stat-today">сегодня</div>
-            <div className="task-stat-value">{taskStats.comment.today_count}</div>
-            <div className="task-stat-total">всего</div>
-            <div className="task-stat-value">{taskStats.comment.total_count}</div>
-          </div>
-          <div className="task-stat-block task-stat-block-view">
-            <div className="task-stat-title">Просмотр</div>
-            <div className="task-stat-today">сегодня</div>
-            <div className="task-stat-value">{taskStats.view.today_count}</div>
-            <div className="task-stat-total">всего</div>
-            <div className="task-stat-value">{taskStats.view.total_count}</div>
-          </div>
-        </div>
-      )}
-
       <div className="balance-card">
         <div className="balance-section">
           <div className="balance-label">Общий Баланс</div>

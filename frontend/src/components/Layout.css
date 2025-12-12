@@ -38,10 +38,5 @@
   font-size: 12px;
 }
 
-.nav-item.active {
-  color: #a5b4ff;
-}
-
-.nav-item:hover {
-  color: #a5b4ff;
-}
+.nav-item.active { color: #a5b4ff; }
+.nav-item:hover { color: #a5b4ff; }
