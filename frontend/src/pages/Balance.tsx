@@ -30,12 +30,17 @@ export default function Balance() {
   const [withdrawAddress, setWithdrawAddress] = useState('')
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [withdrawLoading, setWithdrawLoading] = useState(false)
+  const [transactions, setTransactions] = useState<any[]>([])
+  const [deposits, setDeposits] = useState<any[]>([])
+  const [loadingTransactions, setLoadingTransactions] = useState(false)
 
   useEffect(() => {
     if (user) {
       loadBalance()
+      loadTransactions()
       const interval = setInterval(() => {
         loadBalance()
+        loadTransactions()
       }, 5000)
       return () => clearInterval(interval)
     } else {
@@ -100,6 +105,45 @@ export default function Balance() {
     }
   }
 
+
+  async function loadTransactions() {
+    if (!user) return
+    
+    setLoadingTransactions(true)
+    try {
+      const [withdrawalsResponse, depositsResponse] = await Promise.all([
+        axios.get(`${API_URL}/api/ton/transactions/user/${user.telegram_id}`),
+        axios.get(`${API_URL}/api/balance/${user.telegram_id}/deposits`)
+      ])
+      
+      // Объединяем транзакции: депозиты и выводы
+      const allTransactions = [
+        ...depositsResponse.data.map((d: any) => ({
+          ...d,
+          type: 'deposit',
+          to_address: null,
+          from_address: d.from_address
+        })),
+        ...withdrawalsResponse.data.map((w: any) => ({
+          ...w,
+          type: 'withdrawal',
+          from_address: null,
+          to_address: w.to_address
+        }))
+      ].sort((a, b) => {
+        const dateA = new Date(a.created_at).getTime()
+        const dateB = new Date(b.created_at).getTime()
+        return dateB - dateA // Сначала новые
+      })
+      
+      setTransactions(allTransactions)
+      setDeposits(depositsResponse.data)
+    } catch (error) {
+      console.error('Error loading transactions:', error)
+    } finally {
+      setLoadingTransactions(false)
+    }
+  }
 
   async function changeCurrency(currency: string) {
     if (!user || !balance) return
@@ -171,6 +215,7 @@ export default function Balance() {
       setWithdrawAddress('')
       setWithdrawAmount('')
       loadBalance()
+      loadTransactions()
     } catch (error: any) {
       showSuccess(error.response?.data?.detail || 'Ошибка при выводе средств')
     } finally {
@@ -204,7 +249,8 @@ export default function Balance() {
   const tonActive = parseFloat(balance.ton_active_balance) / 10**9
   const tonEscrow = parseFloat(balance.ton_escrow_balance) / 10**9
   const fiatActive = parseFloat(balance.fiat_balance)
-  const fiatRate = tonActive > 0 ? fiatActive / tonActive : 250
+  const storedRate = typeof window !== 'undefined' ? localStorage.getItem('fiatRatePerTon') : null
+  const fiatRate = storedRate ? parseFloat(storedRate) : (tonActive > 0 ? fiatActive / tonActive : 250)
   
   // Показываем реальные значения (0 если 0, без виртуальных сумм)
   const displayTonActive = Math.max(0, tonActive)  // Убеждаемся, что не отрицательное
@@ -473,6 +519,131 @@ export default function Balance() {
               <p>Средства будут отправлены с сервисного кошелька приложения на указанный адрес. Транзакция обрабатывается автоматически.</p>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Список транзакций */}
+      {transactions.length > 0 && (
+        <div className="transactions-section" style={{ marginTop: '24px' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#333' }}>
+            История транзакций
+          </h2>
+          <div className="transactions-list">
+            {transactions.map((tx) => {
+              const amountTon = parseFloat(tx.amount_nano) / 10**9
+              const isDeposit = tx.type === 'deposit'
+              const date = new Date(tx.created_at)
+              const formattedDate = date.toLocaleString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+              
+              return (
+                <div
+                  key={`${tx.type}-${tx.id}`}
+                  className="transaction-item"
+                  style={{
+                    background: 'white',
+                    borderRadius: '12px',
+                    padding: '16px',
+                    marginBottom: '12px',
+                    border: `1px solid ${isDeposit ? '#c8e6c9' : '#ffccbc'}`,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                        <span style={{
+                          fontSize: '20px',
+                          marginRight: '4px'
+                        }}>
+                          {isDeposit ? '📥' : '📤'}
+                        </span>
+                        <span style={{
+                          fontSize: '16px',
+                          fontWeight: '600',
+                          color: isDeposit ? '#2e7d32' : '#d84315'
+                        }}>
+                          {isDeposit ? 'Пополнение' : 'Вывод'}
+                        </span>
+                        <span style={{
+                          fontSize: '12px',
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          background: tx.status === 'processed' || tx.status === 'completed' 
+                            ? '#e8f5e9' 
+                            : tx.status === 'pending' 
+                            ? '#fff3e0' 
+                            : '#ffebee',
+                          color: tx.status === 'processed' || tx.status === 'completed'
+                            ? '#2e7d32'
+                            : tx.status === 'pending'
+                            ? '#f57c00'
+                            : '#c62828',
+                          fontWeight: '600',
+                          marginLeft: '8px'
+                        }}>
+                          {tx.status === 'processed' || tx.status === 'completed' 
+                            ? 'Завершено' 
+                            : tx.status === 'pending' 
+                            ? 'В обработке' 
+                            : 'Ошибка'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
+                        {formattedDate}
+                      </div>
+                      {tx.tx_hash && (
+                        <div style={{ fontSize: '11px', color: '#999', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                          {tx.tx_hash.slice(0, 20)}...{tx.tx_hash.slice(-8)}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{
+                        fontSize: '18px',
+                        fontWeight: '700',
+                        color: isDeposit ? '#2e7d32' : '#d84315'
+                      }}>
+                        {isDeposit ? '+' : '-'}{amountTon.toFixed(4)} TON
+                      </div>
+                      {fiatCurrency !== 'TON' && (
+                        <div style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
+                          {isDeposit ? '+' : '-'}{(amountTon * (fiatRate || 250)).toFixed(2)} {fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {tx.to_address && (
+                    <div style={{ fontSize: '12px', color: '#666', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #eee' }}>
+                      <strong>Адрес:</strong> <span style={{ fontFamily: 'monospace', fontSize: '11px' }}>{tx.to_address.slice(0, 20)}...{tx.to_address.slice(-8)}</span>
+                    </div>
+                  )}
+                  {tx.from_address && (
+                    <div style={{ fontSize: '12px', color: '#666', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #eee' }}>
+                      <strong>От:</strong> <span style={{ fontFamily: 'monospace', fontSize: '11px' }}>{tx.from_address.slice(0, 20)}...{tx.from_address.slice(-8)}</span>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {loadingTransactions && transactions.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+          Загрузка транзакций...
+        </div>
+      )}
+
+      {!loadingTransactions && transactions.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '20px', color: '#999', fontSize: '14px', marginTop: '24px' }}>
+          Транзакций пока нет
         </div>
       )}
 

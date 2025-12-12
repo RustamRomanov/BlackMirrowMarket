@@ -181,6 +181,34 @@ async def get_deposit_info(telegram_id: int, db: Session = Depends(get_db)):
     }
 
 
+@router.get("/{telegram_id}/deposits")
+async def get_user_deposits(telegram_id: int, db: Session = Depends(get_db)):
+    """Получение всех депозитов пользователя."""
+    user = db.query(models.User).filter(models.User.telegram_id == telegram_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    deposits = (
+        db.query(models.Deposit)
+        .filter(models.Deposit.user_id == user.id)
+        .order_by(models.Deposit.created_at.desc())
+        .all()
+    )
+    
+    return [
+        {
+            "id": d.id,
+            "tx_hash": d.tx_hash,
+            "from_address": d.from_address,
+            "amount_nano": str(d.amount_nano),
+            "status": d.status,
+            "created_at": d.created_at,
+            "processed_at": d.processed_at,
+        }
+        for d in deposits
+    ]
+
+
 @router.post("/{telegram_id}/withdraw", response_model=schemas.UserWithdrawResponse)
 async def user_withdraw(
     telegram_id: int,
