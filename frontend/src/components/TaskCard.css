@@ -77,13 +77,16 @@
   white-space: nowrap;
 }
 
-/* Строка 2: Описание */
-.task-row-2 {
+/* Строка 2-3: Описание + Кнопка */
+.task-row-2-3 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   position: relative;
   z-index: 1;
-  min-height: 16px;
-  max-height: 32px;
-  overflow: hidden;
+  gap: 12px;
+  min-height: 40px;
+  flex: 1;
 }
 
 .task-description {
@@ -91,21 +94,21 @@
   color: #4a4a4a;
   line-height: 1.4;
   margin: 0;
+  flex: 1;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  min-width: 0;
 }
 
-/* Строка 3: Доступно + Кнопка */
-.task-row-3 {
+/* Строка 4: Доступно (внизу) */
+.task-row-4 {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-end;
   position: relative;
   z-index: 1;
-  gap: 12px;
-  min-height: 32px;
+  min-height: 16px;
 }
 
 .task-available-compact {
