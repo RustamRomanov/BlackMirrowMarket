@@ -208,43 +208,28 @@ async def create_task(task: schemas.TaskCreate, telegram_id: int, db: Session = 
     if not balance:
         raise HTTPException(status_code=404, detail="Balance not found")
     
-    # Конвертируем price_per_slot_ton из TON в нано-TON
-    # Фронтенд отправляет цену в TON (например, "0.5"), нужно конвертировать в нано-TON
-    price_per_slot_ton_decimal = Decimal(str(task.price_per_slot_ton))
+    # Фронтенд всегда отправляет цену в TON (не в нано-TON)
+    # Конвертируем из TON в нано-TON: умножаем на 10^9
+    price_per_slot_ton = Decimal(str(task.price_per_slot_ton))
+    price_per_slot_nano = price_per_slot_ton * Decimal(10**9)
     
-    # Если значение меньше 10^9, значит это TON, конвертируем в нано-TON
-    if price_per_slot_ton_decimal < Decimal(10**9):
-        price_per_slot_nano = price_per_slot_ton_decimal * Decimal(10**9)
-        print(f"[DEBUG] Converted price from TON to nano-TON: {price_per_slot_ton_decimal} TON = {price_per_slot_nano} nano-TON")
-    else:
-        # Уже в нано-TON
-        price_per_slot_nano = price_per_slot_ton_decimal
-        print(f"[DEBUG] Price already in nano-TON: {price_per_slot_nano}")
+    # Вычисляем общий бюджет кампании в нано-TON (все слоты сразу)
+    total_budget_nano = Decimal(task.total_slots) * price_per_slot_nano
     
-    # Вычисляем общую стоимость задания в нано-TON
-    total_cost = Decimal(task.total_slots) * price_per_slot_nano
-    
-    print(f"[DEBUG] Task creation - User: {user.id}, Slots: {task.total_slots}, Price per slot (nano-TON): {price_per_slot_nano}, Total cost (nano-TON): {total_cost}")
-    print(f"[DEBUG] Current balance (nano-TON): {balance.ton_active_balance}")
+    print(f"[CREATE TASK] User {user.id}: {task.total_slots} slots × {price_per_slot_ton} TON = {total_budget_nano / Decimal(10**9)} TON total")
+    print(f"[CREATE TASK] Balance before: {balance.ton_active_balance / Decimal(10**9)} TON")
     
     # Проверяем достаточность средств
-    if balance.ton_active_balance < total_cost:
-        required_ton = float(total_cost) / 10**9
+    if balance.ton_active_balance < total_budget_nano:
+        required_ton = float(total_budget_nano) / 10**9
         available_ton = float(balance.ton_active_balance) / 10**9
         raise HTTPException(
             status_code=400,
             detail=f"Insufficient funds. Required: {required_ton:.4f} TON, Available: {available_ton:.4f} TON"
         )
     
-    # Списываем средства с баланса заказчика (безопасно, с блокировкой)
-    from app.database_optimizations import update_balance_safely
-    success = update_balance_safely(db, user.id, -total_cost, "active")
-    if not success:
-        raise HTTPException(status_code=500, detail="Ошибка при списании средств")
-    
-    # Обновляем объект balance после списания для логирования
-    db.refresh(balance)
-    print(f"[DEBUG] Balance after deduction (nano-TON): {balance.ton_active_balance}")
+    # Списываем весь бюджет кампании с баланса заказчика
+    balance.ton_active_balance -= total_budget_nano
     
     # Сохраняем цену в нано-TON в базе данных
     task_dict = task.dict()
@@ -253,8 +238,14 @@ async def create_task(task: schemas.TaskCreate, telegram_id: int, db: Session = 
     # Создаем задание
     db_task = models.Task(creator_id=user.id, **task_dict)
     db.add(db_task)
+    
+    # Коммитим изменения (и баланс, и задание)
     db.commit()
+    db.refresh(balance)
     db.refresh(db_task)
+    
+    print(f"[CREATE TASK] Balance after: {balance.ton_active_balance / Decimal(10**9)} TON")
+    print(f"[CREATE TASK] Task {db_task.id} created successfully")
     
     return db_task
 
@@ -326,16 +317,21 @@ async def cancel_task(task_id: int, telegram_id: int, db: Session = Depends(get_
     if task.status == models.TaskStatus.COMPLETED:
         raise HTTPException(status_code=400, detail="Задание уже завершено")
     
-    # Вычисляем остаток (невыполненные слоты)
-    remaining_slots = task.total_slots - task.completed_slots
-    refund_amount = remaining_slots * task.price_per_slot_ton
+    # Получаем баланс заказчика
+    balance = db.query(models.UserBalance).filter(models.UserBalance.user_id == user.id).first()
+    if not balance:
+        raise HTTPException(status_code=404, detail="Balance not found")
     
-    # Возвращаем средства на баланс (безопасно, с блокировкой)
-    from app.database_optimizations import update_balance_safely
-    if refund_amount > 0:
-        success = update_balance_safely(db, user.id, refund_amount, "active")
-        if not success:
-            raise HTTPException(status_code=500, detail="Ошибка при возврате средств")
+    # Вычисляем остаток (невыполненные слоты) в нано-TON
+    remaining_slots = task.total_slots - task.completed_slots
+    refund_amount_nano = Decimal(remaining_slots) * Decimal(task.price_per_slot_ton)
+    
+    print(f"[CANCEL TASK] Task {task_id}: {remaining_slots} remaining slots × {Decimal(task.price_per_slot_ton) / Decimal(10**9)} TON = {refund_amount_nano / Decimal(10**9)} TON refund")
+    print(f"[CANCEL TASK] Balance before: {balance.ton_active_balance / Decimal(10**9)} TON")
+    
+    # Возвращаем средства на баланс заказчика
+    if refund_amount_nano > 0:
+        balance.ton_active_balance += refund_amount_nano
     
     # Также нужно вернуть средства из эскроу исполнителей, если они есть
     # Находим все активные UserTask для этого задания
@@ -356,19 +352,25 @@ async def cancel_task(task_id: int, telegram_id: int, db: Session = Depends(get_
             executor_balance.ton_escrow_balance -= user_task.reward_ton
         
         # Возвращаем средства заказчику (из эскроу исполнителя на активный баланс заказчика)
-        update_balance_safely(db, user.id, user_task.reward_ton, "active")
+        balance.ton_active_balance += user_task.reward_ton
         
         # Обновляем статус UserTask
         user_task.status = models.UserTaskStatus.REFUNDED
     
     # Останавливаем задание
     task.status = models.TaskStatus.CANCELLED
+    
+    # Коммитим все изменения
     db.commit()
+    db.refresh(balance)
+    
+    print(f"[CANCEL TASK] Balance after: {balance.ton_active_balance / Decimal(10**9)} TON")
+    print(f"[CANCEL TASK] Task {task_id} cancelled, refunded {len(active_user_tasks)} active user tasks")
     
     return {
         "status": "cancelled",
         "message": "Задание остановлено",
-        "refund_amount": str(refund_amount / 10**9) + " TON",
+        "refund_amount": str(refund_amount_nano / Decimal(10**9)) + " TON",
         "refunded_user_tasks": len(active_user_tasks)
     }
 
