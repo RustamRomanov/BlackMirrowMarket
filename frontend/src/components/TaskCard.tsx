@@ -64,15 +64,7 @@ export default function TaskCard({ task, onStart, fiatCurrency }: TaskCardProps)
           <Icon size={16} color={config.color} />
           <span style={{ color: config.color }}>{config.label}</span>
           {task.is_test && (
-            <span style={{ 
-              marginLeft: '8px', 
-              padding: '2px 6px', 
-              background: '#ff9800', 
-              color: 'white', 
-              borderRadius: '4px', 
-              fontSize: '10px',
-              fontWeight: '600'
-            }}>
+            <span style={{ marginLeft: '8px', padding: '2px 6px', background: '#ff9800', color: 'white', borderRadius: '4px', fontSize: '10px', fontWeight: '600' }}>
               ПРИМЕР
             </span>
           )}

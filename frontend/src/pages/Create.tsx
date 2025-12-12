@@ -57,8 +57,8 @@ export default function Create() {
       if (response.data?.last_fiat_rate) {
         setFiatRate(parseFloat(response.data.last_fiat_rate) || 250)
       } else if (response.data?.fiat_currency) {
-        const currencyRates: Record<string, number> = { RUB: 250, USD: 3.5, EUR: 3.2, TON: 1 }
-        setFiatRate(currencyRates[response.data.fiat_currency] ?? 250)
+        const rates: Record<string, number> = { RUB: 250, USD: 3.5, EUR: 3.2, TON: 1 }
+        setFiatRate(rates[response.data.fiat_currency] ?? 250)
       }
     } catch (error) {
       console.error('Error loading fiat info:', error)
@@ -66,7 +66,10 @@ export default function Create() {
   }
 
   async function loadMyTasks() {
-    if (!user) return
+    if (!user) {
+      console.log('No user, skipping loadMyTasks')
+      return
+    }
     setLoading(true)
     try {
       const response = await axios.get(`${API_URL}/api/tasks/my`, {

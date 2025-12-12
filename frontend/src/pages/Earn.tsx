@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext'
 import axios from 'axios'
 import { Bell, MessageSquare, Eye } from 'lucide-react'
 import TaskCard from '../components/TaskCard'
+import { TaskCardSkeleton } from '../components/Skeleton'
 import './Earn.css'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -33,11 +34,6 @@ export default function Earn() {
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc')
   const [selectedTaskType, setSelectedTaskType] = useState<'subscription' | 'comment' | 'view' | null>(null)
   const [fiatCurrency, setFiatCurrency] = useState<string>('RUB')
-<<<<<<< HEAD
-  const [initialLoaded, setInitialLoaded] = useState(false)
-=======
->>>>>>> 0a5b38e (fix(ui+api): correct TON currency rates and display)
-
   const [updateCounter, setUpdateCounter] = useState(0)
 
   useEffect(() => {
@@ -45,20 +41,10 @@ export default function Earn() {
       setLoading(false)
       return
     }
-<<<<<<< HEAD
 
     loadCurrency()
-    loadTasks(true)
-
-=======
-    
-    // Убрана автоматическая инициализация тестовых заданий
-    // Тестовые задания создаются вручную через админку и помечаются как примеры
     loadTasks()
-    loadCurrency()
-    
-    // Обновляем счетчик каждые 3 секунды (вместо каждой секунды)
->>>>>>> 0a5b38e (fix(ui+api): correct TON currency rates and display)
+
     const interval = setInterval(() => {
       setUpdateCounter(prev => prev + 1)
     }, 3000)
@@ -68,12 +54,10 @@ export default function Earn() {
 
   useEffect(() => {
     if (!user || updateCounter === 0) return
-    loadTasks(false)
+    loadTasks()
   }, [updateCounter, user])
 
   async function loadCurrency() {
-<<<<<<< HEAD
-=======
     if (!user) return
     try {
       const response = await axios.get(`${API_URL}/api/balance/${user.telegram_id}`)
@@ -86,21 +70,8 @@ export default function Earn() {
   }
 
   async function loadTasks() {
->>>>>>> 0a5b38e (fix(ui+api): correct TON currency rates and display)
     if (!user) return
-    try {
-      const response = await axios.get(`${API_URL}/api/balance/${user.telegram_id}`)
-      if (response.data?.fiat_currency) {
-        setFiatCurrency(response.data.fiat_currency)
-      }
-    } catch (error) {
-      console.error('Error loading currency:', error)
-    }
-  }
 
-  async function loadTasks(firstLoad: boolean) {
-    if (!user) return
-    if (firstLoad) setLoading(true)
     try {
       const response = await axios.get(`${API_URL}/api/tasks/`, {
         params: { telegram_id: user.telegram_id }
@@ -119,7 +90,6 @@ export default function Earn() {
       })
 
       setTasks(sortedTasks)
-      setInitialLoaded(true)
     } catch (error: any) {
       console.error('Error loading tasks:', error)
       if (error.response?.status === 404) {
@@ -129,7 +99,7 @@ export default function Earn() {
             username: user.username,
             first_name: user.first_name
           })
-          await loadTasks(firstLoad)
+          await loadTasks()
         } catch (createError) {
           console.error('Error creating user:', createError)
           setTasks([])
@@ -138,28 +108,27 @@ export default function Earn() {
         setTasks([])
       }
     } finally {
-      if (firstLoad) setLoading(false)
+      setLoading(false)
     }
   }
 
-  if (loading && !initialLoaded) {
+  if (loading) {
     return (
       <div className="earn-page">
-<<<<<<< HEAD
-        <div className="earn-loading">Загрузка заданий…</div>
-=======
         <div className="earn-header">
-          <div className="earn-loading">Загрузка заданий…</div>
+          <button className="all-tasks-filter-btn active" disabled>Все задания</button>
         </div>
->>>>>>> 0a5b38e (fix(ui+api): correct TON currency rates and display)
+        <div className="tasks-list">
+          {[...Array(5)].map((_, i) => (
+            <TaskCardSkeleton key={i} />
+          ))}
+        </div>
       </div>
     )
   }
 
   return (
     <div className="earn-page">
-      <div style={{ height: '20px' }}></div>
-
       <div className="earn-header">
         <button
           onClick={() => setSelectedTaskType(null)}
@@ -211,6 +180,7 @@ export default function Earn() {
               task={{ ...task, fiat_currency: fiatCurrency }}
               fiatCurrency={fiatCurrency}
               onStart={() => {
+                // Проверяем профиль при нажатии "Заработать"
                 if (!user?.age || !user?.gender || !user?.country) {
                   showError('Для выполнения заданий необходимо заполнить профиль')
                   navigate('/profile')
