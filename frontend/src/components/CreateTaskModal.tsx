@@ -327,7 +327,6 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
                 <div className="form-field-group">
                   <label className="form-label">
                     Стоимость слота ({fiatCurrency === 'TON' ? 'TON' : fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'})
-                    {fiatCurrency !== 'TON' && safePriceInTon > 0 && isFinite(safePriceInTon) && ` (≈ ${safePriceInTon.toFixed(4)} TON)`}
                   </label>
                   <input
                     type="number"

@@ -303,10 +303,36 @@ async def cancel_task(task_id: int, telegram_id: int, db: Session = Depends(get_
     remaining_slots = task.total_slots - task.completed_slots
     refund_amount = remaining_slots * task.price_per_slot_ton
     
-    # Возвращаем средства на баланс
-    balance = db.query(models.UserBalance).filter(models.UserBalance.user_id == user.id).first()
-    if balance:
-        balance.ton_active_balance += refund_amount
+    # Возвращаем средства на баланс (безопасно, с блокировкой)
+    from app.database_optimizations import update_balance_safely
+    if refund_amount > 0:
+        success = update_balance_safely(db, user.id, refund_amount, "active")
+        if not success:
+            raise HTTPException(status_code=500, detail="Ошибка при возврате средств")
+    
+    # Также нужно вернуть средства из эскроу исполнителей, если они есть
+    # Находим все активные UserTask для этого задания
+    active_user_tasks = db.query(models.UserTask).filter(
+        and_(
+            models.UserTask.task_id == task_id,
+            models.UserTask.status == models.UserTaskStatus.IN_PROGRESS
+        )
+    ).all()
+    
+    # Возвращаем средства из эскроу исполнителей обратно на активный баланс заказчика
+    for user_task in active_user_tasks:
+        # Списываем средства из эскроу исполнителя
+        executor_balance = db.query(models.UserBalance).filter(
+            models.UserBalance.user_id == user_task.user_id
+        ).first()
+        if executor_balance:
+            executor_balance.ton_escrow_balance -= user_task.reward_ton
+        
+        # Возвращаем средства заказчику (из эскроу исполнителя на активный баланс заказчика)
+        update_balance_safely(db, user.id, user_task.reward_ton, "active")
+        
+        # Обновляем статус UserTask
+        user_task.status = models.UserTaskStatus.REFUNDED
     
     # Останавливаем задание
     task.status = models.TaskStatus.CANCELLED
@@ -315,7 +341,8 @@ async def cancel_task(task_id: int, telegram_id: int, db: Session = Depends(get_
     return {
         "status": "cancelled",
         "message": "Задание остановлено",
-        "refund_amount": str(refund_amount / 10**9) + " TON"
+        "refund_amount": str(refund_amount / 10**9) + " TON",
+        "refunded_user_tasks": len(active_user_tasks)
     }
 
 @router.post("/{task_id}/start", response_model=schemas.UserTaskResponse)
