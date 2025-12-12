@@ -11,7 +11,10 @@ router = APIRouter()
 
 def recalculate_balance_from_transactions(user_id: int, db: Session) -> Decimal:
     """
-    Пересчитывает баланс пользователя на основе всех транзакций (депозиты и выводы).
+    Пересчитывает баланс пользователя на основе:
+    1. Всех транзакций (депозиты и выводы)
+    2. Бюджета всех активных заданий (которые еще не отменены)
+    
     Возвращает правильный баланс в нано-TON.
     """
     # Суммируем все обработанные депозиты
@@ -27,8 +30,22 @@ def recalculate_balance_from_transactions(user_id: int, db: Session) -> Decimal:
         models.TonTransaction.status.in_(["pending", "completed"])  # Успешные или в процессе
     ).scalar() or Decimal(0)
     
-    # Правильный баланс = депозиты - выводы
-    correct_balance = deposits - withdrawals
+    # Находим все активные задания (не отмененные) и считаем их бюджет
+    active_tasks = db.query(models.Task).filter(
+        models.Task.creator_id == user_id,
+        models.Task.status != models.TaskStatus.CANCELLED
+    ).all()
+    
+    # Считаем общий бюджет всех активных заданий (в нано-TON)
+    total_spent_on_tasks_nano = Decimal(0)
+    for task in active_tasks:
+        # price_per_slot_ton в БД хранится в нано-TON
+        price_per_slot_nano = Decimal(task.price_per_slot_ton)
+        task_budget_nano = Decimal(task.total_slots) * price_per_slot_nano
+        total_spent_on_tasks_nano += task_budget_nano
+    
+    # Правильный баланс = депозиты - выводы - потрачено на активные задания
+    correct_balance = deposits - withdrawals - total_spent_on_tasks_nano
     
     return correct_balance
 
