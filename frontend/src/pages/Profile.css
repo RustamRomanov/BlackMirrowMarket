@@ -80,29 +80,31 @@
 .profile-card {
   background: white;
   border-radius: 16px;
-  padding: 24px;
+  padding: 12px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .profile-info {
-  margin-bottom: 24px;
-  padding-bottom: 24px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
   border-bottom: 1px solid #e0e0e0;
 }
 
 .info-item {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
 }
 
 .info-item label {
   font-weight: 600;
   color: #666;
+  font-size: 12px;
 }
 
 .info-item span {
   color: #333;
+  font-size: 12px;
 }
 
 .profile-form h2 {
@@ -398,5 +400,60 @@
   font-size: 12px;
   color: #666;
   line-height: 1.6;
+}
+
+/* Статистика выполненных заданий */
+.task-stats-blocks-container {
+  display: flex;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.task-stat-block {
+  flex: 1;
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  color: white;
+}
+
+.task-stat-block-subscription {
+  background: #4CAF50;
+}
+
+.task-stat-block-comment {
+  background: #a855f7;
+}
+
+.task-stat-block-view {
+  background: #f59e0b;
+}
+
+.task-stat-title {
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.task-stat-today {
+  font-size: 10px;
+  opacity: 0.9;
+  margin-bottom: 2px;
+}
+
+.task-stat-total {
+  font-size: 10px;
+  opacity: 0.9;
+  margin-top: 6px;
+  margin-bottom: 2px;
+}
+
+.task-stat-value {
+  font-size: 16px;
+  font-weight: 800;
 }
 

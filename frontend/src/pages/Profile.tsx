@@ -26,6 +26,12 @@ interface ReferralDetail {
   created_at: string
 }
 
+interface TaskStats {
+  subscription: { today_count: number; total_count: number; today_earned: string; total_earned: string }
+  comment: { today_count: number; total_count: number; today_earned: string; total_earned: string }
+  view: { today_count: number; total_count: number; today_earned: string; total_earned: string }
+}
+
 const TERMS_TEXT = `ПРАВИЛА ПОЛЬЗОВАНИЯ ПРИЛОЖЕНИЕМ
 
 1. Общие положения
@@ -92,6 +98,7 @@ export default function Profile() {
   const [showTermsModal, setShowTermsModal] = useState(false)
   const [showAgreementModal, setShowAgreementModal] = useState(false)
   const [loadingReferrals, setLoadingReferrals] = useState(false)
+  const [taskStats, setTaskStats] = useState<TaskStats | null>(null)
 
   useEffect(() => {
     if (user) {
@@ -149,6 +156,7 @@ export default function Profile() {
       setCountry(defaultCountry)
       setTermsAccepted(user.terms_accepted || false)
       loadReferralInfo()
+      loadTaskStats()
     }
   }, [user])
 
@@ -167,6 +175,17 @@ export default function Profile() {
       console.error('Error loading referral info:', error)
     } finally {
       setLoadingReferrals(false)
+    }
+  }
+
+  async function loadTaskStats() {
+    if (!user) return
+    
+    try {
+      const response = await axios.get(`${API_URL}/api/balance/${user.telegram_id}/task-stats`)
+      setTaskStats(response.data)
+    } catch (error) {
+      console.error('Error loading task stats:', error)
     }
   }
 
@@ -285,6 +304,33 @@ export default function Profile() {
             <span>@{user?.username || 'Не указано'}</span>
           </div>
         </div>
+
+        {/* Статистика выполненных заданий */}
+        {taskStats && (
+          <div className="task-stats-blocks-container">
+            <div className="task-stat-block task-stat-block-subscription">
+              <div className="task-stat-title">Подписка</div>
+              <div className="task-stat-today">сегодня</div>
+              <div className="task-stat-value">{taskStats.subscription.today_count}</div>
+              <div className="task-stat-total">всего</div>
+              <div className="task-stat-value">{taskStats.subscription.total_count}</div>
+            </div>
+            <div className="task-stat-block task-stat-block-comment">
+              <div className="task-stat-title">Комментарий</div>
+              <div className="task-stat-today">сегодня</div>
+              <div className="task-stat-value">{taskStats.comment.today_count}</div>
+              <div className="task-stat-total">всего</div>
+              <div className="task-stat-value">{taskStats.comment.total_count}</div>
+            </div>
+            <div className="task-stat-block task-stat-block-view">
+              <div className="task-stat-title">Просмотр</div>
+              <div className="task-stat-today">сегодня</div>
+              <div className="task-stat-value">{taskStats.view.today_count}</div>
+              <div className="task-stat-total">всего</div>
+              <div className="task-stat-value">{taskStats.view.total_count}</div>
+            </div>
+          </div>
+        )}
 
         {!profileFilled ? (
           <div className="profile-form">
