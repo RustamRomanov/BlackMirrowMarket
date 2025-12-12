@@ -15,6 +15,7 @@ interface Task {
   task_type: 'subscription' | 'comment' | 'view'
   price_per_slot_ton: string
   price_per_slot_fiat: string
+  fiat_currency?: string
   telegram_channel_id?: string
   comment_instruction?: string
 }
@@ -29,10 +30,24 @@ export default function TaskDetail() {
   const [processing, setProcessing] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [showCompletionModal, setShowCompletionModal] = useState(false)
+  const [fiatCurrency, setFiatCurrency] = useState<string>('RUB')
 
   useEffect(() => {
     loadTask()
+    loadCurrency()
   }, [id])
+
+  async function loadCurrency() {
+    if (!user) return
+    try {
+      const response = await axios.get(`${API_URL}/api/balance/${user.telegram_id}`)
+      if (response.data?.fiat_currency) {
+        setFiatCurrency(response.data.fiat_currency)
+      }
+    } catch (error) {
+      console.error('Error loading currency:', error)
+    }
+  }
 
   async function loadTask() {
     try {
@@ -47,138 +62,113 @@ export default function TaskDetail() {
 
   async function handleStart() {
     if (!user || !task) return
-    
     setProcessing(true)
-    
     try {
-      // Для просмотра - сразу выполняем
       if (task.task_type === 'view') {
         await axios.post(`${API_URL}/api/tasks/${task.id}/start`, null, {
           params: { telegram_id: user.telegram_id }
         })
-        
-        // Перенаправляем на канал
         if (task.telegram_channel_id) {
           window.open(`https://t.me/${task.telegram_channel_id.replace('@', '')}`, '_blank')
         }
-        
         showSuccess('Задание выполнено! Средства зачислены на ваш баланс.')
-        setTimeout(() => {
-          navigate('/earn')
-        }, 2000)
+        setTimeout(() => { navigate('/earn') }, 2000)
       } else if (task.task_type === 'subscription') {
-        // Для подписки - запускаем задание и сразу открываем канал
         await axios.post(`${API_URL}/api/tasks/${task.id}/start`, null, {
           params: { telegram_id: user.telegram_id }
         })
-        
-        // Открываем инвайт ссылку на канал
         if (task.telegram_channel_id) {
           const channelId = task.telegram_channel_id.replace('@', '')
           window.open(`https://t.me/${channelId}`, '_blank')
         }
-        
-        // Показываем окно с кнопками завершения
-        setShowCompletionModal(true)
-      } else {
-        // Для комментария - показываем модальное окно
-        await axios.post(`${API_URL}/api/tasks/${task.id}/start`, null, {
-          params: { telegram_id: user.telegram_id }
-        })
-        
-        // Показываем модальное окно с информацией
+        setShowModal(true)
+      } else if (task.task_type === 'comment') {
         setShowModal(true)
       }
     } catch (error: any) {
-      showError(error.response?.data?.detail || 'Ошибка при выполнении задания')
-    } finally {
-      setProcessing(false)
-    }
-  }
-
-  async function handleConfirm() {
-    if (!user || !task) return
-    
-    setProcessing(true)
-    
-    try {
-      if (task.task_type === 'comment') {
-        // Для комментария - перенаправляем на пост
-        if (task.telegram_channel_id) {
-          window.open(`https://t.me/${task.telegram_channel_id.replace('@', '')}`, '_blank')
-        }
-        
-        // После того как пользователь оставит комментарий, он должен вызвать валидацию
-        // В реальной версии это будет делать бот автоматически
-        setTimeout(async () => {
-          await axios.post(`${API_URL}/api/tasks/${task.id}/validate-comment`, null, {
-            params: { telegram_id: user.telegram_id }
-          })
-          showSuccess('Комментарий проверен! Средства зачислены.')
-          navigate('/earn')
-        }, 3000)
+      console.error('Error starting task:', error)
+      if (error.response?.data?.detail) {
+        showError(error.response.data.detail)
+      } else {
+        showError('Ошибка при старте задания')
       }
-    } catch (error: any) {
-      showError(error.response?.data?.detail || 'Ошибка')
     } finally {
       setProcessing(false)
+    }
+  }
+
+  async function handleComplete() {
+    if (!user || !task) return
+    setProcessing(true)
+    try {
+      await axios.post(`${API_URL}/api/tasks/${task.id}/complete`, null, {
+        params: { telegram_id: user.telegram_id }
+      })
+      showSuccess('Задание выполнено! Средства зачислены на ваш баланс.')
       setShowModal(false)
+      setShowCompletionModal(true)
+      setTimeout(() => { navigate('/earn') }, 1500)
+    } catch (error: any) {
+      console.error('Error completing task:', error)
+      showError(error.response?.data?.detail || 'Ошибка при завершении задания')
+    } finally {
+      setProcessing(false)
     }
   }
 
-  if (loading) {
-    return <div className="task-detail-page">Загрузка...</div>
-  }
-
-  if (!task) {
-    return <div className="task-detail-page">Задание не найдено</div>
-  }
-
-  const taskTypeConfig = {
-    subscription: {
-      icon: Bell,
-      color: '#4CAF50',
-      label: 'Подписка',
-      bgColor: '#E8F5E9'
-    },
-    comment: {
-      icon: MessageSquare,
-      color: '#2196F3',
-      label: 'Комментарий',
-      bgColor: '#E3F2FD'
-    },
-    view: {
-      icon: Eye,
-      color: '#FF9800',
-      label: 'Просмотр',
-      bgColor: '#FFF3E0'
+  function currencySymbol(currency?: string) {
+    switch (currency) {
+      case 'USD': return '$'
+      case 'EUR': return '€'
+      case 'TON': return 'TON'
+      default: return '₽'
     }
   }
 
-  const config = taskTypeConfig[task.task_type]
-  const Icon = config.icon
+  if (loading || !task) {
+    return (
+      <div className="task-detail-page">
+        <div className="task-detail-card">
+          <div className="loading">Загрузка...</div>
+        </div>
+      </div>
+    )
+  }
+
+  const isCreator = user?.telegram_id === 0
 
   return (
     <div className="task-detail-page">
       <div className="task-detail-card">
-        <div className="task-detail-header">
-          <div className="task-type-badge-large" style={{ backgroundColor: config.bgColor }}>
-            <Icon size={20} color={config.color} />
-            <span style={{ color: config.color }}>{config.label}</span>
+        <div className="task-header">
+          <div className="task-type-badge">
+            {task.task_type === 'subscription' && <Bell size={16} color="#4CAF50" />}
+            {task.task_type === 'comment' && <MessageSquare size={16} color="#2196F3" />}
+            {task.task_type === 'view' && <Eye size={16} color="#FF9800" />}
+            <span>
+              {task.task_type === 'subscription' && 'Подписка'}
+              {task.task_type === 'comment' && 'Комментарий'}
+              {task.task_type === 'view' && 'Просмотр'}
+            </span>
+            {task.is_test && (
+              <span className="task-demo-badge">ПРИМЕР</span>
+            )}
+          </div>
+          <div className="task-title-block">
+            <h1>{task.title}</h1>
+            {task.description && <p>{task.description}</p>}
           </div>
         </div>
-
-        <h1 className="task-detail-title">{task.title}</h1>
-        {task.description && (
-          <p className="task-detail-description">{task.description}</p>
-        )}
-
-        {task.task_type === 'comment' && task.comment_instruction && (
-          <div className="task-instruction">
-            <h3>Инструкция:</h3>
-            <p>{task.comment_instruction}</p>
+        <div className="task-meta">
+          <div className="meta-item">
+            <span>Всего слотов</span>
+            <strong>{task.telegram_channel_id ? '—' : '∞'}</strong>
           </div>
-        )}
+          <div className="meta-item">
+            <span>Опубликовано</span>
+            <strong>Сегодня</strong>
+          </div>
+        </div>
 
         {task.task_type === 'subscription' && task.telegram_channel_id && (
           <div className="task-channel-info">
@@ -220,23 +210,26 @@ export default function TaskDetail() {
 
         <div className="task-price-large">
           <span className="price-label">Награда:</span>
-          <span className="price-value">{parseFloat(task.price_per_slot_fiat).toFixed(2)} ₽</span>
+          <span className="price-value">
+            {parseFloat(task.price_per_slot_fiat).toFixed(2)} {currencySymbol(task.fiat_currency || fiatCurrency)}
+          </span>
         </div>
 
-        <button
-          className="earn-button-large"
-          onClick={handleStart}
-          disabled={processing}
-        >
-          {processing ? 'Обработка...' : 'Заработать'}
-        </button>
+        {!isCreator && (
+          <button
+            className="earn-button-large"
+            onClick={handleStart}
+            disabled={processing}
+          >
+            {processing ? 'Обработка...' : 'Заработать'}
+          </button>
+        )}
       </div>
 
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h2>{task.title}</h2>
-            
             {task.task_type === 'comment' && (
               <>
                 <div className="modal-instruction">
@@ -254,92 +247,46 @@ export default function TaskDetail() {
                 </div>
               </>
             )}
-
             {task.task_type === 'subscription' && (
               <>
-                <div className="modal-channel">
-                  <h3>Информация о канале:</h3>
-                  <p>@{task.telegram_channel_id?.replace('@', '')}</p>
+                <div className="modal-instruction">
+                  <h3>Инструкция:</h3>
+                  <p>Подпишитесь на канал и не отписывайтесь в течение 7 дней.</p>
                 </div>
                 <div className="modal-rules">
-                  <h3>Важно помнить:</h3>
+                  <h3>Правила приложения:</h3>
                   <ul>
-                    <li>Оцените, подходит ли вам этот канал</li>
-                    <li>Не отписывайтесь в течение 7 дней</li>
-                    <li>Иначе средства не будут переведены с эскроу на ваш счет</li>
-                    <li>Средства будут зачислены через 7 дней после проверки</li>
-                    <li>Не подписывайтесь на сомнительные каналы</li>
+                    <li>Не отписывайтесь 7 дней</li>
+                    <li>Средства начисляются после проверки</li>
                   </ul>
                 </div>
               </>
             )}
-
-            <button
-              className="modal-confirm-button"
-              onClick={handleConfirm}
-              disabled={processing}
-            >
-              {processing ? 'Обработка...' : 'Продолжить'}
-            </button>
+            {task.task_type === 'view' && (
+              <div className="modal-instruction">
+                <h3>Инструкция:</h3>
+                <p>Просмотрите публикацию.</p>
+              </div>
+            )}
+            <div className="modal-actions">
+              <button className="modal-close" onClick={() => setShowModal(false)}>Закрыть</button>
+              <button className="modal-complete" onClick={handleComplete} disabled={processing}>
+                {processing ? 'Отправка...' : 'Подтвердить выполнение'}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Окно завершения для подписки */}
       {showCompletionModal && (
         <div className="modal-overlay" onClick={() => setShowCompletionModal(false)}>
-          <div className="modal-content completion-modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Подписка выполнена</h2>
-            <p className="completion-text">
-              Вы были перенаправлены на канал. Если вы подписались, нажмите "Завершить".
-            </p>
-            <p className="completion-warning">
-              Если канал показался вам сомнительным, вы можете пожаловаться на задание.
-            </p>
-            
-            <div className="completion-buttons">
-              <button
-                className="completion-button complete-btn"
-                onClick={async () => {
-                  setShowCompletionModal(false)
-                  showSuccess('Подписка зарегистрирована! Средства будут зачислены через 7 дней после проверки.')
-                  navigate('/earn')
-                }}
-                disabled={processing}
-              >
-                Завершить
-              </button>
-              
-              <button
-                className="completion-button report-btn"
-                onClick={async () => {
-                  if (!user || !task) return
-                  
-                  setProcessing(true)
-                  try {
-                    // Отправляем жалобу на задание
-                    await axios.post(`${API_URL}/api/tasks/${task.id}/report`, null, {
-                      params: { telegram_id: user.telegram_id }
-                    })
-                    
-                    setShowCompletionModal(false)
-                    showSuccess('Жалоба отправлена модератору. Задание завершено.')
-                    navigate('/earn')
-                  } catch (error: any) {
-                    showError(error.response?.data?.detail || 'Ошибка при отправке жалобы')
-                  } finally {
-                    setProcessing(false)
-                  }
-                }}
-                disabled={processing}
-              >
-                Пожаловаться на задание
-              </button>
-            </div>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Готово!</h2>
+            <p>Задание выполнено. Награда будет начислена после проверки.</p>
+            <button className="modal-close" onClick={() => setShowCompletionModal(false)}>Закрыть</button>
           </div>
         </div>
       )}
     </div>
   )
 }
-

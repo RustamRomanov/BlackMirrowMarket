@@ -17,6 +17,7 @@ interface Task {
 
 interface TaskCardProps {
   task: Task
+  fiatCurrency?: string
   onStart: () => void
 }
 
@@ -41,11 +42,21 @@ const taskTypeConfig = {
   }
 }
 
-export default function TaskCard({ task, onStart }: TaskCardProps) {
+function currencySymbol(currency?: string) {
+  switch (currency) {
+    case 'USD': return '$'
+    case 'EUR': return '€'
+    case 'TON': return 'TON'
+    default: return '₽'
+  }
+}
+
+export default function TaskCard({ task, onStart, fiatCurrency }: TaskCardProps) {
   const config = taskTypeConfig[task.task_type]
   const Icon = config.icon
   const price = parseFloat(task.price_per_slot_fiat || '0')
-  const currency = task.fiat_currency || '₽'
+  const displayCurrency = fiatCurrency || task.fiat_currency || 'RUB'
+  const symbol = currencySymbol(displayCurrency)
   const cleanTitle = task.title === 'Задание' ? '' : task.title
 
   return (
@@ -75,7 +86,7 @@ export default function TaskCard({ task, onStart }: TaskCardProps) {
           Заработать
         </button>
         <div className="task-price-block">
-          <div className="task-price-caption">Стоимость задания — {price.toFixed(2)} {currency}</div>
+          <div className="task-price-caption">Стоимость задания — {price.toFixed(2)} {symbol}</div>
         </div>
       </div>
     </div>
