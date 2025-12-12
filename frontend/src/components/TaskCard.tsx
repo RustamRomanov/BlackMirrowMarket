@@ -8,11 +8,11 @@ interface Task {
   task_type: 'subscription' | 'comment' | 'view'
   price_per_slot_ton: string
   price_per_slot_fiat: string
-  fiat_currency?: string
   total_slots: number
   completed_slots: number
   remaining_slots: number
   is_test?: boolean
+  fiat_currency?: string
 }
 
 interface TaskCardProps {
@@ -25,63 +25,64 @@ const taskTypeConfig = {
   subscription: {
     icon: Bell,
     color: '#4CAF50',
-    label: 'Подписка',
-    bgColor: '#E8F5E9'
+    label: 'Подписка'
   },
   comment: {
     icon: MessageSquare,
     color: '#2196F3',
-    label: 'Комментарий',
-    bgColor: '#E3F2FD'
+    label: 'Комментарий'
   },
   view: {
     icon: Eye,
     color: '#FF9800',
-    label: 'Просмотр',
-    bgColor: '#FFF3E0'
+    label: 'Просмотр'
   }
 }
 
-function currencySymbol(currency?: string) {
-  switch (currency) {
-    case 'USD': return '$'
-    case 'EUR': return '€'
-    case 'TON': return 'TON'
-    default: return '₽'
-  }
+function currencySymbol(code: string): string {
+  if (code === 'USD') return '$'
+  if (code === 'EUR') return '€'
+  if (code === 'TON') return 'TON'
+  return '₽'
 }
 
-export default function TaskCard({ task, onStart, fiatCurrency }: TaskCardProps) {
+export default function TaskCard({ task, fiatCurrency, onStart }: TaskCardProps) {
   const config = taskTypeConfig[task.task_type]
   const Icon = config.icon
-  const displayCurrency = fiatCurrency || task.fiat_currency || 'RUB'
-  const symbol = currencySymbol(displayCurrency)
+  const currency = fiatCurrency || task.fiat_currency || 'RUB'
+  const symbol = currencySymbol(currency)
+  const price = parseFloat(task.price_per_slot_fiat)
 
   return (
-    <div className="task-card">
-      <div className="task-card-left">
-        <div className="task-type-badge" style={{ backgroundColor: config.bgColor }}>
-          <Icon size={16} color={config.color} />
+    <div className={`task-card task-card--${task.task_type}`}>
+      <div className="task-card-header">
+        <div className="task-type-line">
+          <Icon size={14} color={config.color} />
           <span style={{ color: config.color }}>{config.label}</span>
           {task.is_test && (
-            <span style={{ marginLeft: '8px', padding: '2px 6px', background: '#ff9800', color: 'white', borderRadius: '4px', fontSize: '10px', fontWeight: '600' }}>
-              ПРИМЕР
-            </span>
+            <span className="test-badge">ПРИМЕР</span>
           )}
         </div>
-        <div className="task-content">
-          <h3 className="task-title">{task.title}</h3>
-          {task.description && (
-            <p className="task-description">{task.description}</p>
-          )}
-        </div>
+      </div>
+      
+      <div className="task-content">
+        <h3 className="task-title">{task.title}</h3>
+        {task.description && (
+          <p className="task-description">{task.description}</p>
+        )}
+      </div>
+
+      <div className="task-footer">
         <div className="task-remaining">
           Осталось: <strong>{task.remaining_slots}</strong>
         </div>
-      </div>
-      <div className="task-card-right">
-        <div className="task-price">
-          {parseFloat(task.price_per_slot_fiat).toFixed(2)} {symbol}
+        <div className="task-price-section">
+          <div className="task-price-caption">
+            Стоимость задания
+          </div>
+          <div className="task-price">
+            {price.toFixed(2)} {symbol}
+          </div>
         </div>
         <button className="earn-button" onClick={onStart}>
           Заработать
@@ -90,3 +91,7 @@ export default function TaskCard({ task, onStart, fiatCurrency }: TaskCardProps)
     </div>
   )
 }
+
+
+
+
