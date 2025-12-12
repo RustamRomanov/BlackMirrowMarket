@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import axios from 'axios'
@@ -26,58 +26,28 @@ export default function Create() {
   const [showModal, setShowModal] = useState(false)
   const [myTasks, setMyTasks] = useState<MyTask[]>([])
   const [loading, setLoading] = useState(true)
-  const averageTonPrice = useMemo(() => {
-    const prices = myTasks
-      .map((task) => parseFloat(String(task.price_per_slot_ton)) / 10**9)
-      .filter((p) => Number.isFinite(p) && p > 0)
-    if (prices.length === 0) return 0
-    return prices.reduce((a, b) => a + b, 0) / prices.length
-  }, [myTasks])
+
+  useEffect(() => { if (user) { loadMyTasks() } }, [user])
 
   useEffect(() => {
-    if (user) {
-      loadMyTasks()
-    }
-  }, [user])
-
-  // Обновляем список при фокусе на странице (если пользователь вернулся на вкладку)
-  useEffect(() => {
-    const handleFocus = () => {
-      if (user) {
-        loadMyTasks()
-      }
-    }
+    const handleFocus = () => { if (user) { loadMyTasks() } }
     window.addEventListener('focus', handleFocus)
     return () => window.removeEventListener('focus', handleFocus)
   }, [user])
 
   async function loadMyTasks() {
-    if (!user) {
-      console.log('No user, skipping loadMyTasks')
-      return
-    }
-    
+    if (!user) return
     setLoading(true)
     try {
-      console.log('Loading tasks for user:', user.telegram_id)
-      const response = await axios.get(`${API_URL}/api/tasks/my`, {
-        params: { telegram_id: user.telegram_id }
-      })
-      console.log('Loaded my tasks response:', response)
-      console.log('Loaded my tasks data:', response.data)
-      console.log('Tasks count:', response.data?.length || 0)
-      
+      const response = await axios.get(`${API_URL}/api/tasks/my`, { params: { telegram_id: user.telegram_id } })
       const tasks = (response.data || []).map((task: any) => ({
         ...task,
-        status: task.status?.toLowerCase() || task.status, // Приводим статус к нижнему регистру
-        task_type: task.task_type?.toLowerCase() || task.task_type // Приводим тип к нижнему регистру
+        status: task.status?.toLowerCase() || task.status,
+        task_type: task.task_type?.toLowerCase() || task.task_type
       }))
-      console.log('Processed tasks:', tasks)
       setMyTasks(tasks)
     } catch (error: any) {
       console.error('Error loading my tasks:', error)
-      console.error('Error response:', error.response)
-      console.error('Error details:', error.response?.data)
       setMyTasks([])
     } finally {
       setLoading(false)
@@ -85,53 +55,32 @@ export default function Create() {
   }
 
   async function handleCreateTask(formData: TaskFormData) {
-    if (!user) {
-      showError('Необходимо войти в систему')
-      return
-    }
-
+    if (!user) { showError('Необходимо войти в систему'); return }
     const priceInNanoTon = parseFloat(formData.price_per_slot_ton) * 10**9
-    
     try {
-      const response = await axios.post(
-        `${API_URL}/api/tasks/`,
-        {
-          ...formData,
-          price_per_slot_ton: priceInNanoTon.toString(),
-          total_slots: parseInt(formData.total_slots),
-          telegram_post_id: formData.telegram_post_id ? parseInt(formData.telegram_post_id) : null,
-          target_country: formData.target_country || null,
-          target_gender: formData.target_gender === 'both' ? null : formData.target_gender,
-          target_age_min: formData.target_age_min ? parseInt(formData.target_age_min) : null,
-          target_age_max: formData.target_age_max ? parseInt(formData.target_age_max) : null
-        },
-        {
-          params: { telegram_id: user.telegram_id }
-        }
-      )
-      
-      console.log('Task created successfully:', response.data)
+      await axios.post(`${API_URL}/api/tasks/`, {
+        ...formData,
+        price_per_slot_ton: priceInNanoTon.toString(),
+        total_slots: parseInt(formData.total_slots),
+        telegram_post_id: formData.telegram_post_id ? parseInt(formData.telegram_post_id) : null,
+        target_country: formData.target_country || null,
+        target_gender: formData.target_gender === 'both' ? null : formData.target_gender,
+        target_age_min: formData.target_age_min ? parseInt(formData.target_age_min) : null,
+        target_age_max: formData.target_age_max ? parseInt(formData.target_age_max) : null
+      }, { params: { telegram_id: user.telegram_id } })
       showSuccess('Задание создано успешно!')
       setShowModal(false)
-      
-      // Небольшая задержка перед обновлением, чтобы сервер успел сохранить
-      setTimeout(async () => {
-        await loadMyTasks()
-      }, 500)
+      setTimeout(async () => { await loadMyTasks() }, 500)
     } catch (error: any) {
       console.error('Error creating task:', error)
-      console.error('Error response:', error.response)
       showError(error.response?.data?.detail || 'Ошибка при создании задания')
     }
   }
 
   async function handlePauseTask(taskId: number) {
     if (!user) return
-    
     try {
-      await axios.patch(`${API_URL}/api/tasks/${taskId}/pause`, null, {
-        params: { telegram_id: user.telegram_id }
-      })
+      await axios.patch(`${API_URL}/api/tasks/${taskId}/pause`, null, { params: { telegram_id: user.telegram_id } })
       showSuccess('Задание остановлено')
       loadMyTasks()
     } catch (error: any) {
@@ -141,11 +90,8 @@ export default function Create() {
 
   async function handleResumeTask(taskId: number) {
     if (!user) return
-    
     try {
-      await axios.patch(`${API_URL}/api/tasks/${taskId}/resume`, null, {
-        params: { telegram_id: user.telegram_id }
-      })
+      await axios.patch(`${API_URL}/api/tasks/${taskId}/resume`, null, { params: { telegram_id: user.telegram_id } })
       showSuccess('Задание возобновлено')
       loadMyTasks()
     } catch (error: any) {
@@ -155,15 +101,9 @@ export default function Create() {
 
   async function handleCancelTask(taskId: number) {
     if (!user) return
-    
-    if (!confirm('Вы уверены? Остаток средств будет возвращен на баланс.')) {
-      return
-    }
-    
+    if (!confirm('Вы уверены? Остаток средств будет возвращен на баланс.')) return
     try {
-      await axios.patch(`${API_URL}/api/tasks/${taskId}/cancel`, null, {
-        params: { telegram_id: user.telegram_id }
-      })
+      await axios.patch(`${API_URL}/api/tasks/${taskId}/cancel`, null, { params: { telegram_id: user.telegram_id } })
       showSuccess('Задание остановлено, остаток возвращен на баланс')
       loadMyTasks()
     } catch (error: any) {
@@ -173,42 +113,16 @@ export default function Create() {
 
   const taskTypeConfig = {
     subscription: { icon: Bell, color: '#4CAF50', label: 'Подписка' },
-    comment: { icon: MessageSquare, color: '#2196F3', label: 'Комментарий' },
-    view: { icon: Eye, color: '#FF9800', label: 'Просмотр' }
+    comment: { icon: MessageSquare, color: '#a855f7', label: 'Комментарий' },
+    view: { icon: Eye, color: '#f59e0b', label: 'Просмотр' }
   }
-
-  const currencySymbol = (cur?: string) => {
-    switch (cur) {
-      case 'USD':
-        return '$'
-      case 'EUR':
-        return '€'
-      case 'TON':
-        return 'TON'
-      case 'RUB':
-      default:
-        return '₽'
-    }
-  }
-
-  const [fiatCurrency, setFiatCurrency] = useState<string>(() => {
-    if (typeof window === 'undefined') return 'RUB'
-    return localStorage.getItem('fiatCurrency') || 'RUB'
-  })
-  const storedRate = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('fiatRatePerTon') || '0') : 0
-  const fiatRate = storedRate > 0 ? storedRate : 250
 
   return (
     <div className="create-page">
-      <button
-        className="create-task-button"
-        onClick={() => setShowModal(true)}
-      >
+      <button className="create-task-button" onClick={() => setShowModal(true)}>
         Создать задание
       </button>
 
-
-      {/* Созданные задания пользователя (показываем после примеров) */}
       {!loading && (
         <>
           {myTasks.length > 0 && (
@@ -216,65 +130,45 @@ export default function Create() {
               <h2>Мои задания</h2>
               <div className="example-tasks-list">
                 {myTasks.map((task) => {
-                  console.log('Rendering task:', task)
                   const taskType = task.task_type?.toLowerCase() || task.task_type
                   const taskStatus = task.status?.toLowerCase() || task.status
                   const config = taskTypeConfig[taskType as keyof typeof taskTypeConfig]
-                  
-                  if (!config) {
-                    console.error('Unknown task type:', taskType)
-                    return null
-                  }
-                  
+                  if (!config) return null
                   const Icon = config.icon
                   const priceTon = parseFloat(String(task.price_per_slot_ton)) / 10**9
-                  const priceFiat = priceTon * fiatRate
-                  
+                  const priceFiat = priceTon * 250
+                  const budgetFiat = priceFiat * task.total_slots
                   return (
                     <div key={task.id} className="example-task-card">
                       <div className="example-task-header">
                         <Icon size={16} color={config.color} />
                         <span style={{ color: config.color, fontWeight: 600 }}>{config.label}</span>
                         <span className={`example-status status-${taskStatus}`}>
-                          {taskStatus === 'active' ? 'Активно' : 
-                           taskStatus === 'paused' ? 'Остановлено' : 
-                           taskStatus === 'completed' ? 'Завершено' : 'Отменено'}
+                          {taskStatus === 'active' ? 'Активно' : taskStatus === 'paused' ? 'Остановлено' : taskStatus === 'completed' ? 'Завершено' : 'Отменено'}
                         </span>
                       </div>
-                      <h4>{task.title === 'Задание' ? '' : task.title}</h4>
+                      <h4>{task.title}</h4>
                       {task.description && <p>{task.description}</p>}
                       <div className="example-task-stats">
-                        <span>Цена: {fiatCurrency === 'TON'
-                          ? `${priceTon.toFixed(4)} TON`
-                          : `${priceFiat.toFixed(2)} ${currencySymbol(fiatCurrency)}`
-                        }</span>
-                        <span>Слотов: {task.total_slots}</span>
+                        <span>Цена за слот: {priceFiat.toFixed(2)} ₽</span>
+                        <span>Общий бюджет: {budgetFiat.toFixed(2)} ₽</span>
                         <span>Выполнено: {task.completed_slots || 0} / {task.total_slots}</span>
                       </div>
                       <div className="example-task-actions">
                         {taskStatus === 'active' && (
-                          <button 
-                            className="example-pause-btn"
-                            onClick={() => handlePauseTask(task.id)}
-                          >
+                          <button className="example-pause-btn" onClick={() => handlePauseTask(task.id)}>
                             <Pause size={14} />
                             Пауза
                           </button>
                         )}
                         {taskStatus === 'paused' && (
-                          <button 
-                            className="example-pause-btn"
-                            onClick={() => handleResumeTask(task.id)}
-                          >
+                          <button className="example-pause-btn" onClick={() => handleResumeTask(task.id)}>
                             <Play size={14} />
                             Возобновить
                           </button>
                         )}
                         {(taskStatus === 'active' || taskStatus === 'paused') && (
-                          <button 
-                            className="example-stop-btn"
-                            onClick={() => handleCancelTask(task.id)}
-                          >
+                          <button className="example-stop-btn" onClick={() => handleCancelTask(task.id)}>
                             Остановить
                           </button>
                         )}
@@ -286,7 +180,7 @@ export default function Create() {
             </div>
           )}
           {myTasks.length === 0 && (
-            <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+            <div style={{ padding: '20px', textAlign: 'center', color: '#c8cedc' }}>
               <p>У вас пока нет созданных заданий.</p>
               <p>Создайте первое задание, нажав кнопку "Создать задание" выше.</p>
             </div>
@@ -294,18 +188,11 @@ export default function Create() {
         </>
       )}
 
-      {loading && (
-        <div className="tasks-loading">Загрузка заданий...</div>
-      )}
+      {loading && (<div className="tasks-loading">Загрузка заданий...</div>)}
 
       {showModal && (
-        <CreateTaskModal
-          onClose={() => setShowModal(false)}
-          onSubmit={handleCreateTask}
-          averageTonPrice={averageTonPrice}
-        />
+        <CreateTaskModal onClose={() => setShowModal(false)} onSubmit={handleCreateTask} />
       )}
     </div>
   )
 }
-

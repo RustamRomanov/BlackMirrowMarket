@@ -37,14 +37,9 @@ export default function Earn() {
   const [updateCounter, setUpdateCounter] = useState(0)
 
   useEffect(() => {
-    if (!user) {
-      setLoading(false)
-      return
-    }
+    if (!user) { setLoading(false); return }
     loadTasks()
-    const interval = setInterval(() => {
-      setUpdateCounter(prev => prev + 1)
-    }, 3000)
+    const interval = setInterval(() => { setUpdateCounter(prev => prev + 1) }, 3000)
     return () => clearInterval(interval)
   }, [user, sortOrder, selectedTaskType])
 
@@ -59,9 +54,7 @@ export default function Earn() {
       const response = await axios.get(`${API_URL}/api/tasks/`, { params: { telegram_id: user.telegram_id } })
       setAllTasks(response.data || [])
       let filteredTasks = [...(response.data || [])]
-      if (selectedTaskType) {
-        filteredTasks = filteredTasks.filter(task => task.task_type === selectedTaskType)
-      }
+      if (selectedTaskType) { filteredTasks = filteredTasks.filter(task => task.task_type === selectedTaskType) }
       let sortedTasks = [...filteredTasks]
       sortedTasks.sort((a, b) => {
         const priceA = parseFloat(a.price_per_slot_fiat || '0')
@@ -73,17 +66,11 @@ export default function Earn() {
       console.error('Error loading tasks:', error)
       if (error.response?.status === 404) {
         try {
-          await axios.post(`${API_URL}/api/users/`, {
-            telegram_id: user.telegram_id,
-            username: user.username,
-            first_name: user.first_name
-          })
+          await axios.post(`${API_URL}/api/users/`, { telegram_id: user.telegram_id, username: user.username, first_name: user.first_name })
           const retryResponse = await axios.get(`${API_URL}/api/tasks/`, { params: { telegram_id: user.telegram_id } })
           setAllTasks(retryResponse.data || [])
           let filteredTasks = [...(retryResponse.data || [])]
-          if (selectedTaskType) {
-            filteredTasks = filteredTasks.filter(task => task.task_type === selectedTaskType)
-          }
+          if (selectedTaskType) { filteredTasks = filteredTasks.filter(task => task.task_type === selectedTaskType) }
           let sortedTasks = [...filteredTasks]
           sortedTasks.sort((a, b) => {
             const priceA = parseFloat(a.price_per_slot_fiat || '0')
@@ -122,40 +109,14 @@ export default function Earn() {
         <button
           onClick={() => setSelectedTaskType(null)}
           className={`all-tasks-filter-btn ${selectedTaskType === null ? 'active' : ''}`}
-        >
-          Все задания
-        </button>
+        >Все задания</button>
         <div className="sort-controls-minimal">
           <div className="task-type-filters">
-            <button
-              onClick={() => setSelectedTaskType(selectedTaskType === 'subscription' ? null : 'subscription')}
-              className={`task-type-filter-btn ${selectedTaskType === 'subscription' ? 'active' : ''}`}
-              title="Подписка"
-            >
-              <Bell size={18} />
-            </button>
-            <button
-              onClick={() => setSelectedTaskType(selectedTaskType === 'comment' ? null : 'comment')}
-              className={`task-type-filter-btn ${selectedTaskType === 'comment' ? 'active' : ''}`}
-              title="Комментарий"
-            >
-              <MessageSquare size={18} />
-            </button>
-            <button
-              onClick={() => setSelectedTaskType(selectedTaskType === 'view' ? null : 'view')}
-              className={`task-type-filter-btn ${selectedTaskType === 'view' ? 'active' : ''}`}
-              title="Просмотр"
-            >
-              <Eye size={18} />
-            </button>
+            <button onClick={() => setSelectedTaskType(selectedTaskType === 'subscription' ? null : 'subscription')} className={`task-type-filter-btn ${selectedTaskType === 'subscription' ? 'active' : ''}`} title="Подписка"><Bell size={18} /></button>
+            <button onClick={() => setSelectedTaskType(selectedTaskType === 'comment' ? null : 'comment')} className={`task-type-filter-btn ${selectedTaskType === 'comment' ? 'active' : ''}`} title="Комментарий"><MessageSquare size={18} /></button>
+            <button onClick={() => setSelectedTaskType(selectedTaskType === 'view' ? null : 'view')} className={`task-type-filter-btn ${selectedTaskType === 'view' ? 'active' : ''}`} title="Просмотр"><Eye size={18} /></button>
           </div>
-          <button
-            onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
-            className="sort-order-btn-minimal"
-            title={sortOrder === 'desc' ? 'По убыванию цены' : 'По возрастанию цены'}
-          >
-            {sortOrder === 'desc' ? '↓' : '↑'}
-          </button>
+          <button onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')} className="sort-order-btn-minimal" title={sortOrder === 'desc' ? 'По убыванию цены' : 'По возрастанию цены'}>{sortOrder === 'desc' ? '↓' : '↑'}</button>
         </div>
       </div>
 

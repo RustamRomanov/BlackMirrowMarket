@@ -23,19 +23,19 @@ interface TaskCardProps {
 const taskTypeConfig = {
   subscription: {
     icon: Bell,
-    color: '#4ade80',
+    color: '#4CAF50',
     title: 'Подписаться на канал',
     bgClass: 'task-card--subscription'
   },
   comment: {
     icon: MessageSquare,
-    color: '#c084fc',
+    color: '#a855f7',
     title: 'Оставить комментарий',
     bgClass: 'task-card--comment'
   },
   view: {
     icon: Eye,
-    color: '#fbbf24',
+    color: '#f59e0b',
     title: 'Просмотреть пост',
     bgClass: 'task-card--view'
   }
@@ -46,6 +46,7 @@ export default function TaskCard({ task, onStart }: TaskCardProps) {
   const Icon = config.icon
   const price = parseFloat(task.price_per_slot_fiat || '0')
   const currency = task.fiat_currency || '₽'
+  const cleanTitle = task.title === 'Задание' ? '' : task.title
 
   return (
     <div className={`task-card ${config.bgClass}`}>
@@ -57,12 +58,10 @@ export default function TaskCard({ task, onStart }: TaskCardProps) {
           <div className="task-type-title" style={{ color: config.color }}>
             {config.title}
           </div>
-          {task.is_test && (
-            <span className="task-demo-badge">ПРИМЕР</span>
-          )}
+          {task.is_test && <span className="task-demo-badge">ПРИМЕР</span>}
         </div>
         <div className="task-content">
-          <h3 className="task-title">{task.title}</h3>
+          <h3 className="task-title">{cleanTitle}</h3>
           {task.description && (
             <p className="task-description">{task.description}</p>
           )}
@@ -76,9 +75,7 @@ export default function TaskCard({ task, onStart }: TaskCardProps) {
           Заработать
         </button>
         <div className="task-price-block">
-          <div className="task-price">
-            {price.toFixed(2)} {currency}
-          </div>
+          <div className="task-price-caption">Стоимость задания — {price.toFixed(2)} {currency}</div>
         </div>
       </div>
     </div>
