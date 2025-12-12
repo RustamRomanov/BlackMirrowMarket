@@ -97,6 +97,7 @@ export default function Profile() {
   const [referrals, setReferrals] = useState<ReferralDetail[]>([])
   const [showTermsModal, setShowTermsModal] = useState(false)
   const [showAgreementModal, setShowAgreementModal] = useState(false)
+  const [showReferralModal, setShowReferralModal] = useState(false)
   const [loadingReferrals, setLoadingReferrals] = useState(false)
   const [taskStats, setTaskStats] = useState<TaskStats | null>(null)
   const [fiatCurrency, setFiatCurrency] = useState<string>('RUB')
@@ -468,65 +469,191 @@ export default function Profile() {
         )}
       </div>
 
-      {/* Реферальная программа */}
+      {/* Кнопка для открытия реферальной программы */}
       {referralInfo && (
-        <div className="referral-section">
-          <h2>Реферальная программа</h2>
-          <p className="referral-description">
-            Приглашайте друзей и получайте 5% от их заработка!
-          </p>
+        <div style={{ marginTop: '12px' }}>
+          <button
+            type="button"
+            onClick={() => setShowReferralModal(true)}
+            style={{
+              width: '100%',
+              padding: '10px',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '13px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)'
+            }}
+          >
+            <Users size={16} />
+            Реферальная программа
+          </button>
+        </div>
+      )}
 
-          <div className="referral-info-card">
-            <div className="referral-link-section">
-              <label>Ваша реферальная ссылка:</label>
-              <div className="referral-link-input">
-                <input
-                  type="text"
-                  value={referralInfo.referral_link}
-                  readOnly
-                />
-                <button
-                  className="copy-button"
-                  onClick={copyReferralLink}
-                  title="Копировать"
-                >
-                  <Copy size={14} />
-                </button>
-              </div>
+      {/* Модальное окно реферальной программы */}
+      {showReferralModal && referralInfo && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px'
+          }}
+          onClick={() => setShowReferralModal(false)}
+        >
+          <div
+            style={{
+              background: 'white',
+              borderRadius: '16px',
+              padding: '20px',
+              maxWidth: '400px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#333', margin: 0 }}>
+                Реферальная программа
+              </h2>
+              <button
+                onClick={() => setShowReferralModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#999',
+                  padding: '0',
+                  width: '30px',
+                  height: '30px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                ×
+              </button>
             </div>
 
-            <div className="referral-stats">
-              <div className="stat-item">
-                <Users size={16} color="#667eea" />
-                <div className="stat-value">{referralInfo.total_referrals}</div>
-                <div className="stat-label">Рефералов</div>
-              </div>
-              <div className="stat-item">
-                <TrendingUp size={16} color="#4CAF50" />
-                <div className="stat-value">
-                  {fiatCurrency === 'TON' 
-                    ? `${(parseFloat(referralInfo.total_earned_fiat) / 250).toFixed(4)} TON`
-                    : `${parseFloat(referralInfo.total_earned_fiat).toFixed(2)} ${fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'}`}
+            <p style={{ fontSize: '12px', color: '#666', marginBottom: '16px', lineHeight: '1.5' }}>
+              Приглашайте друзей и получайте 5% от их заработка!
+            </p>
+
+            {/* Кнопка копирования ссылки */}
+            <div style={{ marginBottom: '16px' }}>
+              <button
+                onClick={copyReferralLink}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)'
+                }}
+              >
+                <Copy size={16} />
+                Скопировать реферальную ссылку
+              </button>
+            </div>
+
+            {/* Статистика */}
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
+              <div style={{
+                flex: 1,
+                background: '#f0f4ff',
+                borderRadius: '10px',
+                padding: '12px',
+                textAlign: 'center',
+                border: '1px solid #e0e8ff'
+              }}>
+                <div style={{ fontSize: '20px', fontWeight: '700', color: '#667eea', marginBottom: '4px' }}>
+                  {referralInfo.total_referrals}
                 </div>
-                <div className="stat-label">Заработано</div>
+                <div style={{ fontSize: '11px', color: '#666' }}>
+                  Рефералов
+                </div>
+              </div>
+              <div style={{
+                flex: 1,
+                background: '#f0f9f4',
+                borderRadius: '10px',
+                padding: '12px',
+                textAlign: 'center',
+                border: '1px solid #d4edda'
+              }}>
+                <div style={{ fontSize: '20px', fontWeight: '700', color: '#4CAF50', marginBottom: '4px' }}>
+                  {fiatCurrency === 'TON' 
+                    ? `${(parseFloat(referralInfo.total_earned_fiat) / 250).toFixed(4)}`
+                    : `${parseFloat(referralInfo.total_earned_fiat).toFixed(2)}`}
+                </div>
+                <div style={{ fontSize: '11px', color: '#666' }}>
+                  {fiatCurrency === 'TON' ? 'TON' : fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'} заработано
+                </div>
               </div>
             </div>
 
+            {/* Список рефералов */}
             {referrals.length > 0 && (
-              <div className="referrals-list">
-                <h3>Ваши рефералы:</h3>
-                {referrals.map((ref, index) => (
-                  <div key={index} className="referral-item">
-                    <div className="referral-name">
-                      {ref.referred_first_name || ref.referred_username || 'Пользователь'}
+              <div>
+                <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '10px', color: '#333' }}>
+                  Ваши рефералы ({referrals.length})
+                </h3>
+                <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                  {referrals.map((ref, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        background: '#f8f9fa',
+                        borderRadius: '8px',
+                        padding: '10px',
+                        marginBottom: '8px',
+                        fontSize: '11px'
+                      }}
+                    >
+                      <div style={{ fontWeight: '600', color: '#333', marginBottom: '4px' }}>
+                        {ref.referred_first_name || ref.referred_username || 'Пользователь'}
+                      </div>
+                      <div style={{ color: '#666', fontSize: '10px' }}>
+                        Заработано: {parseFloat(ref.total_earned_ton) / 10**9} TON
+                        <br />
+                        Ваша комиссия: {parseFloat(ref.commission_earned_ton) / 10**9} TON
+                      </div>
                     </div>
-                    <div className="referral-earnings">
-                      Заработано: {parseFloat(ref.total_earned_ton) / 10**9} TON
-                      <br />
-                      Ваша комиссия: {parseFloat(ref.commission_earned_ton) / 10**9} TON
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {referrals.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '20px', color: '#999', fontSize: '12px' }}>
+                У вас пока нет рефералов
               </div>
             )}
           </div>
