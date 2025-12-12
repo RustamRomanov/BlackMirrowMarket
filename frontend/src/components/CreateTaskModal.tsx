@@ -367,10 +367,10 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
                     Бюджет кампании ({fiatCurrency === 'TON' ? 'TON' : fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'})
                   </label>
                   <div className="budget-display">
-                    {campaignBudget > 0 
+                    {campaignBudgetInTon > 0 
                       ? (fiatCurrency === 'TON' 
-                          ? `${campaignBudget.toFixed(4)} TON`
-                          : `${campaignBudgetDisplay.toFixed(2)} ${fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'}`)
+                          ? `${campaignBudgetInTon.toFixed(4)} TON`
+                          : `${isFinite(campaignBudgetDisplay) ? campaignBudgetDisplay.toFixed(2) : '0.00'} ${fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'}`)
                       : `0 ${fiatCurrency === 'TON' ? 'TON' : fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'}`}
                   </div>
                 </div>
