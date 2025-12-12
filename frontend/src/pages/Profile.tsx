@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { initData } from '@twa-dev/sdk'
 import axios from 'axios'
-import { Users, TrendingUp } from 'lucide-react'
+import { Users, TrendingUp, Copy } from 'lucide-react'
 import TermsModal from '../components/TermsModal'
 import { COUNTRIES, getCountryByCode } from '../data/countries'
 import './Profile.css'
@@ -99,6 +99,7 @@ export default function Profile() {
   const [showAgreementModal, setShowAgreementModal] = useState(false)
   const [loadingReferrals, setLoadingReferrals] = useState(false)
   const [taskStats, setTaskStats] = useState<TaskStats | null>(null)
+  const [fiatCurrency, setFiatCurrency] = useState<string>('RUB')
 
   useEffect(() => {
     if (user) {
@@ -157,8 +158,31 @@ export default function Profile() {
       setTermsAccepted(user.terms_accepted || false)
       loadReferralInfo()
       loadTaskStats()
+      loadCurrency()
     }
   }, [user])
+
+  async function loadCurrency() {
+    if (!user) return
+    try {
+      const storedCurrency = typeof window !== 'undefined' 
+        ? localStorage.getItem('fiatCurrency')
+        : null
+      if (storedCurrency && ['RUB', 'USD', 'EUR', 'TON'].includes(storedCurrency)) {
+        setFiatCurrency(storedCurrency)
+      } else {
+        const response = await axios.get(`${API_URL}/api/balance/${user.telegram_id}`)
+        if (response.data?.fiat_currency) {
+          setFiatCurrency(response.data.fiat_currency)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('fiatCurrency', response.data.fiat_currency)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading currency:', error)
+    }
+  }
 
   async function loadReferralInfo() {
     if (!user) return
@@ -443,6 +467,71 @@ export default function Profile() {
           </div>
         )}
       </div>
+
+      {/* Реферальная программа */}
+      {referralInfo && (
+        <div className="referral-section">
+          <h2>Реферальная программа</h2>
+          <p className="referral-description">
+            Приглашайте друзей и получайте 5% от их заработка!
+          </p>
+
+          <div className="referral-info-card">
+            <div className="referral-link-section">
+              <label>Ваша реферальная ссылка:</label>
+              <div className="referral-link-input">
+                <input
+                  type="text"
+                  value={referralInfo.referral_link}
+                  readOnly
+                />
+                <button
+                  className="copy-button"
+                  onClick={copyReferralLink}
+                  title="Копировать"
+                >
+                  <Copy size={14} />
+                </button>
+              </div>
+            </div>
+
+            <div className="referral-stats">
+              <div className="stat-item">
+                <Users size={16} color="#667eea" />
+                <div className="stat-value">{referralInfo.total_referrals}</div>
+                <div className="stat-label">Рефералов</div>
+              </div>
+              <div className="stat-item">
+                <TrendingUp size={16} color="#4CAF50" />
+                <div className="stat-value">
+                  {fiatCurrency === 'TON' 
+                    ? `${(parseFloat(referralInfo.total_earned_fiat) / 250).toFixed(4)} TON`
+                    : `${parseFloat(referralInfo.total_earned_fiat).toFixed(2)} ${fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'}`}
+                </div>
+                <div className="stat-label">Заработано</div>
+              </div>
+            </div>
+
+            {referrals.length > 0 && (
+              <div className="referrals-list">
+                <h3>Ваши рефералы:</h3>
+                {referrals.map((ref, index) => (
+                  <div key={index} className="referral-item">
+                    <div className="referral-name">
+                      {ref.referred_first_name || ref.referred_username || 'Пользователь'}
+                    </div>
+                    <div className="referral-earnings">
+                      Заработано: {parseFloat(ref.total_earned_ton) / 10**9} TON
+                      <br />
+                      Ваша комиссия: {parseFloat(ref.commission_earned_ton) / 10**9} TON
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {showTermsModal && (
         <TermsModal

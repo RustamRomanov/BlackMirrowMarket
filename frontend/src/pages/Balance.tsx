@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
-import { Copy, Users, TrendingUp, Info } from 'lucide-react'
+import { Info } from 'lucide-react'
 import { useToast } from '../context/ToastContext'
 import './Balance.css'
 
@@ -16,19 +16,6 @@ interface Balance {
   subscriptions_used_24h: number
 }
 
-interface ReferralInfo {
-  referral_link: string
-  total_referrals: number
-  total_earned_fiat: string
-}
-
-interface ReferralDetail {
-  referred_username?: string
-  referred_first_name?: string
-  total_earned_ton: string
-  commission_earned_ton: string
-  created_at: string
-}
 
 
 export default function Balance() {
@@ -43,16 +30,12 @@ export default function Balance() {
   const [withdrawAddress, setWithdrawAddress] = useState('')
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [withdrawLoading, setWithdrawLoading] = useState(false)
-  const [referralInfo, setReferralInfo] = useState<ReferralInfo | null>(null)
-  const [referrals, setReferrals] = useState<ReferralDetail[]>([])
 
   useEffect(() => {
     if (user) {
       loadBalance()
-      loadReferralInfo()
       const interval = setInterval(() => {
         loadBalance()
-        loadReferralInfo()
       }, 5000)
       return () => clearInterval(interval)
     } else {
@@ -117,31 +100,6 @@ export default function Balance() {
     }
   }
 
-  async function loadReferralInfo() {
-    if (!user) return
-    
-    try {
-      const [infoResponse, referralsResponse] = await Promise.all([
-        axios.get(`${API_URL}/api/users/${user.telegram_id}/referral-info`),
-        axios.get(`${API_URL}/api/users/${user.telegram_id}/referrals`)
-      ])
-      setReferralInfo(infoResponse.data)
-      setReferrals(referralsResponse.data)
-    } catch (error) {
-      console.error('Error loading referral info:', error)
-    }
-  }
-
-
-  async function copyReferralLink() {
-    if (!referralInfo) return
-    try {
-      await navigator.clipboard.writeText(referralInfo.referral_link)
-      showSuccess('Реферальная ссылка скопирована!')
-    } catch (error) {
-      console.error('Failed to copy:', error)
-    }
-  }
 
   async function changeCurrency(currency: string) {
     if (!user || !balance) return
@@ -518,68 +476,6 @@ export default function Balance() {
         </div>
       )}
 
-      {/* Реферальная программа */}
-      {referralInfo && (
-        <div className="referral-section-balance">
-          <h2>Реферальная программа</h2>
-          <p className="referral-description">
-            Приглашайте друзей и получайте 5% от их заработка!
-          </p>
-
-          <div className="referral-info-card">
-            <div className="referral-link-section">
-              <label>Ваша реферальная ссылка:</label>
-              <div className="referral-link-input">
-                <input
-                  type="text"
-                  value={referralInfo.referral_link}
-                  readOnly
-                />
-                <button
-                  className="copy-button"
-                  onClick={copyReferralLink}
-                  title="Копировать"
-                >
-                  <Copy size={18} />
-                </button>
-              </div>
-            </div>
-
-            <div className="referral-stats">
-              <div className="stat-item">
-                <Users size={20} color="#667eea" />
-                <div className="stat-value">{referralInfo.total_referrals}</div>
-                <div className="stat-label">Рефералов</div>
-              </div>
-              <div className="stat-item">
-                <TrendingUp size={20} color="#4CAF50" />
-                <div className="stat-value">
-                  {parseFloat(referralInfo.total_earned_fiat).toFixed(2)} {fiatCurrency}
-                </div>
-                <div className="stat-label">Заработано</div>
-              </div>
-            </div>
-
-            {referrals.length > 0 && (
-              <div className="referrals-list">
-                <h3>Ваши рефералы:</h3>
-                {referrals.map((ref, index) => (
-                  <div key={index} className="referral-item">
-                    <div className="referral-name">
-                      {ref.referred_first_name || ref.referred_username || 'Пользователь'}
-                    </div>
-                    <div className="referral-earnings">
-                      Заработано: {parseFloat(ref.total_earned_ton) / 10**9} TON
-                      <br />
-                      Ваша комиссия: {parseFloat(ref.commission_earned_ton) / 10**9} TON
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
