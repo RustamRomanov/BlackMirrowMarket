@@ -524,8 +524,8 @@ export default function Balance() {
 
       {/* Список транзакций */}
       {transactions.length > 0 && (
-        <div className="transactions-section" style={{ marginTop: '24px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#333' }}>
+        <div className="transactions-section" style={{ marginTop: '20px' }}>
+          <h2 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '10px', color: '#333' }}>
             История транзакций
           </h2>
           <div className="transactions-list">
@@ -536,10 +536,16 @@ export default function Balance() {
               const formattedDate = date.toLocaleString('ru-RU', {
                 day: '2-digit',
                 month: '2-digit',
-                year: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit'
               })
+              
+              // Правильное определение статуса: для депозитов "processed" = завершено, для выводов "completed" = завершено
+              const isCompleted = isDeposit 
+                ? (tx.status === 'processed') 
+                : (tx.status === 'completed')
+              const isPending = tx.status === 'pending'
+              const isFailed = tx.status === 'failed'
               
               return (
                 <div
@@ -547,87 +553,67 @@ export default function Balance() {
                   className="transaction-item"
                   style={{
                     background: 'white',
-                    borderRadius: '12px',
-                    padding: '16px',
-                    marginBottom: '12px',
+                    borderRadius: '8px',
+                    padding: '8px 10px',
+                    marginBottom: '6px',
                     border: `1px solid ${isDeposit ? '#c8e6c9' : '#ffccbc'}`,
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                    fontSize: '11px',
+                    lineHeight: '1.4'
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                        <span style={{
-                          fontSize: '20px',
-                          marginRight: '4px'
-                        }}>
-                          {isDeposit ? '📥' : '📤'}
-                        </span>
-                        <span style={{
-                          fontSize: '16px',
-                          fontWeight: '600',
-                          color: isDeposit ? '#2e7d32' : '#d84315'
-                        }}>
-                          {isDeposit ? 'Пополнение' : 'Вывод'}
-                        </span>
-                        <span style={{
-                          fontSize: '12px',
-                          padding: '4px 8px',
-                          borderRadius: '6px',
-                          background: tx.status === 'processed' || tx.status === 'completed' 
-                            ? '#e8f5e9' 
-                            : tx.status === 'pending' 
-                            ? '#fff3e0' 
-                            : '#ffebee',
-                          color: tx.status === 'processed' || tx.status === 'completed'
-                            ? '#2e7d32'
-                            : tx.status === 'pending'
-                            ? '#f57c00'
-                            : '#c62828',
-                          fontWeight: '600',
-                          marginLeft: '8px'
-                        }}>
-                          {tx.status === 'processed' || tx.status === 'completed' 
-                            ? 'Завершено' 
-                            : tx.status === 'pending' 
-                            ? 'В обработке' 
-                            : 'Ошибка'}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
-                        {formattedDate}
-                      </div>
-                      {tx.tx_hash && (
-                        <div style={{ fontSize: '11px', color: '#999', fontFamily: 'monospace', wordBreak: 'break-all' }}>
-                          {tx.tx_hash.slice(0, 20)}...{tx.tx_hash.slice(-8)}
-                        </div>
-                      )}
+                  {/* Первая строка: Тип, сумма, статус */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
+                      <span style={{ fontSize: '14px' }}>
+                        {isDeposit ? '📥' : '📤'}
+                      </span>
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        color: isDeposit ? '#2e7d32' : '#d84315'
+                      }}>
+                        {isDeposit ? 'Пополнение' : 'Вывод'}
+                      </span>
+                      <span style={{
+                        fontSize: '9px',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        background: isCompleted
+                          ? '#e8f5e9' 
+                          : isPending
+                          ? '#fff3e0' 
+                          : '#ffebee',
+                        color: isCompleted
+                          ? '#2e7d32'
+                          : isPending
+                          ? '#f57c00'
+                          : '#c62828',
+                        fontWeight: '600'
+                      }}>
+                        {isCompleted ? '✓' : isPending ? '⏳' : '✗'}
+                      </span>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{
-                        fontSize: '18px',
+                        fontSize: '12px',
                         fontWeight: '700',
                         color: isDeposit ? '#2e7d32' : '#d84315'
                       }}>
                         {isDeposit ? '+' : '-'}{amountTon.toFixed(4)} TON
                       </div>
-                      {fiatCurrency !== 'TON' && (
-                        <div style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
-                          {isDeposit ? '+' : '-'}{(amountTon * (fiatRate || 250)).toFixed(2)} {fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'}
-                        </div>
-                      )}
                     </div>
                   </div>
-                  {tx.to_address && (
-                    <div style={{ fontSize: '12px', color: '#666', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #eee' }}>
-                      <strong>Адрес:</strong> <span style={{ fontFamily: 'monospace', fontSize: '11px' }}>{tx.to_address.slice(0, 20)}...{tx.to_address.slice(-8)}</span>
-                    </div>
-                  )}
-                  {tx.from_address && (
-                    <div style={{ fontSize: '12px', color: '#666', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #eee' }}>
-                      <strong>От:</strong> <span style={{ fontFamily: 'monospace', fontSize: '11px' }}>{tx.from_address.slice(0, 20)}...{tx.from_address.slice(-8)}</span>
-                    </div>
-                  )}
+                  
+                  {/* Вторая строка: Дата и хеш/адрес */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', color: '#666' }}>
+                    <span>{formattedDate}</span>
+                    {tx.tx_hash && (
+                      <span style={{ fontFamily: 'monospace', fontSize: '9px', color: '#999' }}>
+                        {tx.tx_hash.slice(0, 8)}...{tx.tx_hash.slice(-6)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               )
             })}
