@@ -148,9 +148,10 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
   // Расчет бюджета и макс слотов
   // Если валюта не TON, то пользователь вводит цену в выбранной валюте, нужно конвертировать в TON
   const priceInput = parseFloat(formData.price_per_slot_ton) || 0
+  const safeFiatRate = fiatRate > 0 ? fiatRate : 250 // Защита от деления на ноль
   const priceInTon = fiatCurrency === 'TON' 
     ? priceInput 
-    : priceInput / fiatRate // Конвертируем из выбранной валюты в TON
+    : (priceInput / safeFiatRate) // Конвертируем из выбранной валюты в TON
   
   const slots = parseInt(formData.total_slots) || 0
   const campaignBudgetInTon = priceInTon * slots // Бюджет в TON
@@ -159,7 +160,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
   // Отображение бюджета в выбранной валюте
   const campaignBudgetDisplay = fiatCurrency === 'TON' 
     ? campaignBudgetInTon 
-    : campaignBudgetInTon * fiatRate
+    : campaignBudgetInTon * safeFiatRate
 
   // Средняя стоимость за слот по типу задания
   const getAveragePrice = (taskType: string): string => {
@@ -196,7 +197,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
     if (campaignBudgetInTon > userBalance) {
       const balanceDisplay = fiatCurrency === 'TON' 
         ? userBalance.toFixed(4) + ' TON'
-        : (userBalance * fiatRate).toFixed(2) + ` ${fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'}`
+        : (userBalance * safeFiatRate).toFixed(2) + ` ${fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'}`
       const budgetDisplay = fiatCurrency === 'TON'
         ? campaignBudgetInTon.toFixed(4) + ' TON'
         : campaignBudgetDisplay.toFixed(2) + ` ${fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'}`
@@ -233,9 +234,10 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
     if (!genderSelection.male && genderSelection.female) finalGender = 'female'
 
     // Конвертируем цену в TON если валюта не TON
+    const safeFiatRate = fiatRate > 0 ? fiatRate : 250 // Защита от деления на ноль
     const priceInTon = fiatCurrency === 'TON' 
       ? parseFloat(formData.price_per_slot_ton) 
-      : parseFloat(formData.price_per_slot_ton) / fiatRate
+      : parseFloat(formData.price_per_slot_ton) / safeFiatRate
 
     const submissionData = {
       ...formData,
@@ -368,7 +370,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
               <div className="average-price-hint">
                 Средняя стоимость за слот: {fiatCurrency === 'TON' 
                   ? `${getAveragePrice(formData.task_type)} TON`
-                  : `${(parseFloat(getAveragePrice(formData.task_type)) * fiatRate).toFixed(2)} ${fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'} (${getAveragePrice(formData.task_type)} TON)`}
+                  : `${(parseFloat(getAveragePrice(formData.task_type)) * safeFiatRate).toFixed(2)} ${fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'} (${getAveragePrice(formData.task_type)} TON)`}
               </div>
             </div>
 
