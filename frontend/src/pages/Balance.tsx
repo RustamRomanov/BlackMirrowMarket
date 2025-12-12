@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
-import { Info } from 'lucide-react'
+import { Info, Copy } from 'lucide-react'
 import { useToast } from '../context/ToastContext'
 import './Balance.css'
 
@@ -276,32 +276,58 @@ export default function Balance() {
       <div className="balance-card">
         <div className="balance-section">
           <div className="balance-label">Общий Баланс</div>
-          <div className="balance-value-primary">
-            {displayFiatActive.toFixed(2)} {fiatCurrency}
-          </div>
-          <div className="balance-value-secondary">
-            {displayTonActive.toFixed(4)} TON
-          </div>
+          {fiatCurrency === 'TON' ? (
+            <>
+              <div className="balance-value-primary">
+                {displayTonActive.toFixed(4)} TON
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="balance-value-primary">
+                {displayFiatActive.toFixed(2)} {fiatCurrency}
+              </div>
+              <div className="balance-value-secondary">
+                {displayTonActive.toFixed(4)} TON
+              </div>
+            </>
+          )}
         </div>
 
         <div className="balance-section">
           <div className="balance-label">В эскроу (в проверке)</div>
-          <div className="balance-value-secondary">
-            {(displayTonEscrow * fiatRate).toFixed(2)} {fiatCurrency}
-          </div>
-          <div className="balance-value-tertiary">
-            {displayTonEscrow.toFixed(4)} TON
-          </div>
+          {fiatCurrency === 'TON' ? (
+            <div className="balance-value-secondary">
+              {displayTonEscrow.toFixed(4)} TON
+            </div>
+          ) : (
+            <>
+              <div className="balance-value-secondary">
+                {(displayTonEscrow * fiatRate).toFixed(2)} {fiatCurrency}
+              </div>
+              <div className="balance-value-tertiary">
+                {displayTonEscrow.toFixed(4)} TON
+              </div>
+            </>
+          )}
         </div>
 
         <div className="balance-section">
           <div className="balance-label">Доступно для вывода</div>
-          <div className="balance-value-secondary">
-            {displayFiatActive.toFixed(2)} {fiatCurrency}
-          </div>
-          <div className="balance-value-tertiary">
-            {displayTonActive.toFixed(4)} TON
-          </div>
+          {fiatCurrency === 'TON' ? (
+            <div className="balance-value-secondary">
+              {displayTonActive.toFixed(4)} TON
+            </div>
+          ) : (
+            <>
+              <div className="balance-value-secondary">
+                {displayFiatActive.toFixed(2)} {fiatCurrency}
+              </div>
+              <div className="balance-value-tertiary">
+                {displayTonActive.toFixed(4)} TON
+              </div>
+            </>
+          )}
         </div>
 
         {displayTonActive < 0 && (
