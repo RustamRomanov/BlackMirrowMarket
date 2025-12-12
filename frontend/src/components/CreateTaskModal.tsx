@@ -37,7 +37,6 @@ const BOT_RULES_TEXT = `
 interface CreateTaskModalProps {
   onClose: () => void
   onSubmit: (formData: TaskFormData) => Promise<void>
-  averageTonPrice?: number
 }
 
 export interface TaskFormData {
@@ -55,13 +54,11 @@ export interface TaskFormData {
   target_age_max: string
 }
 
-export default function CreateTaskModal({ onClose, onSubmit, averageTonPrice = 0 }: CreateTaskModalProps) {
+export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalProps) {
   const { user } = useAuth()
   const [userBalance, setUserBalance] = useState<number>(0)
-  const [fiatCurrency, setFiatCurrency] = useState<string>(() => {
-    if (typeof window === 'undefined') return 'RUB'
-    return localStorage.getItem('fiatCurrency') || 'RUB'
-  })
+  const [fiatCurrency, setFiatCurrency] = useState<string>('RUB')
+  const [fiatRate, setFiatRate] = useState<number>(250)
   
   const [formData, setFormData] = useState<TaskFormData>({
     title: '',
@@ -91,14 +88,54 @@ export default function CreateTaskModal({ onClose, onSubmit, averageTonPrice = 0
   const [showBotRules, setShowBotRules] = useState(false)
   const [botCopied, setBotCopied] = useState(false)
 
-  // Загрузка баланса для расчета макс. слотов
+  // Загрузка баланса и валюты для расчета макс. слотов
   useEffect(() => {
     async function fetchBalance() {
       if (!user) return
       try {
+        // Загружаем валюту из localStorage
+        const storedCurrency = typeof window !== 'undefined' 
+          ? localStorage.getItem('fiatCurrency')
+          : null
+        if (storedCurrency && ['RUB', 'USD', 'EUR', 'TON'].includes(storedCurrency)) {
+          setFiatCurrency(storedCurrency)
+        }
+        
+        // Загружаем курс из localStorage
+        const storedRate = typeof window !== 'undefined'
+          ? parseFloat(localStorage.getItem('fiatRatePerTon') || '0')
+          : 0
+        if (storedRate > 0) {
+          setFiatRate(storedRate)
+        }
+        
         const response = await axios.get(`${API_URL}/api/balance/${user.telegram_id}`)
         if (response.data && response.data.ton_active_balance) {
           setUserBalance(parseFloat(response.data.ton_active_balance) / 10**9)
+        }
+        
+        // Если нет в localStorage, загружаем с бэкенда
+        if (!storedCurrency && response.data?.fiat_currency) {
+          setFiatCurrency(response.data.fiat_currency)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('fiatCurrency', response.data.fiat_currency)
+          }
+        }
+        if (storedRate === 0) {
+          if (response.data?.last_fiat_rate) {
+            const rate = parseFloat(response.data.last_fiat_rate) || 250
+            setFiatRate(rate)
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('fiatRatePerTon', rate.toString())
+            }
+          } else if (response.data?.fiat_currency) {
+            const rates: Record<string, number> = { RUB: 250, USD: 3.5, EUR: 3.2, TON: 1 }
+            const rate = rates[response.data.fiat_currency] ?? 250
+            setFiatRate(rate)
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('fiatRatePerTon', rate.toString())
+            }
+          }
         }
       } catch (error) {
         console.error('Failed to fetch balance', error)
@@ -111,10 +148,23 @@ export default function CreateTaskModal({ onClose, onSubmit, averageTonPrice = 0
   // Расчет бюджета и макс слотов
   const price = parseFloat(formData.price_per_slot_ton) || 0
   const slots = parseInt(formData.total_slots) || 0
-  const campaignBudget = price * slots
+  const campaignBudget = price * slots // Бюджет в TON
   const maxSlots = price > 0 ? Math.floor(userBalance / price) : 0
-  const storedRate = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('fiatRatePerTon') || '0') : 0
-  const fiatRate = storedRate > 0 ? storedRate : 250
+  
+  // Отображение бюджета в выбранной валюте
+  const campaignBudgetDisplay = fiatCurrency === 'TON' 
+    ? campaignBudget 
+    : campaignBudget * fiatRate
+
+  // Средняя стоимость за слот по типу задания
+  const getAveragePrice = (taskType: string): string => {
+    const averages: Record<string, string> = {
+      'view': '0.3',
+      'subscription': '0.5',
+      'comment': '0.7'
+    }
+    return averages[taskType] || '0.5'
+  }
 
   function validateForm(): boolean {
     const newErrors: Record<string, string> = {}
@@ -138,7 +188,13 @@ export default function CreateTaskModal({ onClose, onSubmit, averageTonPrice = 0
     }
 
     if (campaignBudget > userBalance) {
-      newErrors.total_slots = `Недостаточно средств. Ваш баланс: ${userBalance.toFixed(2)}`
+      const balanceDisplay = fiatCurrency === 'TON' 
+        ? userBalance.toFixed(4) + ' TON'
+        : (userBalance * fiatRate).toFixed(2) + ` ${fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'}`
+      const budgetDisplay = fiatCurrency === 'TON'
+        ? campaignBudget.toFixed(4) + ' TON'
+        : campaignBudgetDisplay.toFixed(2) + ` ${fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'}`
+      newErrors.total_slots = `Недостаточно средств. Ваш баланс: ${balanceDisplay}, требуется: ${budgetDisplay}`
     }
     
     
@@ -170,14 +226,9 @@ export default function CreateTaskModal({ onClose, onSubmit, averageTonPrice = 0
     if (genderSelection.male && !genderSelection.female) finalGender = 'male'
     if (!genderSelection.male && genderSelection.female) finalGender = 'female'
 
-    const fallbackTitle =
-      formData.title.trim() ||
-      formData.description.trim().split(/\s+/).slice(0, 6).join(' ') ||
-      'Без названия'
-
     const submissionData = {
       ...formData,
-      title: fallbackTitle,
+      title: formData.title.trim() || 'Задание',
       target_gender: finalGender
     }
 
@@ -253,7 +304,7 @@ export default function CreateTaskModal({ onClose, onSubmit, averageTonPrice = 0
               <div className="form-row-pricing">
                 <div className="form-field-group">
                   <label className="form-label">
-                    Стоимость слота ({fiatCurrency})
+                    Стоимость слота (TON) {fiatCurrency !== 'TON' && `≈ ${(parseFloat(formData.price_per_slot_ton) || 0) * fiatRate} ${fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'}`}
                   </label>
                   <input
                     type="number"
@@ -290,19 +341,19 @@ export default function CreateTaskModal({ onClose, onSubmit, averageTonPrice = 0
 
                 <div className="form-field-group budget-group">
                   <label className="form-label">
-                    Бюджет кампании ({fiatCurrency})
+                    Бюджет кампании ({fiatCurrency === 'TON' ? 'TON' : fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'})
                   </label>
                   <div className="budget-display">
-                    {campaignBudget > 0 ? campaignBudget.toFixed(2) : '0'}
+                    {campaignBudget > 0 
+                      ? (fiatCurrency === 'TON' 
+                          ? `${campaignBudget.toFixed(4)} TON`
+                          : `${campaignBudgetDisplay.toFixed(2)} ${fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'}`)
+                      : `0 ${fiatCurrency === 'TON' ? 'TON' : fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'}`}
                   </div>
                 </div>
               </div>
               <div className="average-price-hint">
-                {(() => {
-                  const avgTon = averageTonPrice && Number.isFinite(averageTonPrice) ? averageTonPrice : 0
-                  const avgFiat = avgTon * fiatRate
-                  return `Средняя стоимость за слот: ${avgFiat.toFixed(2)} ${fiatCurrency}`
-                })()}
+                Средняя стоимость за слот: {getAveragePrice(formData.task_type)} TON
               </div>
             </div>
 
