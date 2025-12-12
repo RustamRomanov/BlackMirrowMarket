@@ -36,10 +36,10 @@ export default function Create() {
     }
   }, [user])
 
+  // Обновляем список при фокусе на странице (если пользователь вернулся на вкладку)
   useEffect(() => {
     const handleFocus = () => {
       if (user) {
-        loadFiat()
         loadMyTasks()
       }
     }
@@ -50,18 +50,25 @@ export default function Create() {
   async function loadFiat() {
     if (!user) return
     try {
-      const response = await axios.get(`${API_URL}/api/balance/${user.telegram_id}`)
-      if (response.data?.fiat_currency) {
-        setFiatCurrency(response.data.fiat_currency)
-      }
+      const response = await axios.get(`${API_URL}/api/users/${user.telegram_id}`)
       if (response.data?.last_fiat_rate) {
-        setFiatRate(parseFloat(response.data.last_fiat_rate) || 250)
-      } else if (response.data?.fiat_currency) {
-        const rates: Record<string, number> = { RUB: 250, USD: 3.5, EUR: 3.2, TON: 1 }
-        setFiatRate(rates[response.data.fiat_currency] ?? 250)
+        setFiatCurrency(response.data.last_fiat_rate)
+      }
+      // Получаем курс из баланса
+      const balanceResponse = await axios.get(`${API_URL}/api/balance/${user.telegram_id}`)
+      if (balanceResponse.data) {
+        const tonActive = parseFloat(balanceResponse.data.ton_active_balance) / 10**9
+        const fiatActive = parseFloat(balanceResponse.data.fiat_balance)
+        if (tonActive > 0) {
+          setFiatRate(fiatActive / tonActive)
+        } else {
+          // Дефолтные курсы если нет баланса
+          const defaultRates: Record<string, number> = { 'RUB': 250, 'USD': 2.5, 'EUR': 2.3, 'TON': 1 }
+          setFiatRate(defaultRates[response.data?.last_fiat_rate || 'RUB'] || 250)
+        }
       }
     } catch (error) {
-      console.error('Error loading fiat info:', error)
+      console.error('Error loading fiat:', error)
     }
   }
 
@@ -70,19 +77,28 @@ export default function Create() {
       console.log('No user, skipping loadMyTasks')
       return
     }
+    
     setLoading(true)
     try {
+      console.log('Loading tasks for user:', user.telegram_id)
       const response = await axios.get(`${API_URL}/api/tasks/my`, {
         params: { telegram_id: user.telegram_id }
       })
+      console.log('Loaded my tasks response:', response)
+      console.log('Loaded my tasks data:', response.data)
+      console.log('Tasks count:', response.data?.length || 0)
+      
       const tasks = (response.data || []).map((task: any) => ({
         ...task,
-        status: task.status?.toLowerCase() || task.status,
-        task_type: task.task_type?.toLowerCase() || task.task_type
+        status: task.status?.toLowerCase() || task.status, // Приводим статус к нижнему регистру
+        task_type: task.task_type?.toLowerCase() || task.task_type // Приводим тип к нижнему регистру
       }))
+      console.log('Processed tasks:', tasks)
       setMyTasks(tasks)
     } catch (error: any) {
       console.error('Error loading my tasks:', error)
+      console.error('Error response:', error.response)
+      console.error('Error details:', error.response?.data)
       setMyTasks([])
     } finally {
       setLoading(false)
@@ -96,9 +112,9 @@ export default function Create() {
     }
 
     const priceInNanoTon = parseFloat(formData.price_per_slot_ton) * 10**9
-
+    
     try {
-      await axios.post(
+      const response = await axios.post(
         `${API_URL}/api/tasks/`,
         {
           ...formData,
@@ -114,18 +130,25 @@ export default function Create() {
           params: { telegram_id: user.telegram_id }
         }
       )
-
+      
+      console.log('Task created successfully:', response.data)
       showSuccess('Задание создано успешно!')
       setShowModal(false)
-      setTimeout(async () => { await loadMyTasks() }, 500)
+      
+      // Небольшая задержка перед обновлением, чтобы сервер успел сохранить
+      setTimeout(async () => {
+        await loadMyTasks()
+      }, 500)
     } catch (error: any) {
       console.error('Error creating task:', error)
+      console.error('Error response:', error.response)
       showError(error.response?.data?.detail || 'Ошибка при создании задания')
     }
   }
 
   async function handlePauseTask(taskId: number) {
     if (!user) return
+    
     try {
       await axios.patch(`${API_URL}/api/tasks/${taskId}/pause`, null, {
         params: { telegram_id: user.telegram_id }
@@ -139,6 +162,7 @@ export default function Create() {
 
   async function handleResumeTask(taskId: number) {
     if (!user) return
+    
     try {
       await axios.patch(`${API_URL}/api/tasks/${taskId}/resume`, null, {
         params: { telegram_id: user.telegram_id }
@@ -152,7 +176,11 @@ export default function Create() {
 
   async function handleCancelTask(taskId: number) {
     if (!user) return
-    if (!confirm('Вы уверены? Остаток средств будет возвращен на баланс.')) return
+    
+    if (!confirm('Вы уверены? Остаток средств будет возвращен на баланс.')) {
+      return
+    }
+    
     try {
       await axios.patch(`${API_URL}/api/tasks/${taskId}/cancel`, null, {
         params: { telegram_id: user.telegram_id }
@@ -179,6 +207,8 @@ export default function Create() {
         Создать задание
       </button>
 
+
+      {/* Созданные задания пользователя (показываем после примеров) */}
       {!loading && (
         <>
           {myTasks.length > 0 && (
@@ -186,28 +216,37 @@ export default function Create() {
               <h2>Мои задания</h2>
               <div className="example-tasks-list">
                 {myTasks.map((task) => {
+                  console.log('Rendering task:', task)
                   const taskType = task.task_type?.toLowerCase() || task.task_type
                   const taskStatus = task.status?.toLowerCase() || task.status
                   const config = taskTypeConfig[taskType as keyof typeof taskTypeConfig]
-                  if (!config) return null
+                  
+                  if (!config) {
+                    console.error('Unknown task type:', taskType)
+                    return null
+                  }
+                  
                   const Icon = config.icon
-                  const priceFiat = (parseFloat(String(task.price_per_slot_ton)) / 10**9) * fiatRate
+                  const priceTon = parseFloat(String(task.price_per_slot_ton)) / 10**9
+                  const priceFiat = priceTon * fiatRate
+                  const currencySymbol = fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : fiatCurrency === 'TON' ? 'TON' : '₽'
+                  
                   return (
                     <div key={task.id} className="example-task-card">
                       <div className="example-task-header">
                         <Icon size={16} color={config.color} />
                         <span style={{ color: config.color, fontWeight: 600 }}>{config.label}</span>
                         <span className={`example-status status-${taskStatus}`}>
-                          {taskStatus === 'active' ? 'Активно' :
-                           taskStatus === 'paused' ? 'Остановлено' :
+                          {taskStatus === 'active' ? 'Активно' : 
+                           taskStatus === 'paused' ? 'Остановлено' : 
                            taskStatus === 'completed' ? 'Завершено' : 'Отменено'}
                         </span>
                       </div>
                       <h4>{task.title}</h4>
                       {task.description && <p>{task.description}</p>}
                       <div className="example-task-stats">
-                        <span>Цена за слот: {priceFiat.toFixed(2)} {fiatCurrency}</span>
-                        <span>Общий бюджет: {(priceFiat * task.total_slots).toFixed(2)} {fiatCurrency}</span>
+                        <span>Цена за слот: {priceFiat.toFixed(2)} {currencySymbol}</span>
+                        <span>Общий бюджет: {(priceFiat * task.total_slots).toFixed(2)} {currencySymbol}</span>
                         <span>Выполнено: {task.completed_slots || 0} / {task.total_slots}</span>
                       </div>
                       <div className="example-task-actions">
@@ -261,8 +300,11 @@ export default function Create() {
         <CreateTaskModal
           onClose={() => setShowModal(false)}
           onSubmit={handleCreateTask}
+          fiatCurrency={fiatCurrency}
+          fiatRate={fiatRate}
         />
       )}
     </div>
   )
 }
+

@@ -41,10 +41,7 @@ export default function Balance() {
   const { showSuccess } = useToast()
   const [balance, setBalance] = useState<Balance | null>(null)
   const [loading, setLoading] = useState(true)
-  const [fiatCurrency, setFiatCurrency] = useState<string>(() => {
-    if (typeof window === 'undefined') return 'RUB'
-    return localStorage.getItem('fiatCurrency') || 'RUB'
-  })
+  const [fiatCurrency, setFiatCurrency] = useState<string>('RUB')
   const [showDepositInfo, setShowDepositInfo] = useState(false)
   const [showWithdrawForm, setShowWithdrawForm] = useState(false)
   const [depositInfo, setDepositInfo] = useState<{service_wallet_address: string, telegram_id?: number, username?: string, note?: string} | null>(null)
@@ -83,13 +80,8 @@ export default function Balance() {
     try {
       const response = await axios.get(`${API_URL}/api/balance/${user.telegram_id}`)
       setBalance(response.data)
-      // Если пользователь ещё не выбирал валюту, возьмём с бэка (только один раз)
-      if (typeof window !== 'undefined') {
-        const stored = localStorage.getItem('fiatCurrency')
-        if (!stored && response.data?.fiat_currency) {
-          setFiatCurrency(response.data.fiat_currency)
-          localStorage.setItem('fiatCurrency', response.data.fiat_currency)
-        }
+      if (response.data?.fiat_currency) {
+        setFiatCurrency(response.data.fiat_currency)
       }
     } catch (error: any) {
       console.error('Error loading balance:', error)
@@ -157,15 +149,13 @@ export default function Balance() {
 
   async function changeCurrency(currency: string) {
     if (!user || !balance) return
-    setFiatCurrency(currency)
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('fiatCurrency', currency)
-    }
-    if (currency === 'TON') return
+    
     try {
+      // Обновляем валюту на бэкенде
       await axios.patch(`${API_URL}/api/balance/${user.telegram_id}/currency`, null, {
         params: { currency }
       })
+      setFiatCurrency(currency)
       loadBalance()
     } catch (error) {
       console.error('Error changing currency:', error)
@@ -247,24 +237,7 @@ export default function Balance() {
   const tonActive = parseFloat(balance.ton_active_balance) / 10**9
   const tonEscrow = parseFloat(balance.ton_escrow_balance) / 10**9
   const fiatActive = parseFloat(balance.fiat_balance)
-  const fiatRate = tonActive > 0 ? fiatActive / tonActive : (() => {
-    if (typeof window !== 'undefined') {
-      const stored = parseFloat(localStorage.getItem('fiatRatePerTon') || '0')
-      if (stored > 0) return stored
-    }
-    return 250
-  })()
-  const isTonCurrency = fiatCurrency === 'TON'
-
-  // Сохраняем актуальный курс и базовую валюту для использования на других страницах
-  if (typeof window !== 'undefined') {
-    if (fiatRate > 0) {
-      localStorage.setItem('fiatRatePerTon', fiatRate.toString())
-    }
-    if (balance.fiat_currency) {
-      localStorage.setItem('fiatBaseCurrency', balance.fiat_currency)
-    }
-  }
+  const fiatRate = tonActive > 0 ? fiatActive / tonActive : 250
   
   // Показываем реальные значения (0 если 0, без виртуальных сумм)
   const displayTonActive = Math.max(0, tonActive)  // Убеждаемся, что не отрицательное
@@ -287,46 +260,61 @@ export default function Balance() {
         </select>
       </div>
 
+      {/* Статистика выполненных заданий */}
+      {taskStats && (
+        <div className="task-stats-blocks-container">
+          <div className="task-stat-block task-stat-block-subscription">
+            <div className="task-stat-title">Подписка</div>
+            <div className="task-stat-today">сегодня</div>
+            <div className="task-stat-value">{taskStats.subscription.today_count}</div>
+            <div className="task-stat-total">всего</div>
+            <div className="task-stat-value">{taskStats.subscription.total_count}</div>
+          </div>
+          <div className="task-stat-block task-stat-block-comment">
+            <div className="task-stat-title">Комментарий</div>
+            <div className="task-stat-today">сегодня</div>
+            <div className="task-stat-value">{taskStats.comment.today_count}</div>
+            <div className="task-stat-total">всего</div>
+            <div className="task-stat-value">{taskStats.comment.total_count}</div>
+          </div>
+          <div className="task-stat-block task-stat-block-view">
+            <div className="task-stat-title">Просмотр</div>
+            <div className="task-stat-today">сегодня</div>
+            <div className="task-stat-value">{taskStats.view.today_count}</div>
+            <div className="task-stat-total">всего</div>
+            <div className="task-stat-value">{taskStats.view.total_count}</div>
+          </div>
+        </div>
+      )}
+
       <div className="balance-card">
         <div className="balance-section">
           <div className="balance-label">Общий Баланс</div>
           <div className="balance-value-primary">
-            {isTonCurrency
-              ? `${displayTonActive.toFixed(4)} TON`
-              : `${displayFiatActive.toFixed(2)} ${fiatCurrency}`}
+            {displayFiatActive.toFixed(2)} {fiatCurrency}
           </div>
           <div className="balance-value-secondary">
-            {isTonCurrency
-              ? `${displayTonActive.toFixed(4)} TON`
-              : `${displayTonActive.toFixed(4)} TON`}
+            {displayTonActive.toFixed(4)} TON
           </div>
         </div>
 
         <div className="balance-section">
           <div className="balance-label">В эскроу (в проверке)</div>
           <div className="balance-value-secondary">
-            {isTonCurrency
-              ? `${displayTonEscrow.toFixed(4)} TON`
-              : `${(displayTonEscrow * fiatRate).toFixed(2)} ${fiatCurrency}`}
+            {(displayTonEscrow * fiatRate).toFixed(2)} {fiatCurrency}
           </div>
           <div className="balance-value-tertiary">
-            {isTonCurrency
-              ? `${displayTonEscrow.toFixed(4)} TON`
-              : `${displayTonEscrow.toFixed(4)} TON`}
+            {displayTonEscrow.toFixed(4)} TON
           </div>
         </div>
 
         <div className="balance-section">
           <div className="balance-label">Доступно для вывода</div>
           <div className="balance-value-secondary">
-            {isTonCurrency
-              ? `${displayTonActive.toFixed(4)} TON`
-              : `${displayFiatActive.toFixed(2)} ${fiatCurrency}`}
+            {displayFiatActive.toFixed(2)} {fiatCurrency}
           </div>
           <div className="balance-value-tertiary">
-            {isTonCurrency
-              ? `${displayTonActive.toFixed(4)} TON`
-              : `${displayTonActive.toFixed(4)} TON`}
+            {displayTonActive.toFixed(4)} TON
           </div>
         </div>
 
