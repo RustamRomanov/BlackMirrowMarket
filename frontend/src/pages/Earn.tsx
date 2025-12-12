@@ -155,7 +155,7 @@ export default function Earn() {
   return (
     <div className="earn-page">
       {/* Отступ сверху */}
-      <div style={{ height: '20px' }}></div>
+      <div style={{ height: '10px' }}></div>
       
       <div className="earn-header">
         <button
