@@ -159,13 +159,13 @@
 }
 
 .earn-button-price-compact {
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   line-height: 1.2;
   position: relative;
   z-index: 1;
   opacity: 0.95;
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 .earn-button-compact:hover {
