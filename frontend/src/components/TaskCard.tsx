@@ -92,37 +92,36 @@ export default function TaskCard({ task, onStart, fiatCurrency, onRefresh }: Tas
     <div className={`task-card task-${task.task_type}`}>
       <div className="task-card-bg" style={{ background: config.bg }} />
       
-      {/* Заголовок задания */}
-      <div className="task-header">
-        <h3 className="task-title-main">{config.title}</h3>
+      {/* Строка 1: Иконка + надпись типа задания */}
+      <div className="task-row-1">
+        <div className="task-type-label" style={{ color: config.color }}>
+          <Icon size={14} color={config.color} />
+          <span>{config.label}</span>
+        </div>
         {task.is_test && (
           <span className="task-test-chip">ПРИМЕР</span>
         )}
       </div>
 
-      {/* Описание задания */}
+      {/* Строка 2: Описание задания */}
       {task.description && (
-        <div className="task-description">
-          {task.description}
+        <div className="task-row-2">
+          <div className="task-description">{task.description}</div>
         </div>
       )}
 
-      {/* Информация о доступности и стоимости */}
-      <div className="task-info-section">
-        <div className="task-available">
-          <span className="task-available-label">Доступно:</span>
-          <span className="task-available-value">{remainingSlots}</span>
+      {/* Строка 3: Доступно + Стоимость + Кнопка */}
+      <div className="task-row-3">
+        <div className="task-available-compact">
+          <span className="task-available-label-compact">Доступно:</span>
+          <span className="task-available-value-compact">{remainingSlots}</span>
         </div>
-      </div>
-
-      {/* Кнопка и стоимость */}
-      <div className="task-action-section">
-        <div className="task-price-display">
-          {displayPrice}
+        <div className="task-action-right">
+          <div className="task-price-compact">{displayPrice}</div>
+          <button className="earn-button-compact sheen" onClick={onStart}>
+            <span className="earn-button-text-compact">Заработать</span>
+          </button>
         </div>
-        <button className="earn-button sheen" onClick={onStart}>
-          <span className="earn-button-text">Заработать</span>
-        </button>
       </div>
     </div>
   )
