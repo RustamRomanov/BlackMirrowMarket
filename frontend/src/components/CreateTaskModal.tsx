@@ -235,9 +235,10 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
 
     // Конвертируем цену в TON если валюта не TON
     const safeFiatRate = fiatRate > 0 ? fiatRate : 250 // Защита от деления на ноль
+    const priceInputValue = parseFloat(formData.price_per_slot_ton) || 0
     const priceInTon = fiatCurrency === 'TON' 
-      ? parseFloat(formData.price_per_slot_ton) 
-      : parseFloat(formData.price_per_slot_ton) / safeFiatRate
+      ? priceInputValue 
+      : (priceInputValue / safeFiatRate)
 
     const submissionData = {
       ...formData,
@@ -319,7 +320,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
                 <div className="form-field-group">
                   <label className="form-label">
                     Стоимость слота ({fiatCurrency === 'TON' ? 'TON' : fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'})
-                    {fiatCurrency !== 'TON' && ` (≈ ${priceInTon.toFixed(4)} TON)`}
+                    {fiatCurrency !== 'TON' && priceInTon > 0 && ` (≈ ${priceInTon.toFixed(4)} TON)`}
                   </label>
                   <input
                     type="number"
