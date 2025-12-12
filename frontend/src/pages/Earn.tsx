@@ -217,6 +217,7 @@ export default function Earn() {
                 }
                 navigate(`/task/${task.id}`)
               }}
+              onRefresh={loadTasks}
             />
           ))
         )}
