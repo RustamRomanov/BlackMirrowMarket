@@ -17,6 +17,7 @@ interface Task {
   task_type: 'subscription' | 'comment' | 'view'
   price_per_slot_ton: string
   price_per_slot_fiat: string
+  fiat_currency?: string
   total_slots: number
   completed_slots: number
   remaining_slots: number
@@ -33,6 +34,7 @@ export default function Earn() {
   const [loading, setLoading] = useState(true)
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc')
   const [selectedTaskType, setSelectedTaskType] = useState<'subscription' | 'comment' | 'view' | null>(null)
+  const [fiatCurrency, setFiatCurrency] = useState<string>('RUB')
 
   // Debounce для оптимизации запросов
   const [updateCounter, setUpdateCounter] = useState(0)
@@ -46,6 +48,7 @@ export default function Earn() {
     // Убрана автоматическая инициализация тестовых заданий
     // Тестовые задания создаются вручную через админку и помечаются как примеры
     loadTasks()
+    loadCurrency()
     
     // Обновляем счетчик каждые 3 секунды (вместо каждой секунды)
     const interval = setInterval(() => {
@@ -59,6 +62,30 @@ export default function Earn() {
     if (!user || updateCounter === 0) return
     loadTasks()
   }, [updateCounter, user])
+
+  async function loadCurrency() {
+    if (!user) return
+    try {
+      // Загружаем валюту из localStorage, если есть
+      const storedCurrency = typeof window !== 'undefined' 
+        ? localStorage.getItem('fiatCurrency')
+        : null
+      if (storedCurrency && ['RUB', 'USD', 'EUR', 'TON'].includes(storedCurrency)) {
+        setFiatCurrency(storedCurrency)
+      } else {
+        // Если нет в localStorage, загружаем с бэкенда
+        const response = await axios.get(`${API_URL}/api/balance/${user.telegram_id}`)
+        if (response.data?.fiat_currency) {
+          setFiatCurrency(response.data.fiat_currency)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('fiatCurrency', response.data.fiat_currency)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading currency:', error)
+    }
+  }
 
   async function loadTasks() {
     if (!user) return
@@ -203,7 +230,8 @@ export default function Earn() {
           tasks.map((task) => (
             <TaskCard
               key={task.id}
-              task={task}
+              task={{ ...task, fiat_currency: fiatCurrency }}
+              fiatCurrency={fiatCurrency}
               onStart={() => {
                 // Проверяем профиль при нажатии "Заработать"
                 if (!user?.age || !user?.gender || !user?.country) {

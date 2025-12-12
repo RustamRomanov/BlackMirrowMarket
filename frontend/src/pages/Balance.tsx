@@ -80,8 +80,22 @@ export default function Balance() {
     try {
       const response = await axios.get(`${API_URL}/api/balance/${user.telegram_id}`)
       setBalance(response.data)
-      if (response.data?.fiat_currency) {
+      
+      // Загружаем валюту из localStorage, если есть, иначе из бэкенда
+      const storedCurrency = localStorage.getItem('fiatCurrency')
+      if (storedCurrency && ['RUB', 'USD', 'EUR', 'TON'].includes(storedCurrency)) {
+        setFiatCurrency(storedCurrency)
+      } else if (response.data?.fiat_currency) {
         setFiatCurrency(response.data.fiat_currency)
+        localStorage.setItem('fiatCurrency', response.data.fiat_currency)
+      }
+      
+      // Сохраняем курс конвертации
+      if (response.data) {
+        const tonActive = parseFloat(response.data.ton_active_balance || '0') / 10**9
+        const fiatActive = parseFloat(response.data.fiat_balance || '0')
+        const fiatRate = tonActive > 0 ? fiatActive / tonActive : 250
+        localStorage.setItem('fiatRatePerTon', fiatRate.toString())
       }
     } catch (error: any) {
       console.error('Error loading balance:', error)
@@ -156,6 +170,15 @@ export default function Balance() {
         params: { currency }
       })
       setFiatCurrency(currency)
+      
+      // Сохраняем валюту и курс в localStorage
+      const tonActive = parseFloat(balance.ton_active_balance) / 10**9
+      const fiatActive = parseFloat(balance.fiat_balance)
+      const fiatRate = tonActive > 0 ? fiatActive / tonActive : 250
+      
+      localStorage.setItem('fiatCurrency', currency)
+      localStorage.setItem('fiatRatePerTon', fiatRate.toString())
+      
       loadBalance()
     } catch (error) {
       console.error('Error changing currency:', error)
@@ -256,6 +279,7 @@ export default function Balance() {
           <option value="RUB">₽ RUB</option>
           <option value="USD">$ USD</option>
           <option value="EUR">€ EUR</option>
+          <option value="TON">TON</option>
         </select>
       </div>
 

@@ -15,6 +15,7 @@ interface Task {
   task_type: 'subscription' | 'comment' | 'view'
   price_per_slot_ton: string
   price_per_slot_fiat: string
+  fiat_currency?: string
   telegram_channel_id?: string
   comment_instruction?: string
 }
@@ -29,10 +30,24 @@ export default function TaskDetail() {
   const [processing, setProcessing] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [showCompletionModal, setShowCompletionModal] = useState(false)
+  const [fiatCurrency, setFiatCurrency] = useState<string>('RUB')
 
   useEffect(() => {
     loadTask()
+    loadCurrency()
   }, [id])
+
+  async function loadCurrency() {
+    if (!user) return
+    try {
+      const response = await axios.get(`${API_URL}/api/balance/${user.telegram_id}`)
+      if (response.data?.fiat_currency) {
+        setFiatCurrency(response.data.fiat_currency)
+      }
+    } catch (error) {
+      console.error('Error loading currency:', error)
+    }
+  }
 
   async function loadTask() {
     try {
@@ -42,6 +57,15 @@ export default function TaskDetail() {
       console.error('Error loading task:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  function currencySymbol(currency?: string) {
+    switch (currency) {
+      case 'USD': return '$'
+      case 'EUR': return '€'
+      case 'TON': return 'TON'
+      default: return '₽'
     }
   }
 
@@ -220,7 +244,9 @@ export default function TaskDetail() {
 
         <div className="task-price-large">
           <span className="price-label">Награда:</span>
-          <span className="price-value">{parseFloat(task.price_per_slot_fiat).toFixed(2)} ₽</span>
+          <span className="price-value">
+            {parseFloat(task.price_per_slot_fiat).toFixed(2)} {currencySymbol(task.fiat_currency || fiatCurrency)}
+          </span>
         </div>
 
         <button
