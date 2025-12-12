@@ -3,21 +3,34 @@
 Скрипт для исправления баланса пользователя на основе созданных заданий.
 
 Использование:
-    python3 fix_user_balance.py <telegram_id>
+    python3 fix_user_balance.py <telegram_id> [DATABASE_URL]
 
-Пример:
+Примеры:
     python3 fix_user_balance.py 8032604270
+    python3 fix_user_balance.py 8032604270 postgresql://user:pass@host:5432/db
+    DATABASE_URL=postgresql://... python3 fix_user_balance.py 8032604270
 """
 
 import sys
+import os
 from decimal import Decimal
-from app.database import SessionLocal
+from app.database import SessionLocal, engine
 from app import models
-from sqlalchemy import func
+from sqlalchemy import func, create_engine
+from sqlalchemy.orm import sessionmaker
 
-def fix_user_balance(telegram_id: int):
+def fix_user_balance(telegram_id: int, database_url: str = None):
     """Исправляет баланс пользователя на основе заданий и транзакций"""
-    db = SessionLocal()
+    # Если передан DATABASE_URL, используем его
+    if database_url:
+        if database_url.startswith("sqlite"):
+            db_engine = create_engine(database_url, connect_args={"check_same_thread": False})
+        else:
+            db_engine = create_engine(database_url)
+        SessionLocalCustom = sessionmaker(autocommit=False, autoflush=False, bind=db_engine)
+        db = SessionLocalCustom()
+    else:
+        db = SessionLocal()
     
     try:
         # Находим пользователя
@@ -124,13 +137,17 @@ def fix_user_balance(telegram_id: int):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Использование: python3 fix_user_balance.py <telegram_id>")
+        print("Использование: python3 fix_user_balance.py <telegram_id> [DATABASE_URL]")
         print("Пример: python3 fix_user_balance.py 8032604270")
+        print("Или: python3 fix_user_balance.py 8032604270 postgresql://user:pass@host:5432/db")
+        print("Или: DATABASE_URL=postgresql://... python3 fix_user_balance.py 8032604270")
         sys.exit(1)
     
     try:
         telegram_id = int(sys.argv[1])
-        fix_user_balance(telegram_id)
+        # DATABASE_URL может быть передан как аргумент или через переменную окружения
+        database_url = sys.argv[2] if len(sys.argv) > 2 else os.getenv("DATABASE_URL")
+        fix_user_balance(telegram_id, database_url)
     except ValueError:
         print(f"❌ Ошибка: '{sys.argv[1]}' не является числом")
         sys.exit(1)
