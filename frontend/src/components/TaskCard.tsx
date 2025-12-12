@@ -103,23 +103,23 @@ export default function TaskCard({ task, onStart, fiatCurrency, onRefresh }: Tas
         )}
       </div>
 
-      {/* Строка 2: Описание задания */}
-      {task.description && (
-        <div className="task-row-2">
+      {/* Строка 2-3: Описание + Кнопка */}
+      <div className="task-row-2-3">
+        {task.description && (
           <div className="task-description">{task.description}</div>
-        </div>
-      )}
-
-      {/* Строка 3: Доступно + Кнопка */}
-      <div className="task-row-3">
-        <div className="task-available-compact">
-          <span className="task-available-label-compact">Доступно:</span>
-          <span className="task-available-value-compact">{remainingSlots}</span>
-        </div>
+        )}
         <button className="earn-button-compact sheen" onClick={onStart}>
           <span className="earn-button-text-compact">Заработать</span>
           <span className="earn-button-price-compact">{displayPrice}</span>
         </button>
+      </div>
+
+      {/* Строка 4: Доступно (внизу) */}
+      <div className="task-row-4">
+        <div className="task-available-compact">
+          <span className="task-available-label-compact">Доступно:</span>
+          <span className="task-available-value-compact">{remainingSlots}</span>
+        </div>
       </div>
     </div>
   )
