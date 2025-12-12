@@ -1533,6 +1533,18 @@ class TonService:
                                 
                                 source = in_msg.get("source", "")
                                 
+                                # КРИТИЧНО: Проверяем, что это НЕ исходящая транзакция с нашего кошелька
+                                # Если отправитель - это наш сервисный кошелек, это исходящая транзакция (вывод), пропускаем
+                                if source and normalized_address:
+                                    source_normalized = source.strip().upper().replace("-", "")
+                                    wallet_normalized = normalized_address.strip().upper().replace("-", "")
+                                    if (source_normalized == wallet_normalized or 
+                                        source_normalized.replace("UQ", "EQ") == wallet_normalized.replace("UQ", "EQ") or
+                                        source_normalized == wallet_normalized.replace("UQ", "EQ") or
+                                        source_normalized.replace("UQ", "EQ") == wallet_normalized):
+                                        print(f"⚠️⚠️⚠️ ПРОПУСКАЕМ (TON Center API): Это исходящая транзакция (вывод) с нашего кошелька.", file=sys.stderr, flush=True)
+                                        continue
+                                
                                 # Получаем комментарий
                                 msg_text_str = ""
                                 msg_body = in_msg.get("message", "")
@@ -1796,6 +1808,20 @@ class TonService:
                             source = str(in_msg.get("source", ""))
                         
                         print(f"📤 Отправитель: {source[:30]}...", file=sys.stderr, flush=True)
+                        
+                        # КРИТИЧНО: Проверяем, что это НЕ исходящая транзакция с нашего кошелька
+                        # Если отправитель - это наш сервисный кошелек, это исходящая транзакция (вывод), пропускаем
+                        if source and normalized_address:
+                            # Нормализуем оба адреса для сравнения
+                            source_normalized = source.strip().upper().replace("-", "")
+                            wallet_normalized = normalized_address.strip().upper().replace("-", "")
+                            # Также проверяем варианты с UQ/EQ
+                            if (source_normalized == wallet_normalized or 
+                                source_normalized.replace("UQ", "EQ") == wallet_normalized.replace("UQ", "EQ") or
+                                source_normalized == wallet_normalized.replace("UQ", "EQ") or
+                                source_normalized.replace("UQ", "EQ") == wallet_normalized):
+                                print(f"⚠️⚠️⚠️ ПРОПУСКАЕМ: Это исходящая транзакция (вывод) с нашего кошелька. Отправитель совпадает с сервисным кошельком.", file=sys.stderr, flush=True)
+                                continue
                         
                         # Получаем комментарий из тела сообщения - пробуем все возможные варианты
                         telegram_id = None
