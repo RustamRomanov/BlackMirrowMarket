@@ -106,10 +106,6 @@ async def get_tasks(
         test_user_ids = [u.id for u in test_users]
         query = query.filter(~models.Task.creator_id.in_(test_user_ids))
     
-    # ВАЖНО: Исключаем собственные задания пользователя из "Заработок"
-    # Пользователь не должен видеть свои задания в списке доступных для выполнения
-    query = query.filter(models.Task.creator_id != user.id)
-    
     # Фильтр по типу задания
     if task_type:
         query = query.filter(models.Task.task_type == task_type)
@@ -149,11 +145,15 @@ async def get_tasks(
     
     tasks = query.order_by(models.Task.price_per_slot_ton.desc()).all()
     
+    # DEBUG: Логируем количество найденных заданий
+    print(f"[DEBUG] Found {len(tasks)} tasks for user {telegram_id}")
+    
     # Формируем ответ
     result = []
     for task in tasks:
         remaining_slots = task.total_slots - task.completed_slots
         if remaining_slots <= 0:
+            print(f"[DEBUG] Skipping task {task.id} - no remaining slots")
             continue
         
         price_fiat = float(task.price_per_slot_ton) / 10**9 * fiat_rate
