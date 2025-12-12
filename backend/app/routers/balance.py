@@ -351,15 +351,24 @@ async def recalculate_balance_from_tasks(telegram_id: int, db: Session = Depends
     current_balance_ton = nano_to_ton(current_balance_nano)
     
     # 7. Обновляем баланс (преобразуем в int для БД)
-    balance.ton_active_balance = int(correct_balance_nano)
-    db.flush()  # Принудительно сохраняем изменения перед commit
+    # Используем прямой SQL UPDATE для гарантии сохранения
+    from sqlalchemy import text
+    db.execute(
+        text("UPDATE user_balances SET ton_active_balance = :new_balance WHERE user_id = :user_id"),
+        {"new_balance": int(correct_balance_nano), "user_id": user.id}
+    )
     db.commit()
+    
+    # Обновляем объект в сессии
     db.refresh(balance)
     
     # Проверяем, что баланс действительно обновился
     updated_balance_nano = Decimal(balance.ton_active_balance or 0)
     updated_balance_ton = nano_to_ton(updated_balance_nano)
     print(f"[RECALCULATE BALANCE] User {telegram_id}: Updated balance from {current_balance_ton:.4f} TON to {updated_balance_ton:.4f} TON", flush=True)
+    
+    if abs(updated_balance_ton - correct_balance_ton) > Decimal("0.0001"):
+        print(f"⚠️ WARNING: Balance update may have failed! Expected {correct_balance_ton:.4f} TON, got {updated_balance_ton:.4f} TON", flush=True)
     
     return {
         "telegram_id": telegram_id,
