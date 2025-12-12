@@ -106,6 +106,10 @@ async def get_tasks(
         test_user_ids = [u.id for u in test_users]
         query = query.filter(~models.Task.creator_id.in_(test_user_ids))
     
+    # ВАЖНО: Исключаем собственные задания пользователя из "Заработок"
+    # Пользователь не должен видеть свои задания в списке доступных для выполнения
+    query = query.filter(models.Task.creator_id != user.id)
+    
     # Фильтр по типу задания
     if task_type:
         query = query.filter(models.Task.task_type == task_type)
