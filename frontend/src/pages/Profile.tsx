@@ -444,7 +444,7 @@ export default function Profile() {
               {saving ? 'Сохранение...' : 'Сохранить'}
             </button>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Реферальная программа в отдельной карточке */}
