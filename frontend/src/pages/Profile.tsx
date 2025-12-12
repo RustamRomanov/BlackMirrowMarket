@@ -444,27 +444,6 @@ export default function Profile() {
               {saving ? 'Сохранение...' : 'Сохранить'}
             </button>
           </div>
-        ) : (
-          <div className="profile-filled">
-            <div className="profile-status ok">Профиль заполнен</div>
-            <div className="inline-links">
-              <button
-                type="button"
-                className="terms-link"
-                onClick={() => setShowTermsModal(true)}
-              >
-                Правила пользования приложением
-              </button>
-              <span className="inline-sep">и</span>
-              <button
-                type="button"
-                className="terms-link"
-                onClick={() => setShowAgreementModal(true)}
-              >
-                Пользовательское соглашение
-              </button>
-            </div>
-          </div>
         )}
       </div>
 
@@ -593,6 +572,47 @@ export default function Profile() {
           )}
         </div>
       )}
+
+      {/* Правила и соглашение внизу страницы */}
+      <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e0e0e0', textAlign: 'center' }}>
+        <div style={{ fontSize: '12px', color: '#666', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="terms-link"
+            onClick={() => setShowTermsModal(true)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#2196F3',
+              textDecoration: 'underline',
+              cursor: 'pointer',
+              fontSize: '12px',
+              padding: '0',
+              fontFamily: 'inherit'
+            }}
+          >
+            Правила пользования приложением
+          </button>
+          <span style={{ color: '#999' }}>и</span>
+          <button
+            type="button"
+            className="terms-link"
+            onClick={() => setShowAgreementModal(true)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#2196F3',
+              textDecoration: 'underline',
+              cursor: 'pointer',
+              fontSize: '12px',
+              padding: '0',
+              fontFamily: 'inherit'
+            }}
+          >
+            Пользовательское соглашение
+          </button>
+        </div>
+      </div>
 
       {showTermsModal && (
         <TermsModal
