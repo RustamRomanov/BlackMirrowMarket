@@ -258,3 +258,96 @@ async def user_withdraw(
         amount_ton=float(payload.amount_ton)
     )
 
+
+@router.post("/{telegram_id}/recalculate-from-tasks")
+async def recalculate_balance_from_tasks(telegram_id: int, db: Session = Depends(get_db)):
+    """
+    Пересчитывает баланс пользователя на основе:
+    1. Всех депозитов
+    2. Всех выводов
+    3. Бюджета всех активных заданий (которые еще не отменены)
+    
+    Правильный баланс = депозиты - выводы - потрачено на активные задания
+    """
+    user = db.query(models.User).filter(models.User.telegram_id == telegram_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    balance = db.query(models.UserBalance).filter(models.UserBalance.user_id == user.id).first()
+    if not balance:
+        raise HTTPException(status_code=404, detail="Balance not found")
+    
+    # Вспомогательные функции для работы с TON
+    def nano_to_ton(nano: Decimal) -> Decimal:
+        return nano / Decimal(10**9)
+    
+    def ton_to_nano(ton: Decimal) -> Decimal:
+        return ton * Decimal(10**9)
+    
+    # 1. Суммируем все обработанные депозиты
+    deposits_nano = db.query(func.sum(models.Deposit.amount_nano)).filter(
+        models.Deposit.user_id == user.id,
+        models.Deposit.status == "processed"
+    ).scalar() or Decimal(0)
+    deposits_ton = nano_to_ton(deposits_nano)
+    
+    # 2. Суммируем все успешно отправленные выводы
+    withdrawals_nano = db.query(func.sum(models.TonTransaction.amount_nano)).filter(
+        models.TonTransaction.user_id == user.id,
+        models.TonTransaction.tx_hash.isnot(None),
+        models.TonTransaction.status.in_(["pending", "completed"])
+    ).scalar() or Decimal(0)
+    withdrawals_ton = nano_to_ton(withdrawals_nano)
+    
+    # 3. Находим все активные задания (не отмененные)
+    active_tasks = db.query(models.Task).filter(
+        models.Task.creator_id == user.id,
+        models.Task.status != models.TaskStatus.CANCELLED
+    ).all()
+    
+    # 4. Считаем общий бюджет всех активных заданий
+    total_spent_on_tasks_ton = Decimal(0)
+    tasks_info = []
+    
+    for task in active_tasks:
+        # Цена за слот в БД хранится в нано-TON, конвертируем в TON
+        price_per_slot_ton = nano_to_ton(Decimal(task.price_per_slot_ton))
+        # Бюджет задания = все слоты × цена за слот
+        task_budget_ton = Decimal(task.total_slots) * price_per_slot_ton
+        total_spent_on_tasks_ton += task_budget_ton
+        
+        tasks_info.append({
+            "task_id": task.id,
+            "title": task.title,
+            "total_slots": task.total_slots,
+            "price_per_slot_ton": float(price_per_slot_ton),
+            "task_budget_ton": float(task_budget_ton),
+            "status": task.status.value
+        })
+    
+    # 5. Правильный баланс = депозиты - выводы - потрачено на активные задания
+    correct_balance_ton = deposits_ton - withdrawals_ton - total_spent_on_tasks_ton
+    correct_balance_nano = ton_to_nano(correct_balance_ton)
+    
+    # 6. Текущий баланс
+    current_balance_nano = Decimal(balance.ton_active_balance or 0)
+    current_balance_ton = nano_to_ton(current_balance_nano)
+    
+    # 7. Обновляем баланс
+    balance.ton_active_balance = correct_balance_nano
+    db.commit()
+    db.refresh(balance)
+    
+    return {
+        "telegram_id": telegram_id,
+        "current_balance_ton": float(current_balance_ton),
+        "correct_balance_ton": float(correct_balance_ton),
+        "difference_ton": float(correct_balance_ton - current_balance_ton),
+        "deposits_ton": float(deposits_ton),
+        "withdrawals_ton": float(withdrawals_ton),
+        "spent_on_active_tasks_ton": float(total_spent_on_tasks_ton),
+        "active_tasks_count": len(active_tasks),
+        "active_tasks": tasks_info,
+        "message": f"Balance recalculated and updated. New balance: {correct_balance_ton:.4f} TON"
+    }
+
