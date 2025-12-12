@@ -33,7 +33,10 @@ export default function Earn() {
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc')
   const [selectedTaskType, setSelectedTaskType] = useState<'subscription' | 'comment' | 'view' | null>(null)
   const [fiatCurrency, setFiatCurrency] = useState<string>('RUB')
+<<<<<<< HEAD
   const [initialLoaded, setInitialLoaded] = useState(false)
+=======
+>>>>>>> 0a5b38e (fix(ui+api): correct TON currency rates and display)
 
   const [updateCounter, setUpdateCounter] = useState(0)
 
@@ -42,10 +45,20 @@ export default function Earn() {
       setLoading(false)
       return
     }
+<<<<<<< HEAD
 
     loadCurrency()
     loadTasks(true)
 
+=======
+    
+    // Убрана автоматическая инициализация тестовых заданий
+    // Тестовые задания создаются вручную через админку и помечаются как примеры
+    loadTasks()
+    loadCurrency()
+    
+    // Обновляем счетчик каждые 3 секунды (вместо каждой секунды)
+>>>>>>> 0a5b38e (fix(ui+api): correct TON currency rates and display)
     const interval = setInterval(() => {
       setUpdateCounter(prev => prev + 1)
     }, 3000)
@@ -59,6 +72,21 @@ export default function Earn() {
   }, [updateCounter, user])
 
   async function loadCurrency() {
+<<<<<<< HEAD
+=======
+    if (!user) return
+    try {
+      const response = await axios.get(`${API_URL}/api/balance/${user.telegram_id}`)
+      if (response.data?.fiat_currency) {
+        setFiatCurrency(response.data.fiat_currency)
+      }
+    } catch (error) {
+      console.error('Error loading currency:', error)
+    }
+  }
+
+  async function loadTasks() {
+>>>>>>> 0a5b38e (fix(ui+api): correct TON currency rates and display)
     if (!user) return
     try {
       const response = await axios.get(`${API_URL}/api/balance/${user.telegram_id}`)
@@ -117,7 +145,13 @@ export default function Earn() {
   if (loading && !initialLoaded) {
     return (
       <div className="earn-page">
+<<<<<<< HEAD
         <div className="earn-loading">Загрузка заданий…</div>
+=======
+        <div className="earn-header">
+          <div className="earn-loading">Загрузка заданий…</div>
+        </div>
+>>>>>>> 0a5b38e (fix(ui+api): correct TON currency rates and display)
       </div>
     )
   }
