@@ -161,6 +161,7 @@ async def get_tasks(
             task_type=task.task_type,
             price_per_slot_ton=task.price_per_slot_ton,
             price_per_slot_fiat=Decimal(str(price_fiat)),
+            fiat_currency=fiat_currency,
             total_slots=task.total_slots,
             completed_slots=task.completed_slots,
             remaining_slots=remaining_slots,

@@ -17,6 +17,7 @@ interface Task {
   task_type: 'subscription' | 'comment' | 'view'
   price_per_slot_ton: string
   price_per_slot_fiat: string
+  fiat_currency: string
   total_slots: number
   completed_slots: number
   remaining_slots: number
@@ -33,7 +34,6 @@ export default function Earn() {
   const [loading, setLoading] = useState(true)
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc')
   const [selectedTaskType, setSelectedTaskType] = useState<'subscription' | 'comment' | 'view' | null>(null)
-  const [fiatCurrency, setFiatCurrency] = useState<string>('RUB')
 
   // Debounce для оптимизации запросов
   const [updateCounter, setUpdateCounter] = useState(0)
@@ -44,8 +44,7 @@ export default function Earn() {
       return
     }
     
-    // Загружаем валюту пользователя и задания
-    loadCurrency()
+    // Загружаем задания
     loadTasks()
     
     // Обновляем счетчик каждые 3 секунды (вместо каждой секунды)
@@ -60,18 +59,6 @@ export default function Earn() {
     if (!user || updateCounter === 0) return
     loadTasks()
   }, [updateCounter, user])
-
-  async function loadCurrency() {
-    if (!user) return
-    try {
-      const response = await axios.get(`${API_URL}/api/users/${user.telegram_id}`)
-      if (response.data?.last_fiat_rate) {
-        setFiatCurrency(response.data.last_fiat_rate)
-      }
-    } catch (error) {
-      console.error('Error loading currency:', error)
-    }
-  }
 
   async function loadTasks() {
     if (!user) return
@@ -215,8 +202,8 @@ export default function Earn() {
           tasks.map((task) => (
             <TaskCard
               key={task.id}
-              task={{ ...task, fiat_currency: fiatCurrency }}
-              fiatCurrency={fiatCurrency}
+              task={task}
+              fiatCurrency={task.fiat_currency}
               onStart={() => {
                 // Проверяем профиль при нажатии "Заработать"
                 if (!user?.age || !user?.gender || !user?.country) {

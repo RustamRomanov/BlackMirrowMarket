@@ -130,6 +130,7 @@ class TaskListItem(BaseModel):
     task_type: TaskType
     price_per_slot_ton: Decimal
     price_per_slot_fiat: Decimal
+    fiat_currency: str
     total_slots: int
     completed_slots: int
     remaining_slots: int
