@@ -9,9 +9,33 @@ from typing import Dict, Any
 
 router = APIRouter()
 
+def recalculate_balance_from_transactions(user_id: int, db: Session) -> Decimal:
+    """
+    Пересчитывает баланс пользователя на основе всех транзакций (депозиты и выводы).
+    Возвращает правильный баланс в нано-TON.
+    """
+    # Суммируем все обработанные депозиты
+    deposits = db.query(func.sum(models.Deposit.amount_nano)).filter(
+        models.Deposit.user_id == user_id,
+        models.Deposit.status == "processed"
+    ).scalar() or Decimal(0)
+    
+    # Суммируем все успешно отправленные выводы (только те, у которых есть tx_hash)
+    withdrawals = db.query(func.sum(models.TonTransaction.amount_nano)).filter(
+        models.TonTransaction.user_id == user_id,
+        models.TonTransaction.tx_hash.isnot(None),  # Только отправленные транзакции
+        models.TonTransaction.status.in_(["pending", "completed"])  # Успешные или в процессе
+    ).scalar() or Decimal(0)
+    
+    # Правильный баланс = депозиты - выводы
+    correct_balance = deposits - withdrawals
+    
+    return correct_balance
+
+
 @router.get("/{telegram_id}", response_model=schemas.BalanceResponse)
 async def get_balance(telegram_id: int, db: Session = Depends(get_db)):
-    """Получение баланса пользователя"""
+    """Получение баланса пользователя с автоматической проверкой и корректировкой"""
     user = db.query(models.User).filter(models.User.telegram_id == telegram_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -28,6 +52,19 @@ async def get_balance(telegram_id: int, db: Session = Depends(get_db)):
         db.add(balance)
         db.commit()
         db.refresh(balance)
+    
+    # АВТОМАТИЧЕСКАЯ ПРОВЕРКА И КОРРЕКТИРОВКА БАЛАНСА
+    correct_balance = recalculate_balance_from_transactions(user.id, db)
+    current_balance = Decimal(balance.ton_active_balance or 0)
+    
+    # Если баланс не совпадает, корректируем
+    if current_balance != correct_balance:
+        difference = correct_balance - current_balance
+        print(f"⚠️ Balance mismatch for user {telegram_id}: current={current_balance/10**9:.4f} TON, correct={correct_balance/10**9:.4f} TON, difference={difference/10**9:.4f} TON", flush=True)
+        balance.ton_active_balance = correct_balance
+        db.commit()
+        db.refresh(balance)
+        print(f"✅ Balance corrected for user {telegram_id}: {correct_balance/10**9:.4f} TON", flush=True)
     
     # Вычисляем фиатный баланс (реальные значения, без виртуальных)
     ton_active = float(balance.ton_active_balance or 0)
