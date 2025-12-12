@@ -5,7 +5,6 @@ import { useToast } from '../context/ToastContext'
 import axios from 'axios'
 import { Bell, MessageSquare, Eye } from 'lucide-react'
 import TaskCard from '../components/TaskCard'
-import { TaskCardSkeleton } from '../components/Skeleton'
 import './Earn.css'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -30,11 +29,11 @@ export default function Earn() {
   const { showError } = useToast()
   const navigate = useNavigate()
   const [tasks, setTasks] = useState<Task[]>([])
-  const [allTasks, setAllTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc')
   const [selectedTaskType, setSelectedTaskType] = useState<'subscription' | 'comment' | 'view' | null>(null)
   const [fiatCurrency, setFiatCurrency] = useState<string>('RUB')
+  const [initialLoaded, setInitialLoaded] = useState(false)
 
   const [updateCounter, setUpdateCounter] = useState(0)
 
@@ -43,17 +42,20 @@ export default function Earn() {
       setLoading(false)
       return
     }
+
     loadCurrency()
-    loadTasks()
+    loadTasks(true)
+
     const interval = setInterval(() => {
       setUpdateCounter(prev => prev + 1)
     }, 3000)
+
     return () => clearInterval(interval)
   }, [user, sortOrder, selectedTaskType])
 
   useEffect(() => {
     if (!user || updateCounter === 0) return
-    loadTasks()
+    loadTasks(false)
   }, [updateCounter, user])
 
   async function loadCurrency() {
@@ -68,24 +70,28 @@ export default function Earn() {
     }
   }
 
-  async function loadTasks() {
+  async function loadTasks(firstLoad: boolean) {
     if (!user) return
+    if (firstLoad) setLoading(true)
     try {
       const response = await axios.get(`${API_URL}/api/tasks/`, {
         params: { telegram_id: user.telegram_id }
       })
-      setAllTasks(response.data || [])
+
       let filteredTasks = [...(response.data || [])]
       if (selectedTaskType) {
         filteredTasks = filteredTasks.filter(task => task.task_type === selectedTaskType)
       }
+
       let sortedTasks = [...filteredTasks]
       sortedTasks.sort((a, b) => {
         const priceA = parseFloat(a.price_per_slot_fiat || '0')
         const priceB = parseFloat(b.price_per_slot_fiat || '0')
         return sortOrder === 'desc' ? priceB - priceA : priceA - priceB
       })
+
       setTasks(sortedTasks)
+      setInitialLoaded(true)
     } catch (error: any) {
       console.error('Error loading tasks:', error)
       if (error.response?.status === 404) {
@@ -95,21 +101,7 @@ export default function Earn() {
             username: user.username,
             first_name: user.first_name
           })
-          const retryResponse = await axios.get(`${API_URL}/api/tasks/`, {
-            params: { telegram_id: user.telegram_id }
-          })
-          setAllTasks(retryResponse.data || [])
-          let filteredTasks = [...(retryResponse.data || [])]
-          if (selectedTaskType) {
-            filteredTasks = filteredTasks.filter(task => task.task_type === selectedTaskType)
-          }
-          let sortedTasks = [...filteredTasks]
-          sortedTasks.sort((a, b) => {
-            const priceA = parseFloat(a.price_per_slot_fiat || '0')
-            const priceB = parseFloat(b.price_per_slot_fiat || '0')
-            return sortOrder === 'desc' ? priceB - priceA : priceA - priceB
-          })
-          setTasks(sortedTasks)
+          await loadTasks(firstLoad)
         } catch (createError) {
           console.error('Error creating user:', createError)
           setTasks([])
@@ -118,23 +110,14 @@ export default function Earn() {
         setTasks([])
       }
     } finally {
-      setLoading(false)
+      if (firstLoad) setLoading(false)
     }
   }
 
-  if (loading) {
+  if (loading && !initialLoaded) {
     return (
       <div className="earn-page">
-        <div className="earn-header">
-          <button className="all-tasks-filter-btn active" disabled>
-            Все задания
-          </button>
-        </div>
-        <div className="tasks-list">
-          {[...Array(5)].map((_, i) => (
-            <TaskCardSkeleton key={i} />
-          ))}
-        </div>
+        <div className="earn-loading">Загрузка заданий…</div>
       </div>
     )
   }
@@ -142,6 +125,7 @@ export default function Earn() {
   return (
     <div className="earn-page">
       <div style={{ height: '20px' }}></div>
+
       <div className="earn-header">
         <button
           onClick={() => setSelectedTaskType(null)}
@@ -182,6 +166,7 @@ export default function Earn() {
           </button>
         </div>
       </div>
+
       <div className="tasks-list">
         {tasks.length === 0 ? (
           <div className="no-tasks">Нет доступных заданий</div>
