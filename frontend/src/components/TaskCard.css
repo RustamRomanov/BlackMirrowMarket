@@ -88,7 +88,7 @@
   z-index: 1;
   gap: 12px;
   min-height: 40px;
-  flex: 1;
+  margin-bottom: -8px; /* Поднята ВЫШЕ */
   margin-bottom: -2px;
 }
 
@@ -111,8 +111,8 @@
   align-items: flex-end;
   position: relative;
   z-index: 1;
-  min-height: 16px;
-  margin-top: 2px; /* Поднято выше для видимости */
+  margin-top: -2px; /* Поднято ВЫШЕ для видимости */
+  margin-bottom: 4px; /* Отступ снизу чтобы видно было */
 }
 
 .task-available-compact {
