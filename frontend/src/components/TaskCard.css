@@ -151,7 +151,7 @@
   min-width: 90px;
   min-height: 40px;
   white-space: nowrap;
-  align-self: center;
+  align-self: flex-end;
 }
 
 .earn-button-text-compact {
