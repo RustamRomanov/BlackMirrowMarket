@@ -183,6 +183,7 @@ async def get_tasks(
             remaining_slots=remaining_slots,
             telegram_channel_id=task.telegram_channel_id,
             comment_instruction=task.comment_instruction,
+            telegram_post_id=str(task.telegram_post_id) if task.telegram_post_id else None,
             is_test=task.is_test or False
         ))
     

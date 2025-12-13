@@ -136,6 +136,7 @@ class TaskListItem(BaseModel):
     remaining_slots: int
     telegram_channel_id: Optional[str] = None
     comment_instruction: Optional[str] = None
+    telegram_post_id: Optional[str] = None
     is_test: bool = False
     
     class Config:
