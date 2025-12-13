@@ -223,16 +223,30 @@ export default function Earn() {
         setShowTaskModal(false)
         loadTasks()
       } else if (selectedTask.task_type === 'subscription') {
-        await axios.post(`${API_URL}/api/tasks/${selectedTask.id}/start`, null, {
-          params: { telegram_id: user.telegram_id }
-        })
-        const channelLink = getChannelLink(selectedTask.telegram_channel_id)
-        if (channelLink) {
-          openTelegramLink(channelLink)
+        try {
+          await axios.post(`${API_URL}/api/tasks/${selectedTask.id}/start`, null, {
+            params: { telegram_id: user.telegram_id }
+          })
+          const channelLink = getChannelLink(selectedTask.telegram_channel_id)
+          if (channelLink) {
+            openTelegramLink(channelLink)
+          }
+          showSuccess('Задание начато! После проверки ботом средства будут зачислены.')
+          setShowTaskModal(false)
+          loadTasks()
+        } catch (error: any) {
+          // Если задание уже начато, просто открываем ссылку
+          if (error.response?.data?.detail === 'Task already started') {
+            const channelLink = getChannelLink(selectedTask.telegram_channel_id)
+            if (channelLink) {
+              openTelegramLink(channelLink)
+            }
+            showSuccess('Задание уже начато. После проверки ботом средства будут зачислены.')
+            setShowTaskModal(false)
+          } else {
+            throw error
+          }
         }
-        showSuccess('Задание начато! После проверки ботом средства будут зачислены.')
-        setShowTaskModal(false)
-        loadTasks()
       } else if (selectedTask.task_type === 'comment') {
         let postLink: string | null = null
         
@@ -252,14 +266,25 @@ export default function Earn() {
           return
         }
         
-        await axios.post(`${API_URL}/api/tasks/${selectedTask.id}/start`, null, {
-          params: { telegram_id: user.telegram_id }
-        })
-        
-        openTelegramLink(postLink)
-        showSuccess('Задание начато! После проверки ботом средства будут зачислены.')
-        setShowTaskModal(false)
-        loadTasks()
+        try {
+          await axios.post(`${API_URL}/api/tasks/${selectedTask.id}/start`, null, {
+            params: { telegram_id: user.telegram_id }
+          })
+          
+          openTelegramLink(postLink)
+          showSuccess('Задание начато! После проверки ботом средства будут зачислены.')
+          setShowTaskModal(false)
+          loadTasks()
+        } catch (error: any) {
+          // Если задание уже начато, просто открываем ссылку
+          if (error.response?.data?.detail === 'Task already started') {
+            openTelegramLink(postLink!)
+            showSuccess('Задание уже начато. После проверки ботом средства будут зачислены.')
+            setShowTaskModal(false)
+          } else {
+            throw error
+          }
+        }
       }
     } catch (error: any) {
       console.error('Error starting task:', error)
