@@ -175,9 +175,9 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
   function validateForm(): boolean {
     console.log('[CreateTaskModal] Starting validation...')
     console.log('[CreateTaskModal] Form data:', formData)
-    console.log('[CreateTaskModal] Price input:', priceInput, 'Price in TON:', priceInTon)
+    console.log('[CreateTaskModal] Price in TON:', safePriceInTon, 'Price in fiat:', priceInFiat)
     console.log('[CreateTaskModal] Slots:', slots)
-    console.log('[CreateTaskModal] User balance:', userBalance)
+    console.log('[CreateTaskModal] User balance:', userBalance, 'TON')
     console.log('[CreateTaskModal] Campaign budget in TON:', campaignBudgetInTon)
     
     const newErrors: Record<string, string> = {}
