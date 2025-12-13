@@ -78,6 +78,23 @@ export default function TaskDetail() {
 
   async function handleStart() {
     if (!user || !task) return
+    
+    // Если задача уже начата, просто открываем ссылку напрямую
+    if (userTaskStarted) {
+      if (task.task_type === 'subscription') {
+        const channelLink = getChannelLink(task.telegram_channel_id)
+        if (channelLink) {
+          window.open(channelLink, '_blank')
+        }
+        return
+      } else if (task.task_type === 'comment') {
+        if (task.telegram_post_id) {
+          window.open(task.telegram_post_id, '_blank')
+        }
+        return
+      }
+    }
+    
     setProcessing(true)
     try {
       if (task.task_type === 'view') {
