@@ -14,7 +14,7 @@
   animation-fill-mode: both;
   overflow: hidden;
   min-height: auto;
-  max-height: 104px; /* Увеличена высота карточки */
+  max-height: 94px; /* Уменьшена высота на 10% */
 }
 
 .task-card-bg {
@@ -89,6 +89,7 @@
   gap: 12px;
   min-height: 40px;
   margin-bottom: -12px; /* Кнопка отцентрована относительно верхнего и нижнего края */
+  margin-bottom: -6px; /* Кнопка отцентрована - одинаковое расстояние сверху и снизу */
 }
 
 .task-description {
