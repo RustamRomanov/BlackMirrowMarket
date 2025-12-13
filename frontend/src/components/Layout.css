@@ -8,7 +8,7 @@
 .main-content {
   flex: 1;
   padding: 16px;
-  background: #0b0c11;
+  background: #f5f5f5;
 }
 
 .bottom-nav {
@@ -19,11 +19,11 @@
   display: flex;
   justify-content: space-around;
   align-items: center;
-  background: #0f1116;
-  border-top: 1px solid #1f232d;
+  background: white;
+  border-top: 1px solid #e0e0e0;
   padding: 8px 0;
   z-index: 1000;
-  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .nav-item {
@@ -33,10 +33,10 @@
   gap: 4px;
   padding: 8px 16px;
   text-decoration: none;
-  color: #8e94a7;
+  color: #666;
   transition: color 0.2s;
   font-size: 12px;
 }
 
-.nav-item.active { color: #a5b4ff; }
-.nav-item:hover { color: #a5b4ff; }
+.nav-item.active { color: #667eea; }
+.nav-item:hover { color: #667eea; }
