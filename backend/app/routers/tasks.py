@@ -498,8 +498,12 @@ async def start_task(task_id: int, telegram_id: int, db: Session = Depends(get_d
         return user_task
     
     # Для подписки и комментария - создаем запись со статусом IN_PROGRESS
-    # price_per_slot_ton в TON, нужно конвертировать в нано-TON для reward_ton
-    price_per_slot_nano = ton_to_nano(price_per_slot_ton)
+    # price_per_slot_ton в БД хранится в нано-TON, используем напрямую
+    from decimal import Decimal
+    def nano_to_ton(nano: Decimal) -> Decimal:
+        return nano / Decimal(10**9)
+    
+    price_per_slot_nano = Decimal(task.price_per_slot_ton)  # Уже в нано-TON
     user_task = models.UserTask(
         user_id=user.id,
         task_id=task_id,
@@ -516,6 +520,7 @@ async def start_task(task_id: int, telegram_id: int, db: Session = Depends(get_d
     update_balance_safely(db, user.id, price_per_slot_nano, "escrow")
     
     # Обновляем счетчик подписок, если это подписка
+    balance = db.query(models.UserBalance).filter(models.UserBalance.user_id == user.id).first()
     if task.task_type == models.TaskType.SUBSCRIPTION and balance:
         balance.subscriptions_used_24h += 1
     

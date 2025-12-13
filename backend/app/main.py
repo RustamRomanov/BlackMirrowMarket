@@ -300,6 +300,11 @@ async def startup_event():
     print("🔄 Запуск фоновых задач...")
     asyncio.create_task(update_ton_transactions_periodically())
     asyncio.create_task(check_deposits_periodically())
+    
+    # Запускаем проверку комментариев
+    from app.comment_validator import run_comment_checker_periodically
+    asyncio.create_task(run_comment_checker_periodically())
+    
     print("✅ Фоновые задачи запущены")
 
 

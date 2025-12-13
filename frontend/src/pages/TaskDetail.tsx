@@ -239,8 +239,9 @@ export default function TaskDetail() {
         await axios.post(`${API_URL}/api/tasks/${task.id}/start`, null, {
           params: { telegram_id: user.telegram_id }
         })
-        showSuccess('Задание начато! После проверки ботом средства будут зачислены на ваш баланс.')
-        setTimeout(() => { navigate('/earn') }, 2000)
+        showSuccess('Задание начато! Средства переведены в эскроу. После проверки ботом они будут зачислены на ваш баланс.')
+        // Сразу перенаправляем на вкладку Заработок
+        navigate('/earn')
       }
     } catch (error: any) {
       console.error('Error starting task:', error)
