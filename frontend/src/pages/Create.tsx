@@ -164,8 +164,12 @@ export default function Create() {
       return
     }
     
+    // Убеждаемся, что title не пустой (обязательное поле в схеме)
+    const taskTitle = formData.title.trim() || 'Задание'
+    
     const requestData = {
       ...formData,
+      title: taskTitle, // Обязательное поле
       price_per_slot_ton: priceInTon.toString(), // Отправляем в TON, бэкенд сам конвертирует в нано-TON
       total_slots: parseInt(formData.total_slots),
       telegram_post_id: parsedPostId,
@@ -173,6 +177,25 @@ export default function Create() {
       target_gender: formData.target_gender === 'both' ? null : formData.target_gender,
       target_age_min: formData.target_age_min ? parseInt(formData.target_age_min) : null,
       target_age_max: formData.target_age_max ? parseInt(formData.target_age_max) : null
+    }
+    
+    // Дополнительная проверка перед отправкой
+    if (!requestData.title || requestData.title.trim() === '') {
+      console.error('[CREATE TASK] Title is empty!')
+      showError('Название задания обязательно')
+      return
+    }
+    
+    if (!requestData.price_per_slot_ton || parseFloat(requestData.price_per_slot_ton) <= 0) {
+      console.error('[CREATE TASK] Invalid price:', requestData.price_per_slot_ton)
+      showError('Цена должна быть больше 0')
+      return
+    }
+    
+    if (!requestData.total_slots || requestData.total_slots < 1) {
+      console.error('[CREATE TASK] Invalid slots:', requestData.total_slots)
+      showError('Количество слотов должно быть не менее 1')
+      return
     }
     
     console.log('[CREATE TASK] Sending request to:', `${API_URL}/api/tasks/`)
