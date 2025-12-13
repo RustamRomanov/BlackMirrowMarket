@@ -654,21 +654,26 @@ async def report_task(task_id: int, telegram_id: int, db: Session = Depends(get_
     if not user_task:
         raise HTTPException(status_code=404, detail="User task not found")
     
-    # Создаем жалобу с автоматической причиной
-    user_task.status = models.UserTaskStatus.FAILED
-    user_task.validation_result = False
+    # Проверяем, не была ли уже создана жалоба на это задание от этого пользователя
+    existing_report = db.query(models.TaskReport).filter(
+        and_(
+            models.TaskReport.task_id == task_id,
+            models.TaskReport.reporter_id == user.id,
+            models.TaskReport.status == models.TaskReportStatus.PENDING
+        )
+    ).first()
     
-    # Возвращаем средства из эскроу на баланс пользователя
-    balance = db.query(models.UserBalance).filter(models.UserBalance.user_id == user.id).first()
-    if balance:
-        balance.ton_escrow_balance -= user_task.reward_ton
-        balance.ton_active_balance += user_task.reward_ton
+    if existing_report:
+        return {
+            "status": "already_reported",
+            "message": "Вы уже отправили жалобу на это задание. Она находится на рассмотрении."
+        }
     
     # Создаем запись о жалобе в базе данных
     report = models.TaskReport(
         task_id=task_id,
         reporter_id=user.id,
-        reason=reason or "Жалоба на задание",
+        reason="Канал нарушает законы (экстремизм или другой запрещенный контент)",
         status=models.TaskReportStatus.PENDING
     )
     db.add(report)
@@ -676,5 +681,5 @@ async def report_task(task_id: int, telegram_id: int, db: Session = Depends(get_
     db.commit()
     return {
         "status": "reported",
-        "message": "Жалоба отправлена модератору. Средства возвращены на ваш баланс."
+        "message": "Жалоба отправлена модератору. Спасибо за обратную связь!"
     }
