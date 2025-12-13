@@ -41,7 +41,7 @@ export default function Balance() {
       const interval = setInterval(() => {
         loadBalance()
         loadTransactions()
-      }, 5000)
+      }, 60000) // Обновляем раз в минуту (60 секунд)
       return () => clearInterval(interval)
     } else {
       setLoading(false)
