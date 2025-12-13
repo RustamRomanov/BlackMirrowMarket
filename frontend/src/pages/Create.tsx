@@ -312,7 +312,12 @@ export default function Create() {
             <div className="example-tasks-section">
               <h2>Мои задания</h2>
               <div className="example-tasks-list">
-                {myTasks.map((task) => {
+                {myTasks
+                  .filter((task) => {
+                    const taskStatus = task.status?.toLowerCase() || task.status
+                    return taskStatus !== 'cancelled' // Убираем отмененные задания
+                  })
+                  .map((task) => {
                   console.log('Rendering task:', task)
                   const taskType = task.task_type?.toLowerCase() || task.task_type
                   const taskStatus = task.status?.toLowerCase() || task.status
@@ -331,19 +336,22 @@ export default function Create() {
                   return (
                     <div key={task.id} className="example-task-card">
                       <div className="example-task-header">
-                        <Icon size={16} color={config.color} />
-                        <span style={{ color: config.color, fontWeight: 600 }}>{config.label}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Icon size={16} color={config.color} />
+                          <span style={{ color: config.color, fontWeight: 600 }}>{config.label}</span>
+                        </div>
                         <span className={`example-status status-${taskStatus}`}>
                           {taskStatus === 'active' ? 'Активно' : 
                            taskStatus === 'paused' ? 'Остановлено' : 
                            taskStatus === 'completed' ? 'Завершено' : 'Отменено'}
                         </span>
                       </div>
-                      <h4>{task.title}</h4>
-                      {task.description && <p>{task.description}</p>}
-                      <div className="example-task-stats">
+                      {task.description && <p className="example-task-description">{task.description}</p>}
+                      <div className="example-task-stats-compact">
                         <span>Цена за слот: {priceFiat.toFixed(2)} {currencySymbol}</span>
+                        <span>•</span>
                         <span>Общий бюджет: {(priceFiat * task.total_slots).toFixed(2)} {currencySymbol}</span>
+                        <span>•</span>
                         <span>Выполнено: {task.completed_slots || 0} / {task.total_slots}</span>
                       </div>
                       <div className="example-task-actions">
