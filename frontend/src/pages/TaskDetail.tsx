@@ -107,22 +107,30 @@ export default function TaskDetail() {
         if (task.telegram_post_id) {
           window.open(task.telegram_post_id, '_blank')
         }
-        setShowModal(true)
+        showSuccess('Задание начато! После проверки ботом средства будут зачислены на ваш баланс.')
+        setTimeout(() => { navigate('/earn') }, 2000)
       }
     } catch (error: any) {
       console.error('Error starting task:', error)
       if (error.response?.data?.detail) {
         const errorDetail = error.response.data.detail
         if (errorDetail === 'Task already started') {
-          // Если задание уже начато, просто открываем ссылку на канал
+          // Если задание уже начато, просто открываем ссылку
           setUserTaskStarted(true)
-          const channelLink = getChannelLink(task.telegram_channel_id)
-          if (channelLink) {
-            window.open(channelLink, '_blank')
-          }
           if (task.task_type === 'subscription') {
+            const channelLink = getChannelLink(task.telegram_channel_id)
+            if (channelLink) {
+              window.open(channelLink, '_blank')
+            }
             setShowModal(true)
+          } else if (task.task_type === 'comment') {
+            if (task.telegram_post_id) {
+              window.open(task.telegram_post_id, '_blank')
+            }
+            showSuccess('Задание уже начато. После проверки ботом средства будут зачислены.')
+            setTimeout(() => { navigate('/earn') }, 2000)
           }
+        }
         } else {
           showError(errorDetail)
         }
