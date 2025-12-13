@@ -34,6 +34,7 @@ interface Task {
   fiat_currency?: string
   telegram_channel_id?: string
   comment_instruction?: string
+  telegram_post_id?: string
 }
 
 
