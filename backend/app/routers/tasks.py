@@ -146,6 +146,9 @@ async def get_tasks(
     
     tasks = query.order_by(models.Task.price_per_slot_ton.desc()).all()
     
+    print(f"[DEBUG] User profile: age={user.age}, gender={user.gender}, country={user.country}")
+    print(f"[DEBUG] Total active tasks in DB: {db.query(models.Task).filter(models.Task.status == models.TaskStatus.ACTIVE).count()}")
+    print(f"[DEBUG] Tasks with is_test=False: {db.query(models.Task).filter(models.Task.status == models.TaskStatus.ACTIVE, or_(models.Task.is_test == False, models.Task.is_test.is_(None))).count()}")
     # DEBUG: Логируем количество найденных заданий
     print(f"[DEBUG] Found {len(tasks)} tasks for user {telegram_id}")
     
