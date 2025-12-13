@@ -70,6 +70,23 @@ async def get_tasks(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
+    # Проверяем бан пользователя
+    if user.is_banned:
+        # Проверяем, истек ли срок бана
+        if user.ban_until:
+            if datetime.utcnow() < user.ban_until.replace(tzinfo=None) if user.ban_until.tzinfo else user.ban_until:
+                # Пользователь все еще забанен - не показываем задания
+                return []
+            else:
+                # Срок бана истек - снимаем бан
+                user.is_banned = False
+                user.ban_until = None
+                user.ban_reason = None
+                db.commit()
+        else:
+            # Бан без срока - не показываем задания
+            return []
+    
     # Проверяем баланс (только для блокировки при отрицательном балансе)
     balance = db.query(models.UserBalance).filter(models.UserBalance.user_id == user.id).first()
     if balance and balance.ton_active_balance < 0:
