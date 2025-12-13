@@ -88,13 +88,13 @@ async def get_tasks(
         models.Task.status == models.TaskStatus.ACTIVE
     )
     
-    # Исключаем тестовые задания (ВРЕМЕННО ОТКЛЮЧЕНО ДЛЯ ДИАГНОСТИКИ)
-    # query = query.filter(
-    #     or_(
-    #         models.Task.is_test == False,
-    #         models.Task.is_test.is_(None)
-    #     )
-    # )
+    # Исключаем тестовые задания (is_test=True)
+    query = query.filter(
+        or_(
+            models.Task.is_test == False,
+            models.Task.is_test.is_(None)
+        )
+    )
     
     # Исключаем примеры заданий (созданные тестовым пользователем)
     if test_creator_id:
