@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { WebApp } from '@twa-dev/sdk'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -33,6 +34,19 @@ interface Task {
   fiat_currency?: string
   telegram_channel_id?: string
   comment_instruction?: string
+}
+
+
+// Функция для открытия ссылки через Telegram WebApp API
+function openTelegramLink(url: string) {
+  if (window.Telegram?.WebApp?.openLink) {
+    window.Telegram.WebApp.openLink(url)
+  } else if (WebApp?.openLink) {
+    WebApp.openLink(url)
+  } else {
+    // Fallback на обычный window.open
+    window.open(url, '_blank')
+  }
 }
 
 export default function TaskDetail() {
@@ -84,12 +98,12 @@ export default function TaskDetail() {
       if (task.task_type === 'subscription') {
         const channelLink = getChannelLink(task.telegram_channel_id)
         if (channelLink) {
-          window.open(channelLink, '_blank')
+          openTelegramLink(channelLink)
         }
         return
       } else if (task.task_type === 'comment') {
         if (task.telegram_post_id) {
-          window.open(task.telegram_post_id, '_blank')
+          openTelegramLink(task.telegram_post_id)
         }
         return
       }
@@ -103,7 +117,7 @@ export default function TaskDetail() {
         })
         const channelLink = getChannelLink(task.telegram_channel_id)
         if (channelLink) {
-          window.open(channelLink, '_blank')
+          openTelegramLink(channelLink)
         }
         showSuccess('Задание выполнено! Средства зачислены на ваш баланс.')
         setTimeout(() => { navigate('/earn') }, 2000)
@@ -113,13 +127,13 @@ export default function TaskDetail() {
         })
         const channelLink = getChannelLink(task.telegram_channel_id)
         if (channelLink) {
-          window.open(channelLink, '_blank')
+          openTelegramLink(channelLink)
         }
         setShowModal(true)
       } else if (task.task_type === 'comment') {
         // СНАЧАЛА открываем ссылку на пост (до всех async операций)
         if (task.telegram_post_id) {
-          window.open(task.telegram_post_id, '_blank')
+          openTelegramLink(task.telegram_post_id)
         }
         // Затем создаем UserTask
         await axios.post(`${API_URL}/api/tasks/${task.id}/start`, null, {
@@ -138,12 +152,12 @@ export default function TaskDetail() {
           if (task.task_type === 'subscription') {
             const channelLink = getChannelLink(task.telegram_channel_id)
             if (channelLink) {
-              window.open(channelLink, '_blank')
+              openTelegramLink(channelLink)
             }
             setShowModal(true)
           } else if (task.task_type === 'comment') {
             if (task.telegram_post_id) {
-              window.open(task.telegram_post_id, '_blank')
+              openTelegramLink(task.telegram_post_id)
             }
             showSuccess('Задание уже начато. После проверки ботом средства будут зачислены.')
             setTimeout(() => { navigate('/earn') }, 2000)
@@ -318,7 +332,7 @@ export default function TaskDetail() {
               <button className="modal-complete" onClick={task.task_type === 'subscription' ? () => {
                 const channelLink = getChannelLink(task.telegram_channel_id)
                 if (channelLink) {
-                  window.open(channelLink, '_blank')
+                  openTelegramLink(channelLink)
                 }
               } :  handleComplete} disabled={processing}>
                 {processing ? 'Отправка...' : task.task_type === 'subscription' ? 'Подписаться' : 'Подтвердить выполнение'}
