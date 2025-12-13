@@ -46,6 +46,7 @@ export default function TaskDetail() {
   const [showModal, setShowModal] = useState(false)
   const [showCompletionModal, setShowCompletionModal] = useState(false)
   const [fiatCurrency, setFiatCurrency] = useState<string>('RUB')
+  const [userTaskStarted, setUserTaskStarted] = useState(false)
 
   useEffect(() => {
     loadTask()
@@ -104,7 +105,20 @@ export default function TaskDetail() {
     } catch (error: any) {
       console.error('Error starting task:', error)
       if (error.response?.data?.detail) {
-        showError(error.response.data.detail)
+        const errorDetail = error.response.data.detail
+        if (errorDetail === 'Task already started') {
+          // Если задание уже начато, просто открываем ссылку на канал
+          setUserTaskStarted(true)
+          const channelLink = getChannelLink(task.telegram_channel_id)
+          if (channelLink) {
+            window.open(channelLink, '_blank')
+          }
+          if (task.task_type === 'subscription') {
+            setShowModal(true)
+          }
+        } else {
+          showError(errorDetail)
+        }
       } else {
         showError('Ошибка при старте задания')
       }
@@ -227,7 +241,7 @@ export default function TaskDetail() {
             onClick={handleStart}
             disabled={processing}
           >
-            {processing ? 'Обработка...' : task.task_type === 'subscription' ? 'Подписаться' : 'Заработать'}
+            {processing ? \'Обработка...\' : userTaskStarted ? (task.task_type === \'subscription\' ? \'Перейти к каналу\' : \'Продолжить\') : (task.task_type === \'subscription\' ? \'Подписаться\' : \'Заработать\')}
           </button>
         )}
       </div>
