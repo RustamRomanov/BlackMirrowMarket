@@ -116,7 +116,9 @@ async def get_tasks(
         query = query.filter(models.Task.task_type == task_type)
     
     # Фильтр по таргетингу (только если профиль заполнен)
+    print(f"[DEBUG] Before targeting filter: {db.query(models.Task).filter(models.Task.status == models.TaskStatus.ACTIVE).count()} active tasks")
     if user.age and user.gender and user.country:
+        print(f"[DEBUG] Applying targeting filters for user: age={user.age}, gender={user.gender}, country={user.country}")
         query = query.filter(
             or_(
                 models.Task.target_country.is_(None),
@@ -141,6 +143,7 @@ async def get_tasks(
                 models.Task.target_age_max >= user.age
             )
         )
+        print(f"[DEBUG] After targeting filters: {query.count()} tasks")
     
     # Фильтр по лимиту подписок (только если профиль заполнен)
     if balance and user.age and user.gender and user.country:
