@@ -204,18 +204,6 @@ export default function TaskDetail() {
       }
     } finally {
       setProcessing(false)
-          return
-        }
-        return
-          }
-        } else {
-          showError(errorDetail)
-        }
-      } else {
-        showError('Ошибка при старте задания')
-      }
-    } finally {
-      setProcessing(false)
     }
   }
 
