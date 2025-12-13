@@ -190,6 +190,8 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
     
     if (!formData.price_per_slot_ton || priceInput <= 0) {
       newErrors.price_per_slot_ton = 'Цена должна быть больше 0'
+    } else if (priceInput < 0.01) {
+      newErrors.price_per_slot_ton = 'Цена должна быть не менее 0.01'
     }
     
     if (!formData.total_slots || slots < 1) {
@@ -343,13 +345,13 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
                   </label>
                   <input
                     type="number"
-                    step={fiatCurrency === 'TON' ? "0.1" : "1"}
+                    step="0.01"
                     value={formData.price_per_slot_ton}
                     onChange={(e) => {
                       setFormData({ ...formData, price_per_slot_ton: e.target.value })
                       if (errors.price_per_slot_ton) setErrors({ ...errors, price_per_slot_ton: '' })
                     }}
-                    min={fiatCurrency === 'TON' ? "0.1" : "1"}
+                    min="0.01"
                     placeholder="" 
                     className={`form-input ${errors.price_per_slot_ton ? 'error' : ''}`}
                   />
