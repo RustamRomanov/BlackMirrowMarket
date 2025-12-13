@@ -218,7 +218,7 @@ export default function TaskDetail() {
 
         
 
-        <div className={`task-rules ${task.task_type === "subscription" ? "task-rules-spaced" : ""}`}>
+        <div className={`task-rules ${(task.task_type === "subscription" || task.task_type === "comment") ? "task-rules-spaced" : ""}`}>
           <div className="rules-header">
             <AlertCircle size={18} />
             <h3>Правила выполнения</h3>
