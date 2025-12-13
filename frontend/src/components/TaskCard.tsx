@@ -109,12 +109,10 @@ export default function TaskCard({ task, onStart, fiatCurrency, onRefresh }: Tas
         {task.description && (
           <div className="task-description">{task.description}</div>
         )}
-        <div className="task-button-wrapper">
-          <div className="task-price-above-button">{displayPrice}</div>
-          <button className="earn-button-compact sheen" onClick={onStart}>
-            <span className="earn-button-text-compact">Заработать</span>
-          </button>
-        </div>
+        <button className="earn-button-compact sheen" onClick={onStart}>
+          <span className="earn-button-text-compact">Заработать</span>
+          <span className="earn-button-price-compact">{displayPrice}</span>
+        </button>
       </div>
 
       {/* Строка 4: Доступно (внизу) */}
