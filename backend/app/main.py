@@ -154,7 +154,6 @@ async def health():
 import asyncio
 from app.ton_service import get_ton_service
 from app.database import SessionLocal
-from app.comment_validator import check_comments_periodically, check_deleted_comments
 
 async def update_ton_transactions_periodically():
     """Периодически обновляет статусы pending транзакций и обрабатывает pending withdrawals."""
@@ -222,26 +221,6 @@ async def check_deposits_periodically():
                 traceback.print_exc()
             await asyncio.sleep(120)  # При ошибке ждем дольше
 
-
-async def check_comments_periodically_task():
-    """Фоновая задача для периодической проверки комментариев"""
-    from app.database import SessionLocal
-    import sys
-    print("🔄 Фоновая задача проверки комментариев запущена", file=sys.stderr, flush=True)
-    while True:
-        try:
-            await asyncio.sleep(60)  # Проверяем каждую минуту
-            db = SessionLocal()
-            try:
-                await check_comments_periodically(db)
-                await check_deleted_comments(db)
-            finally:
-                db.close()
-        except Exception as e:
-            import sys, traceback
-            print(f"❌ Error in check_comments_periodically_task: {e}", file=sys.stderr, flush=True)
-            traceback.print_exc()
-            await asyncio.sleep(120)  # При ошибке ждем дольше
 
 @app.on_event("startup")
 async def startup_event():
@@ -320,8 +299,6 @@ async def startup_event():
     
     print("🔄 Запуск фоновых задач...")
     asyncio.create_task(update_ton_transactions_periodically())
-    asyncio.create_task(check_deposits_periodically())
-    asyncio.create_task(check_comments_periodically_task())
-    print("✅ Фоновые задачи запущены")
+    asyncio.create_task(check_deposits_periodically())    print("✅ Фоновые задачи запущены")
 
 
