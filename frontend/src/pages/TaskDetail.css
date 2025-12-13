@@ -332,3 +332,13 @@
 
 
 .task-title-small { font-size: 18px !important; }
+
+.task-description-spaced {
+  margin-top: 16px;
+  margin-bottom: 0;
+}
+
+.task-rules-spaced {
+  margin-top: 24px;
+}
+

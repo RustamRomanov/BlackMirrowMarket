@@ -156,7 +156,7 @@ export default function TaskDetail() {
         )}
           <div className="task-title-block">
             <h1 className={task.task_type === "subscription" ? "task-title-small" : ""}>{task.title}</h1>
-            {task.description && <p>{task.description}</p>}
+            {task.description && <p className="task-description-spaced">{task.description}</p>}
           </div>
         </div>
         {task.task_type !== 'subscription' && (
@@ -174,7 +174,7 @@ export default function TaskDetail() {
 
         
 
-        <div className="task-rules">
+        <div className={`task-rules ${task.task_type === "subscription" ? "task-rules-spaced" : ""}`}>
           <div className="rules-header">
             <AlertCircle size={18} />
             <h3>Правила выполнения</h3>
@@ -196,14 +196,16 @@ export default function TaskDetail() {
           </ul>
         </div>
 
+        {task.task_type !== "subscription" && (
         <div className="task-price-large">
           <span className="price-label">Награда:</span>
           <span className="price-value">
             {parseFloat(task.price_per_slot_fiat).toFixed(2)} {currencySymbol(task.fiat_currency || fiatCurrency)}
           </span>
         </div>
+      )}
 
-        {!isCreator && (
+      {!isCreator && (
           <button
             className="earn-button-large"
             onClick={task.task_type === 'subscription' ? () => {
