@@ -272,8 +272,11 @@ async def create_task(task: schemas.TaskCreate, telegram_id: int, db: Session = 
     task_dict = task.dict()
     task_dict['price_per_slot_ton'] = str(int(ton_to_nano(price_per_slot_ton)))
     
+    # Убеждаемся, что telegram_channel_id и telegram_post_id сохраняются правильно
+    print(f"[CREATE TASK] Before creating - telegram_channel_id={task_dict.get('telegram_channel_id')}, telegram_post_id={task_dict.get('telegram_post_id')}")
+    print(f"[CREATE TASK] task.telegram_channel_id={task.telegram_channel_id}, task.telegram_post_id={task.telegram_post_id}")
+    
     # Создаем задание
-    print(f"[CREATE TASK] Creating task with telegram_channel_id={task_dict.get('telegram_channel_id')}, telegram_post_id={task_dict.get('telegram_post_id')}")
     db_task = models.Task(creator_id=user.id, **task_dict)
     db.add(db_task)
     
