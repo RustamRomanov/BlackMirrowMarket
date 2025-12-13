@@ -144,6 +144,13 @@ export default function Create() {
     // Бэкенд ожидает цену в TON и сам конвертирует в нано-TON
     const priceInTon = parseFloat(formData.price_per_slot_ton) || 0
     
+    console.log('[CREATE TASK] Form data:', {
+      price_per_slot_ton: formData.price_per_slot_ton,
+      priceInTon: priceInTon,
+      total_slots: formData.total_slots,
+      task_type: formData.task_type
+    })
+    
     // Парсим ссылку на пост, если она есть
     const parsedPostId = formData.telegram_post_id ? parseTelegramPostId(formData.telegram_post_id) : null
     

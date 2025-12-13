@@ -484,9 +484,11 @@ async def start_task(task_id: int, telegram_id: int, db: Session = Depends(get_d
     db.add(user_task)
     
     # Резервируем средства в эскроу (безопасно, с блокировкой)
+    # price_per_slot_ton в TON, нужно конвертировать в нано-TON для резервирования
     from app.database_optimizations import update_balance_safely
-    update_balance_safely(db, user.id, -task.price_per_slot_ton, "active")
-    update_balance_safely(db, user.id, task.price_per_slot_ton, "escrow")
+    price_per_slot_nano = ton_to_nano(price_per_slot_ton)
+    update_balance_safely(db, user.id, -price_per_slot_nano, "active")
+    update_balance_safely(db, user.id, price_per_slot_nano, "escrow")
     
     # Обновляем счетчик подписок, если это подписка
     if task.task_type == models.TaskType.SUBSCRIPTION and balance:
