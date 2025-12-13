@@ -1,7 +1,8 @@
 .task-card {
   position: relative;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   background: white;
   border-radius: 12px;
   padding: 12px 14px;
@@ -12,7 +13,7 @@
   animation-fill-mode: both;
   overflow: hidden;
   min-height: auto;
-  max-height: 96px;
+  max-height: 101px;
 }
 
 .task-card-bg {
@@ -85,7 +86,7 @@
   position: relative;
   z-index: 1;
   gap: 12px;
-  min-height: 40px;
+  min-height: 32px;
   flex: 1;
   margin-bottom: -5px;
 }
@@ -134,7 +135,7 @@
 .earn-button-compact {
   position: relative;
   overflow: hidden;
-  padding: 8px 16px;
+  padding: 6px 14px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
@@ -145,13 +146,13 @@
   transition: transform 0.2s, box-shadow 0.2s;
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.35);
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   align-items: center;
   justify-content: center;
   min-width: 90px;
-  min-height: 40px;
+  min-height: 32px;
   white-space: nowrap;
-  align-self: center;
 }
 
 .earn-button-text-compact {
