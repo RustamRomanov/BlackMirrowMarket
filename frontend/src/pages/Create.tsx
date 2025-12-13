@@ -107,18 +107,12 @@ export default function Create() {
   function parseTelegramPostId(postLink: string | undefined): number | null {
     if (!postLink) return null
     
-    // Если это уже число (ID поста), возвращаем его
-    const numericId = parseInt(postLink)
-    if (!isNaN(numericId) && numericId > 0) {
-      return numericId
-    }
+    // Парсим полную ссылку формата https://t.me/channel/123
+    const telegramLinkRegex = /^https?:\/\/(?:www\.)?t\.me\/[^\/]+\/(\d+)/i
+    const match = postLink.trim().match(telegramLinkRegex)
     
-    // Парсим полную ссылку формата https://t.me/channel/123 или t.me/channel/123
-    const telegramLinkRegex = /(?:https?:\/\/)?(?:www\.)?t\.me\/([^\/]+)\/(\d+)/i
-    const match = postLink.match(telegramLinkRegex)
-    
-    if (match && match[2]) {
-      const postId = parseInt(match[2])
+    if (match && match[1]) {
+      const postId = parseInt(match[1])
       if (!isNaN(postId) && postId > 0) {
         return postId
       }

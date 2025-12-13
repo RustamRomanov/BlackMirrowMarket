@@ -212,13 +212,13 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
     if ((formData.task_type === 'comment' || formData.task_type === 'view') && !formData.telegram_post_id) {
       newErrors.telegram_post_id = 'Ссылка поста обязательна'
     } else if ((formData.task_type === 'comment' || formData.task_type === 'view') && formData.telegram_post_id) {
-      // Проверяем формат ссылки: либо число, либо ссылка формата t.me/channel/123
       const postId = formData.telegram_post_id.trim()
-      const isNumeric = /^\d+$/.test(postId)
-      const isTelegramLink = /(?:https?:\/\/)?(?:www\.)?t\.me\/[^\/]+\/\d+/i.test(postId)
       
-      if (!isNumeric && !isTelegramLink) {
-        newErrors.telegram_post_id = 'Введите ID поста (число) или ссылку формата https://t.me/channel/123'
+      // Проверяем, что это ссылка из Telegram
+      const isTelegramLink = /^https?:\/\/(?:www\.)?t\.me\/[^\/]+\/\d+/i.test(postId)
+      
+      if (!isTelegramLink) {
+        newErrors.telegram_post_id = 'Ссылка должна быть из Telegram (https://t.me/channel/123)'
       }
     }
     
