@@ -24,6 +24,27 @@ function getChannelLink(channelId: string | undefined): string | null {
     return `https://t.me/${cleanId}`
 }
 
+// Функция для формирования ссылки на пост Telegram
+function getPostLink(channelId: string | undefined, postId: string | number | undefined): string | null {
+    // Если postId - это уже полная ссылка, используем её
+    if (postId && typeof postId === 'string' && (postId.startsWith('http://') || postId.startsWith('https://'))) {
+      return postId
+    }
+    
+    // Если есть и channelId, и postId, формируем ссылку
+    if (channelId && postId) {
+      const cleanChannelId = channelId.replace(/^@/, '')
+      return `https://t.me/${cleanChannelId}/${postId}`
+    }
+    
+    // Если только channelId, возвращаем ссылку на канал
+    if (channelId) {
+      return getChannelLink(channelId)
+    }
+    
+    return null
+}
+
 interface Task {
   id: number
   title: string
@@ -34,7 +55,7 @@ interface Task {
   fiat_currency?: string
   telegram_channel_id?: string
   comment_instruction?: string
-  telegram_post_id?: string
+  telegram_post_id?: string | number
 }
 
 
@@ -122,7 +143,7 @@ export default function TaskDetail() {
         }
         return
       } else if (task.task_type === 'comment') {
-        const postLink = task.telegram_post_id || task.telegram_channel_id
+        const postLink = getPostLink(task.telegram_channel_id, task.telegram_post_id)
         console.log('Comment task - post_id:', task.telegram_post_id, 'channel_id:', task.telegram_channel_id, 'postLink:', postLink)
         if (postLink) {
           console.log('Opening post link:', postLink)
@@ -160,7 +181,7 @@ export default function TaskDetail() {
         showSuccess('Задание начато! После проверки ботом средства будут зачислены на ваш баланс.')
         setTimeout(() => { navigate('/earn') }, 2000)
       } else if (task.task_type === 'comment') {
-        const postLink = task.telegram_post_id || task.telegram_channel_id
+        const postLink = getPostLink(task.telegram_channel_id, task.telegram_post_id)
         console.log('Starting comment task - post_id:', task.telegram_post_id, 'channel_id:', task.telegram_channel_id, 'postLink:', postLink)
         if (postLink) {
           console.log('Opening post link:', postLink)
@@ -192,7 +213,7 @@ export default function TaskDetail() {
             showSuccess('Задание уже начато. После проверки ботом средства будут зачислены.')
             setTimeout(() => { navigate('/earn') }, 2000)
           } else if (task.task_type === 'comment') {
-            const postLink = task.telegram_post_id || task.telegram_channel_id
+            const postLink = getPostLink(task.telegram_channel_id, task.telegram_post_id)
             console.log('Comment task - post_id:', task.telegram_post_id, 'channel_id:', task.telegram_channel_id, 'postLink:', postLink)
             if (postLink) {
               console.log('Opening post link:', postLink)
@@ -241,8 +262,7 @@ export default function TaskDetail() {
             showSuccess('Задание уже начато. После проверки ботом средства будут зачислены.')
             setTimeout(() => { navigate('/earn') }, 2000)
           } else if (task.task_type === 'comment') {
-            // Проверяем оба возможных поля для ссылки на пост
-            const postLink = task.telegram_post_id || task.telegram_channel_id
+            const postLink = getPostLink(task.telegram_channel_id, task.telegram_post_id)
             console.log('Comment task - post_id:', task.telegram_post_id, 'channel_id:', task.telegram_channel_id, 'postLink:', postLink)
             if (postLink) {
               console.log('Opening post link:', postLink)

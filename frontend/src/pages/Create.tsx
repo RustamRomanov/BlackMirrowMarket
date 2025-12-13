@@ -103,6 +103,30 @@ export default function Create() {
     }
   }
 
+  // Функция для парсинга ссылки на пост Telegram
+  function parseTelegramPostId(postLink: string | undefined): number | null {
+    if (!postLink) return null
+    
+    // Если это уже число (ID поста), возвращаем его
+    const numericId = parseInt(postLink)
+    if (!isNaN(numericId) && numericId > 0) {
+      return numericId
+    }
+    
+    // Парсим полную ссылку формата https://t.me/channel/123 или t.me/channel/123
+    const telegramLinkRegex = /(?:https?:\/\/)?(?:www\.)?t\.me\/([^\/]+)\/(\d+)/i
+    const match = postLink.match(telegramLinkRegex)
+    
+    if (match && match[2]) {
+      const postId = parseInt(match[2])
+      if (!isNaN(postId) && postId > 0) {
+        return postId
+      }
+    }
+    
+    return null
+  }
+
   async function handleCreateTask(formData: TaskFormData) {
     if (!user) {
       showError('Необходимо войти в систему')
@@ -111,6 +135,9 @@ export default function Create() {
 
     const priceInNanoTon = parseFloat(formData.price_per_slot_ton) * 10**9
     
+    // Парсим ссылку на пост, если она есть
+    const parsedPostId = formData.telegram_post_id ? parseTelegramPostId(formData.telegram_post_id) : null
+    
     try {
       const response = await axios.post(
         `${API_URL}/api/tasks/`,
@@ -118,7 +145,7 @@ export default function Create() {
           ...formData,
           price_per_slot_ton: priceInNanoTon.toString(),
           total_slots: parseInt(formData.total_slots),
-          telegram_post_id: formData.telegram_post_id ? parseInt(formData.telegram_post_id) : null,
+          telegram_post_id: parsedPostId,
           target_country: formData.target_country || null,
           target_gender: formData.target_gender === 'both' ? null : formData.target_gender,
           target_age_min: formData.target_age_min ? parseInt(formData.target_age_min) : null,
