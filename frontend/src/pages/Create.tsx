@@ -103,43 +103,15 @@ export default function Create() {
     }
   }
 
-  // Функция для парсинга ссылки на пост Telegram
-  // Возвращает объект с channelId, postId и полной ссылкой
-  function parseTelegramPostLink(postLink: string | undefined): { channelId: string, postId: number, fullLink: string } | null {
-    if (!postLink) return null
+  // Функция для проверки, что ссылка валидна (только публичные каналы)
+  function isValidTelegramPostLink(postLink: string | undefined): boolean {
+    if (!postLink) return false
     
     const trimmedLink = postLink.trim()
     
-    // Парсим приватные каналы/группы: https://t.me/c/3503023298/3
-    const privateChannelRegex = /^https?:\/\/(?:www\.)?t\.me\/c\/(\d+)\/(\d+)/i
-    let match = trimmedLink.match(privateChannelRegex)
-    
-    if (match && match[1] && match[2]) {
-      // Для приватных каналов сохраняем полную ссылку в channelId
-      return {
-        channelId: trimmedLink, // Полная ссылка для приватных каналов
-        postId: parseInt(match[2]),
-        fullLink: trimmedLink
-      }
-    }
-    
-    // Парсим публичные каналы: https://t.me/channel/123
-    const publicChannelRegex = /^https?:\/\/(?:www\.)?t\.me\/([^\/]+)\/(\d+)/i
-    match = trimmedLink.match(publicChannelRegex)
-    
-    if (match && match[1] && match[2]) {
-      const channelId = match[1]
-      const postId = parseInt(match[2])
-      if (!isNaN(postId) && postId > 0) {
-        return {
-          channelId: channelId,
-          postId: postId,
-          fullLink: trimmedLink
-        }
-      }
-    }
-    
-    return null
+    // Проверяем только публичные каналы: https://t.me/channel/123
+    const publicChannelRegex = /^https?:\/\/(?:www\.)?t\.me\/[^\/]+\/\d+/i
+    return publicChannelRegex.test(trimmedLink)
   }
 
   async function handleCreateTask(formData: TaskFormData) {
@@ -163,25 +135,30 @@ export default function Create() {
       telegram_id: user.telegram_id
     })
     
-    // Парсим ссылку на пост, если она есть
-    const parsedPostLink = formData.telegram_post_id ? parseTelegramPostLink(formData.telegram_post_id) : null
-    
-    // Проверяем, что ссылка на пост валидна (только для comment и view)
-    if ((formData.task_type === 'comment' || formData.task_type === 'view') && formData.telegram_post_id && !parsedPostLink) {
-      showError('Ссылка на пост должна быть из Telegram (https://t.me/channel/123)')
-      return
-    }
-    
-    // Подготавливаем данные для отправки
+    // Для заданий с комментариями просто сохраняем полную ссылку в telegram_channel_id
     let telegramPostId: number | null = null
     let telegramChannelId: string | null = formData.telegram_channel_id || null
     
-    if (parsedPostLink) {
-      telegramPostId = parsedPostLink.postId
-      // Для заданий с комментариями сохраняем channelId из ссылки на пост
-      // Если это приватный канал, в channelId будет полная ссылка
-      if (formData.task_type === 'comment' || formData.task_type === 'view') {
-        telegramChannelId = parsedPostLink.channelId
+    if ((formData.task_type === 'comment' || formData.task_type === 'view') && formData.telegram_post_id) {
+      const postLink = formData.telegram_post_id.trim()
+      
+      // Проверяем, что это валидная ссылка на публичный канал
+      if (!isValidTelegramPostLink(postLink)) {
+        showError('Ссылка на пост должна быть из Telegram (https://t.me/channel/123)')
+        return
+      }
+      
+      // Сохраняем полную ссылку в telegram_channel_id для заданий с комментариями
+      telegramChannelId = postLink
+      
+      // Извлекаем postId для сохранения в telegram_post_id (опционально, для совместимости)
+      const match = postLink.match(/\/\d+$/i)
+      if (match) {
+        const postIdStr = match[0].replace('/', '')
+        const postId = parseInt(postIdStr)
+        if (!isNaN(postId) && postId > 0) {
+          telegramPostId = postId
+        }
       }
     }
     
