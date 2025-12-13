@@ -271,10 +271,14 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
 
     setSubmitting(true)
     try {
+      console.log('[CreateTaskModal] Submitting form data:', submissionData)
       await onSubmit(submissionData)
+      console.log('[CreateTaskModal] Task submitted successfully')
       onClose()
     } catch (error) {
-      // Ошибка обрабатывается в родительском компоненте
+      console.error('[CreateTaskModal] Error in onSubmit:', error)
+      // Пробрасываем ошибку дальше, чтобы её обработал родительский компонент
+      throw error
     } finally {
       setSubmitting(false)
     }

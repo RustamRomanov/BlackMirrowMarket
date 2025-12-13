@@ -135,7 +135,10 @@ export default function Create() {
   }
 
   async function handleCreateTask(formData: TaskFormData) {
+    console.log('[CREATE TASK] handleCreateTask called with:', formData)
+    
     if (!user) {
+      console.error('[CREATE TASK] No user found')
       showError('Необходимо войти в систему')
       return
     }
@@ -144,11 +147,12 @@ export default function Create() {
     // Бэкенд ожидает цену в TON и сам конвертирует в нано-TON
     const priceInTon = parseFloat(formData.price_per_slot_ton) || 0
     
-    console.log('[CREATE TASK] Form data:', {
+    console.log('[CREATE TASK] Form data processed:', {
       price_per_slot_ton: formData.price_per_slot_ton,
       priceInTon: priceInTon,
       total_slots: formData.total_slots,
-      task_type: formData.task_type
+      task_type: formData.task_type,
+      telegram_id: user.telegram_id
     })
     
     // Парсим ссылку на пост, если она есть
@@ -160,19 +164,25 @@ export default function Create() {
       return
     }
     
+    const requestData = {
+      ...formData,
+      price_per_slot_ton: priceInTon.toString(), // Отправляем в TON, бэкенд сам конвертирует в нано-TON
+      total_slots: parseInt(formData.total_slots),
+      telegram_post_id: parsedPostId,
+      target_country: formData.target_country || null,
+      target_gender: formData.target_gender === 'both' ? null : formData.target_gender,
+      target_age_min: formData.target_age_min ? parseInt(formData.target_age_min) : null,
+      target_age_max: formData.target_age_max ? parseInt(formData.target_age_max) : null
+    }
+    
+    console.log('[CREATE TASK] Sending request to:', `${API_URL}/api/tasks/`)
+    console.log('[CREATE TASK] Request data:', requestData)
+    console.log('[CREATE TASK] Request params:', { telegram_id: user.telegram_id })
+    
     try {
       const response = await axios.post(
         `${API_URL}/api/tasks/`,
-        {
-          ...formData,
-          price_per_slot_ton: priceInTon.toString(), // Отправляем в TON, бэкенд сам конвертирует в нано-TON
-          total_slots: parseInt(formData.total_slots),
-          telegram_post_id: parsedPostId,
-          target_country: formData.target_country || null,
-          target_gender: formData.target_gender === 'both' ? null : formData.target_gender,
-          target_age_min: formData.target_age_min ? parseInt(formData.target_age_min) : null,
-          target_age_max: formData.target_age_max ? parseInt(formData.target_age_max) : null
-        },
+        requestData,
         {
           params: { telegram_id: user.telegram_id }
         }
