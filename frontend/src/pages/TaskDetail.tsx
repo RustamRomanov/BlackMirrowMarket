@@ -122,15 +122,17 @@ export default function TaskDetail() {
             }
             showSuccess('Задание уже начато. После проверки ботом средства будут зачислены.')
             setTimeout(() => { navigate('/earn') }, 2000)
-          } else if (task.task_type === \'comment\') {// Проверяем оба возможных поля для ссылки на пост
-        const postLink = task.telegram_post_id || task.telegram_channel_id
-        console.log('Comment task - post_id:', task.telegram_post_id, 'channel_id:', task.telegram_channel_id, 'postLink:', postLink)
-        if (postLink) {
-          console.log('Opening post link:', postLink)
-          openTelegramLink(postLink)
-        } else {
-          console.error('No post link found! post_id:', task.telegram_post_id, 'channel_id:', task.telegram_channel_id)
-          showError('Ссылка на пост не найдена')
+          } else if (task.task_type === 'comment') {
+            // Проверяем оба возможных поля для ссылки на пост
+            const postLink = task.telegram_post_id || task.telegram_channel_id
+            console.log('Comment task - post_id:', task.telegram_post_id, 'channel_id:', task.telegram_channel_id, 'postLink:', postLink)
+            if (postLink) {
+              console.log('Opening post link:', postLink)
+              openTelegramLink(postLink)
+            } else {
+              console.error('No post link found! post_id:', task.telegram_post_id, 'channel_id:', task.telegram_channel_id)
+              showError('Ссылка на пост не найдена')
+            }
           setProcessing(false)
           return
         }
@@ -174,15 +176,17 @@ export default function TaskDetail() {
             }
             showSuccess('Задание уже начато. После проверки ботом средства будут зачислены.')
             setTimeout(() => { navigate('/earn') }, 2000)
-          } else if (task.task_type === \'comment\') {// Проверяем оба возможных поля для ссылки на пост
-        const postLink = task.telegram_post_id || task.telegram_channel_id
-        console.log('Comment task - post_id:', task.telegram_post_id, 'channel_id:', task.telegram_channel_id, 'postLink:', postLink)
-        if (postLink) {
-          console.log('Opening post link:', postLink)
-          openTelegramLink(postLink)
-        } else {
-          console.error('No post link found! post_id:', task.telegram_post_id, 'channel_id:', task.telegram_channel_id)
-          showError('Ссылка на пост не найдена')
+          } else if (task.task_type === 'comment') {
+            // Проверяем оба возможных поля для ссылки на пост
+            const postLink = task.telegram_post_id || task.telegram_channel_id
+            console.log('Comment task - post_id:', task.telegram_post_id, 'channel_id:', task.telegram_channel_id, 'postLink:', postLink)
+            if (postLink) {
+              console.log('Opening post link:', postLink)
+              openTelegramLink(postLink)
+            } else {
+              console.error('No post link found! post_id:', task.telegram_post_id, 'channel_id:', task.telegram_channel_id)
+              showError('Ссылка на пост не найдена')
+            }
           setProcessing(false)
           return
         }
