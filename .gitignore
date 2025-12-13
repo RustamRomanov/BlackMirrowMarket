@@ -62,3 +62,5 @@ dist-ssr/
 secrets/
 *.pem
 *.key
+*.session
+*.session-journal
