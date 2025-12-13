@@ -75,8 +75,9 @@ async def get_tasks(
     if balance and balance.ton_active_balance < 0:
         return []  # Заблокирован доступ при отрицательном балансе
     
-    # Получаем курс валют
+    # Получаем курс валют и валюту пользователя
     fiat_rate = float(balance.last_fiat_rate) if balance and balance.last_fiat_rate else 250.0
+    fiat_currency = balance.fiat_currency if balance and balance.fiat_currency else 'RUB'
     
     # Исключаем тестового пользователя (telegram_id=0) - это примеры заданий
     test_creator = db.query(models.User).filter(models.User.telegram_id == 0).first()
