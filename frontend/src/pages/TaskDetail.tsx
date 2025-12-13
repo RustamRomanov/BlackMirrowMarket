@@ -39,13 +39,31 @@ interface Task {
 
 // Функция для открытия ссылки через Telegram WebApp API
 function openTelegramLink(url: string) {
-  if (window.Telegram?.WebApp?.openLink) {
-    window.Telegram.WebApp.openLink(url)
-  } else if (WebApp?.openLink) {
-    WebApp.openLink(url)
+  if (!url) {
+    console.error('URL is empty!')
+    return
+  }
+  
+  console.log('Opening link:', url)
+  
+  // Проверяем наличие Telegram WebApp API
+  const tg = (window as any).Telegram?.WebApp
+  if (tg) {
+    console.log('Using Telegram WebApp API')
+    // Для Telegram-ссылок используем openTelegramLink, для остальных - openLink
+    if (url.startsWith('https://t.me/') || url.startsWith('http://t.me/')) {
+      tg.openTelegramLink(url)
+    } else {
+      tg.openLink(url)
+    }
   } else {
+    console.log('Telegram WebApp not available, using window.open')
     // Fallback на обычный window.open
-    window.open(url, '_blank')
+    const newWindow = window.open(url, '_blank')
+    if (!newWindow) {
+      // Если popup заблокирован, пробуем через location
+      window.location.href = url
+    }
   }
 }
 
@@ -98,11 +116,13 @@ export default function TaskDetail() {
       if (task.task_type === 'subscription') {
         const channelLink = getChannelLink(task.telegram_channel_id)
         if (channelLink) {
+          console.log('Opening channel link:', channelLink)
           openTelegramLink(channelLink)
         }
         return
       } else if (task.task_type === 'comment') {
         if (task.telegram_post_id) {
+          console.log('Opening post link:', task.telegram_post_id)
           openTelegramLink(task.telegram_post_id)
         }
         return
@@ -117,6 +137,7 @@ export default function TaskDetail() {
         })
         const channelLink = getChannelLink(task.telegram_channel_id)
         if (channelLink) {
+          console.log('Opening channel link:', channelLink)
           openTelegramLink(channelLink)
         }
         showSuccess('Задание выполнено! Средства зачислены на ваш баланс.')
@@ -127,12 +148,14 @@ export default function TaskDetail() {
         })
         const channelLink = getChannelLink(task.telegram_channel_id)
         if (channelLink) {
+          console.log('Opening channel link:', channelLink)
           openTelegramLink(channelLink)
         }
         setShowModal(true)
       } else if (task.task_type === 'comment') {
         // СНАЧАЛА открываем ссылку на пост (до всех async операций)
         if (task.telegram_post_id) {
+          console.log('Opening post link:', task.telegram_post_id)
           openTelegramLink(task.telegram_post_id)
         }
         // Затем создаем UserTask
@@ -152,12 +175,14 @@ export default function TaskDetail() {
           if (task.task_type === 'subscription') {
             const channelLink = getChannelLink(task.telegram_channel_id)
             if (channelLink) {
-              openTelegramLink(channelLink)
+          console.log('Opening channel link:', channelLink)
+          openTelegramLink(channelLink)
             }
             setShowModal(true)
           } else if (task.task_type === 'comment') {
             if (task.telegram_post_id) {
-              openTelegramLink(task.telegram_post_id)
+          console.log('Opening post link:', task.telegram_post_id)
+          openTelegramLink(task.telegram_post_id)
             }
             showSuccess('Задание уже начато. После проверки ботом средства будут зачислены.')
             setTimeout(() => { navigate('/earn') }, 2000)
@@ -332,7 +357,8 @@ export default function TaskDetail() {
               <button className="modal-complete" onClick={task.task_type === 'subscription' ? () => {
                 const channelLink = getChannelLink(task.telegram_channel_id)
                 if (channelLink) {
-                  openTelegramLink(channelLink)
+          console.log('Opening channel link:', channelLink)
+          openTelegramLink(channelLink)
                 }
               } :  handleComplete} disabled={processing}>
                 {processing ? 'Отправка...' : task.task_type === 'subscription' ? 'Подписаться' : 'Подтвердить выполнение'}
