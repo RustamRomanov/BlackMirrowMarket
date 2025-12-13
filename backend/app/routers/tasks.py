@@ -209,6 +209,7 @@ async def get_task(task_id: int, db: Session = Depends(get_db)):
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+    print(f"[GET TASK] Task {task_id} - telegram_channel_id={task.telegram_channel_id}, telegram_post_id={task.telegram_post_id}, task_type={task.task_type}")
     return task
 
 @router.post("/", response_model=schemas.TaskResponse)
@@ -219,6 +220,7 @@ async def create_task(task: schemas.TaskCreate, telegram_id: int, db: Session = 
     """
     try:
         print(f"[CREATE TASK] Received request: telegram_id={telegram_id}, task_type={task.task_type}, price={task.price_per_slot_ton}, slots={task.total_slots}")
+        print(f"[CREATE TASK] telegram_channel_id={task.telegram_channel_id}, telegram_post_id={task.telegram_post_id}")
     except Exception as e:
         print(f"[CREATE TASK] Error logging request: {e}")
     
@@ -271,6 +273,7 @@ async def create_task(task: schemas.TaskCreate, telegram_id: int, db: Session = 
     task_dict['price_per_slot_ton'] = str(int(ton_to_nano(price_per_slot_ton)))
     
     # Создаем задание
+    print(f"[CREATE TASK] Creating task with telegram_channel_id={task_dict.get('telegram_channel_id')}, telegram_post_id={task_dict.get('telegram_post_id')}")
     db_task = models.Task(creator_id=user.id, **task_dict)
     db.add(db_task)
     
@@ -282,6 +285,7 @@ async def create_task(task: schemas.TaskCreate, telegram_id: int, db: Session = 
     new_balance_ton = nano_to_ton(Decimal(balance.ton_active_balance))
     print(f"[CREATE TASK] Balance after: {new_balance_ton} TON")
     print(f"[CREATE TASK] Task {db_task.id} created successfully")
+    print(f"[CREATE TASK] Saved task - telegram_channel_id={db_task.telegram_channel_id}, telegram_post_id={db_task.telegram_post_id}")
     
     return db_task
 
