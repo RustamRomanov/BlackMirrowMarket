@@ -200,6 +200,7 @@ export default function Create() {
     console.log('[CREATE TASK] Sending request to:', `${API_URL}/api/tasks/`)
     console.log('[CREATE TASK] Request data:', requestData)
     console.log('[CREATE TASK] Request params:', { telegram_id: user.telegram_id })
+    console.log('[CREATE TASK] For comment/view task - telegram_channel_id:', telegramChannelId, 'telegram_post_id:', telegramPostId)
     
     try {
       const response = await axios.post(

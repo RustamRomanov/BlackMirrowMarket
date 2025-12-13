@@ -279,13 +279,14 @@ export default function TaskDetail() {
             showSuccess('Задание уже начато. После проверки ботом средства будут зачислены.')
             setTimeout(() => { navigate('/earn') }, 2000)
           } else if (task.task_type === 'comment') {
-            const postLink = getPostLink(task.telegram_channel_id, task.telegram_post_id)
-            console.log('Comment task - post_id:', task.telegram_post_id, 'channel_id:', task.telegram_channel_id, 'postLink:', postLink)
+            // Для комментариев ссылка должна быть в telegram_channel_id
+            const postLink = task.telegram_channel_id || getPostLink(task.telegram_channel_id, task.telegram_post_id)
+            console.log('[TaskDetail] Comment task (handleComplete error) - postLink:', postLink)
             if (postLink) {
-              console.log('Opening post link:', postLink)
+              console.log('[TaskDetail] Opening post link:', postLink)
               openTelegramLink(postLink)
             } else {
-              console.error('No post link found! post_id:', task.telegram_post_id, 'channel_id:', task.telegram_channel_id)
+              console.error('[TaskDetail] No post link found! channel_id:', task.telegram_channel_id)
               showError('Ссылка на пост не найдена')
             }
           }
