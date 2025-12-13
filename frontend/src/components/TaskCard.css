@@ -4,12 +4,12 @@
   flex-direction: column;
   background: white;
   border-radius: 12px;
-  padding: 12px 14px;
+  padding: 10px 14px; /* Уменьшен верхний отступ */
   padding-bottom: 18px; /* Увеличен отступ снизу */
   
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   transition: transform 0.2s, box-shadow 0.2s;
-  gap: 8px;
+  gap: 6px; /* Уменьшен gap между элементами */
   animation: slideInUp 0.3s ease-out;
   animation-fill-mode: both;
   overflow: hidden;
@@ -54,7 +54,8 @@
   justify-content: space-between;
   position: relative;
   z-index: 1;
-  gap: 8px;
+  gap: 6px; /* Уменьшен gap между элементами */
+  margin-top: -2px; /* Поднято выше к верхнему краю */
   min-height: 18px;
 }
 
@@ -88,7 +89,8 @@
   z-index: 1;
   gap: 12px;
   min-height: 40px;
-  margin-bottom: -14px; /* Поднята выше */
+  margin-top: -2px; /* Поднято описание выше */
+  margin-bottom: -12px; /* Кнопка отцентрована относительно верхнего и нижнего края */
   margin-bottom: -2px;
 }
 
@@ -99,7 +101,7 @@
   margin: 0;
   flex: 1;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3; /* Увеличено до 3 строк */
   -webkit-box-orient: vertical;
   overflow: hidden;
   min-width: 0;
