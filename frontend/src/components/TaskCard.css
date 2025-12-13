@@ -81,14 +81,14 @@
 /* Строка 2-3: Описание + Кнопка */
 .task-row-2-3 {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   position: relative;
   z-index: 1;
   gap: 12px;
   min-height: 40px;
   flex: 1;
-  margin-bottom: -5px;
+  margin-bottom: 8px;
 }
 
 .task-description {
