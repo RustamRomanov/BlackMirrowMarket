@@ -299,6 +299,7 @@ async def startup_event():
     
     print("🔄 Запуск фоновых задач...")
     asyncio.create_task(update_ton_transactions_periodically())
-    asyncio.create_task(check_deposits_periodically())    print("✅ Фоновые задачи запущены")
+    asyncio.create_task(check_deposits_periodically())
+    print("✅ Фоновые задачи запущены")
 
 
