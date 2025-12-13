@@ -97,6 +97,7 @@ async def get_tasks(
     )
     
     # Исключаем примеры заданий (созданные тестовым пользователем)
+    # Исключаем примеры заданий (созданные тестовым пользователем)
     if test_creator_id:
         query = query.filter(models.Task.creator_id != test_creator_id)
     
@@ -144,6 +145,9 @@ async def get_tasks(
         if balance.subscriptions_used_24h >= balance.subscription_limit_24h:
             query = query.filter(models.Task.task_type != models.TaskType.SUBSCRIPTION)
     
+    # Логируем количество заданий после всех фильтров
+    tasks_before_order = query.all()
+    print(f"[DEBUG] Tasks after all filters (before ordering): {len(tasks_before_order)}")
     tasks = query.order_by(models.Task.price_per_slot_ton.desc()).all()
     
     print(f"[DEBUG] User profile: age={user.age}, gender={user.gender}, country={user.country}")
