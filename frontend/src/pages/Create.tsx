@@ -140,7 +140,9 @@ export default function Create() {
       return
     }
 
-    const priceInNanoTon = parseFloat(formData.price_per_slot_ton) * 10**9
+    // formData.price_per_slot_ton уже содержит цену в TON (после конвертации из фиатной валюты в CreateTaskModal)
+    // Бэкенд ожидает цену в TON и сам конвертирует в нано-TON
+    const priceInTon = parseFloat(formData.price_per_slot_ton) || 0
     
     // Парсим ссылку на пост, если она есть
     const parsedPostId = formData.telegram_post_id ? parseTelegramPostId(formData.telegram_post_id) : null
@@ -156,7 +158,7 @@ export default function Create() {
         `${API_URL}/api/tasks/`,
         {
           ...formData,
-          price_per_slot_ton: priceInNanoTon.toString(),
+          price_per_slot_ton: priceInTon.toString(), // Отправляем в TON, бэкенд сам конвертирует в нано-TON
           total_slots: parseInt(formData.total_slots),
           telegram_post_id: parsedPostId,
           target_country: formData.target_country || null,
