@@ -100,6 +100,13 @@ export default function TaskDetail() {
         }
         setShowModal(true)
       } else if (task.task_type === 'comment') {
+        await axios.post(`${API_URL}/api/tasks/${task.id}/start`, null, {
+          params: { telegram_id: user.telegram_id }
+        })
+        // Открываем ссылку на пост
+        if (task.telegram_post_id) {
+          window.open(task.telegram_post_id, '_blank')
+        }
         setShowModal(true)
       }
     } catch (error: any) {
@@ -171,7 +178,7 @@ export default function TaskDetail() {
     <div className="task-detail-page">
       <div className="task-detail-card">
         <div className="task-header">
-          {task.task_type !== 'subscription' && (
+          {task.task_type !== 'subscription' && task.task_type !== 'comment' && (
           <div className="task-type-badge">
             {task.task_type === 'comment' && <MessageSquare size={16} color="#2196F3" />}
             {task.task_type === 'view' && <Eye size={16} color="#FF9800" />}
@@ -185,11 +192,11 @@ export default function TaskDetail() {
           </div>
         )}
           <div className="task-title-block">
-            <h1 className={task.task_type === "subscription" ? "task-title-small" : ""}>{task.title}</h1>
+            <h1 className={(task.task_type === "subscription" || task.task_type === "comment") ? "task-title-small" : ""}>{task.title}</h1>
             {task.description && <p className="task-description-spaced">{task.description}</p>}
           </div>
         </div>
-        {task.task_type !== 'subscription' && (
+        {task.task_type !== 'subscription' && task.task_type !== 'comment' && (
           <div className="task-meta">
             <div className="meta-item">
               <span>Всего слотов</span>
@@ -226,7 +233,7 @@ export default function TaskDetail() {
           </ul>
         </div>
 
-        {task.task_type !== "subscription" && (
+        {task.task_type !== "subscription" && task.task_type !== "comment" && (
         <div className="task-price-large">
           <span className="price-label">Награда:</span>
           <span className="price-value">
@@ -241,7 +248,15 @@ export default function TaskDetail() {
             onClick={handleStart}
             disabled={processing}
           >
-            {processing ? 'Обработка...' : userTaskStarted ? (task.task_type === 'subscription' ? 'Перейти к каналу' : 'Продолжить') : (task.task_type === 'subscription' ? 'Подписаться' : 'Заработать')}
+            {processing ? 'Обработка...' : userTaskStarted ? (
+              task.task_type === 'subscription' ? 'Перейти к каналу' : 
+              task.task_type === 'comment' ? 'Перейти к посту' : 
+              'Продолжить'
+            ) : (
+              task.task_type === 'subscription' ? 'Подписаться' : 
+              task.task_type === 'comment' ? 'Оставить комментарий' : 
+              'Заработать'
+            )}
           </button>
         )}
       </div>
@@ -251,21 +266,15 @@ export default function TaskDetail() {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h2>{task.title}</h2>
             {task.task_type === 'comment' && (
-              <>
-                <div className="modal-instruction">
-                  <h3>Инструкция от заказчика:</h3>
-                  <p>{task.comment_instruction || 'Оставьте комментарий'}</p>
-                </div>
-                <div className="modal-rules">
-                  <h3>Правила приложения:</h3>
-                  <ul>
-                    <li>Комментарий должен соответствовать инструкции</li>
-                    <li>Запрещена ненормативная лексика</li>
-                    <li>Комментарий должен быть уникальным</li>
-                    <li>После оставления комментария средства будут зачислены после проверки</li>
-                  </ul>
-                </div>
-              </>
+              <div className="modal-rules">
+                <h3>Правила выполнения:</h3>
+                <ul>
+                  <li>Не публиковать оскорбительные и нарушающие правила телеграма сообщения.</li>
+                  <li>Нельзя удалять комментарий после публикации, иначе бан.</li>
+                  <li>За невыполнения правил - бан.</li>
+                  <li>Проверяйте пост, перед тем, как оставлять в нем сообщения. Не оставляйте комментарии под сомнительными постами.</li>
+                </ul>
+              </div>
             )}
             {task.task_type === 'subscription' && (
               <div className="modal-rules">
@@ -287,11 +296,15 @@ export default function TaskDetail() {
               <button className="modal-close" onClick={() => setShowModal(false)}>Закрыть</button>
               <button className="modal-complete" onClick={task.task_type === 'subscription' ? () => {
                 const channelLink = getChannelLink(task.telegram_channel_id)
-        if (channelLink) {
-          window.open(channelLink, '_blank')
+                if (channelLink) {
+                  window.open(channelLink, '_blank')
+                }
+              } : task.task_type === 'comment' ? () => {
+                if (task.telegram_post_id) {
+                  window.open(task.telegram_post_id, '_blank')
                 }
               } : handleComplete} disabled={processing}>
-                {processing ? 'Отправка...' : task.task_type === 'subscription' ? 'Подписаться' : 'Подтвердить выполнение'}
+                {processing ? 'Отправка...' : task.task_type === 'subscription' ? 'Подписаться' : task.task_type === 'comment' ? 'Оставить комментарий' : 'Подтвердить выполнение'}
               </button>
             </div>
           </div>
