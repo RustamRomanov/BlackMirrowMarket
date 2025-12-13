@@ -4,11 +4,11 @@
   flex-direction: column;
   background: white;
   border-radius: 12px;
-  padding: 12px 14px;
-  padding-bottom: 18px; /* Увеличен отступ снизу */
+  padding: 10px 14px;
+  padding-bottom: 12px;
   
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  transition: transform 0.2s, box-shadow 0.2s;
+  gap: 6px;
   gap: 8px;
   animation: slideInUp 0.3s ease-out;
   animation-fill-mode: both;
@@ -55,6 +55,7 @@
   position: relative;
   z-index: 1;
   gap: 8px;
+  margin-top: 0;
   min-height: 18px;
 }
 
@@ -88,9 +89,9 @@
   z-index: 1;
   gap: 12px;
   min-height: 40px;
-  margin-bottom: -8px; /* Кнопка отцентрована относительно верха и низа окна задания */
+  margin-bottom: -8px;
   flex: 1;
-  margin-bottom: -8px; /* Кнопка отцентрована относительно верха и низа окна задания */
+  margin-bottom: -8px;
 }
 
 .task-description {
@@ -114,7 +115,7 @@
   position: relative;
   z-index: 1;
   margin-top: 0;
-  margin-bottom: 0; /* Помещено к нижнему краю окна задания */
+  margin-bottom: 0;
 }
 
 .task-available-compact {
