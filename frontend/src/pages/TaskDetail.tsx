@@ -8,6 +8,21 @@ import './TaskDetail.css'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
+function getChannelLink(channelId: string | undefined): string | null {
+    if (!channelId) return null
+    
+    // Если это полная ссылка (http:// или https://), используем напрямую
+    if (channelId.startsWith('http://') || channelId.startsWith('https://')) {
+      return channelId
+    }
+    
+    // Если начинается с @, убираем его
+    const cleanId = channelId.replace(/^@/, '')
+    
+    // Формируем ссылку
+    return `https://t.me/${cleanId}`
+}
+
 interface Task {
   id: number
   title: string
@@ -68,8 +83,9 @@ export default function TaskDetail() {
         await axios.post(`${API_URL}/api/tasks/${task.id}/start`, null, {
           params: { telegram_id: user.telegram_id }
         })
-        if (task.telegram_channel_id) {
-          window.open(`https://t.me/${task.telegram_channel_id.replace('@', '')}`, '_blank')
+        const channelLink = getChannelLink(task.telegram_channel_id)
+        if (channelLink) {
+          window.open(channelLink, '_blank')
         }
         showSuccess('Задание выполнено! Средства зачислены на ваш баланс.')
         setTimeout(() => { navigate('/earn') }, 2000)
@@ -77,9 +93,9 @@ export default function TaskDetail() {
         await axios.post(`${API_URL}/api/tasks/${task.id}/start`, null, {
           params: { telegram_id: user.telegram_id }
         })
-        if (task.telegram_channel_id) {
-          const channelId = task.telegram_channel_id.replace('@', '')
-          window.open(`https://t.me/${channelId}`, '_blank')
+        const channelLink = getChannelLink(task.telegram_channel_id)
+        if (channelLink) {
+          window.open(channelLink, '_blank')
         }
         setShowModal(true)
       } else if (task.task_type === 'comment') {
@@ -209,9 +225,9 @@ export default function TaskDetail() {
           <button
             className="earn-button-large"
             onClick={task.task_type === 'subscription' ? () => {
-              if (task.telegram_channel_id) {
-                const channelId = task.telegram_channel_id.replace('@', '')
-                window.open(`https://t.me/${channelId}`, '_blank')
+              const channelLink = getChannelLink(task.telegram_channel_id)
+        if (channelLink) {
+          window.open(channelLink, '_blank')
               }
             } : handleStart}
             disabled={processing}
@@ -261,9 +277,9 @@ export default function TaskDetail() {
             <div className="modal-actions">
               <button className="modal-close" onClick={() => setShowModal(false)}>Закрыть</button>
               <button className="modal-complete" onClick={task.task_type === 'subscription' ? () => {
-                if (task.telegram_channel_id) {
-                  const channelId = task.telegram_channel_id.replace('@', '')
-                  window.open(`https://t.me/${channelId}`, '_blank')
+                const channelLink = getChannelLink(task.telegram_channel_id)
+        if (channelLink) {
+          window.open(channelLink, '_blank')
                 }
               } : handleComplete} disabled={processing}>
                 {processing ? 'Отправка...' : task.task_type === 'subscription' ? 'Подписаться' : 'Подтвердить выполнение'}
