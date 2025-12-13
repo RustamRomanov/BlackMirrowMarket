@@ -89,9 +89,7 @@
   z-index: 1;
   gap: 12px;
   margin-bottom: -14px; /* Кнопка поднята выше - посередине задания в правой части */
-  margin-bottom: -8px;
   flex: 1;
-  margin-bottom: -8px;
 }
 
 .task-description {
