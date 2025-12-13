@@ -5,6 +5,7 @@
   background: white;
   border-radius: 12px;
   padding: 12px 14px;
+  padding-bottom: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   transition: transform 0.2s, box-shadow 0.2s;
   gap: 8px;
@@ -60,7 +61,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -110,6 +111,7 @@
   position: relative;
   z-index: 1;
   min-height: 16px;
+  margin-top: -4px;
 }
 
 .task-available-compact {
@@ -126,7 +128,7 @@
 }
 
 .task-available-value-compact {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: #d32f2f;
 }
@@ -163,7 +165,7 @@
 }
 
 .earn-button-price-compact {
-  font-size: 22px;
+  font-size: 15px;
   font-weight: 700;
   line-height: 1.2;
   position: relative;
