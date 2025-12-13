@@ -13,7 +13,6 @@
   overflow: hidden;
   min-height: auto;
   max-height: 101px;
-
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
@@ -166,6 +165,7 @@
   min-height: 40px;
   white-space: nowrap;
   align-self: flex-end;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .earn-button-text-compact {
