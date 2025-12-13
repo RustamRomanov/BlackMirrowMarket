@@ -132,6 +132,12 @@ export default function Create() {
     // Парсим ссылку на пост, если она есть
     const parsedPostId = formData.telegram_post_id ? parseTelegramPostId(formData.telegram_post_id) : null
     
+    // Проверяем, что ссылка на пост валидна (только для comment и view)
+    if ((formData.task_type === 'comment' || formData.task_type === 'view') && formData.telegram_post_id && !parsedPostId) {
+      showError('Ссылка на пост должна быть из Telegram (https://t.me/channel/123)')
+      return
+    }
+    
     try {
       const response = await axios.post(
         `${API_URL}/api/tasks/`,
