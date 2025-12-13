@@ -185,6 +185,13 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
     
     const newErrors: Record<string, string> = {}
     
+    // Проверяем title (хотя есть дефолтное значение, но лучше проверить)
+    const titleTrim = formData.title.trim()
+    if (!titleTrim) {
+      // Не добавляем ошибку, так как есть дефолтное значение 'Задание'
+      console.log('[CreateTaskModal] Title is empty, will use default "Задание"')
+    }
+    
     const descTrim = formData.description.trim()
     if (!descTrim) {
       newErrors.description = 'Описание обязательно'
