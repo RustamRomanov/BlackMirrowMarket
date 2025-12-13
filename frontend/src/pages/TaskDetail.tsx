@@ -188,10 +188,10 @@ export default function TaskDetail() {
               </>
             )}
             {task.task_type === 'view' && (
-              <div className="modal-instruction">
-                <h3>Инструкция:</h3>
-                <p>Просмотрите публикацию.</p>
-              </div>
+              <>
+                <li>Откройте и просмотрите публикацию</li>
+                <li>Средства будут зачислены автоматически</li>
+              </>
             )}
             <div className="modal-actions">
               <button className="modal-close" onClick={() => setShowModal(false)}>Закрыть</button>
