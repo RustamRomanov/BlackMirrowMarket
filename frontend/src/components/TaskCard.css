@@ -12,7 +12,7 @@
   animation-fill-mode: both;
   overflow: hidden;
   min-height: auto;
-  max-height: 101px;
+  max-height: 96px;
 }
 
 .task-card-bg {
@@ -80,7 +80,7 @@
 /* Строка 2-3: Описание + Кнопка */
 .task-row-2-3 {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   position: relative;
   z-index: 1;
@@ -151,7 +151,7 @@
   min-width: 90px;
   min-height: 40px;
   white-space: nowrap;
-  
+  align-self: center;
 }
 
 .earn-button-text-compact {
