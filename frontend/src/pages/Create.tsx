@@ -197,19 +197,26 @@ export default function Create() {
         await loadMyTasks()
       }, 500)
     } catch (error: any) {
-      console.error('Error creating task:', error)
-      console.error('Error response:', error.response)
-      console.error('Error data:', error.response?.data)
-      console.log('[CREATE TASK] Form data sent:', {
-        price_per_slot_ton: priceInTon,
-        total_slots: formData.total_slots,
-        task_type: formData.task_type,
-        telegram_post_id: parsedPostId
-      })
+      console.error('[CREATE TASK] Error creating task:', error)
+      console.error('[CREATE TASK] Error response:', error.response)
+      console.error('[CREATE TASK] Error data:', error.response?.data)
+      console.error('[CREATE TASK] Error message:', error.message)
+      console.error('[CREATE TASK] Error stack:', error.stack)
       
-      // Показываем более детальное сообщение об ошибке
-      const errorMessage = error.response?.data?.detail || error.message || 'Ошибка при создании задания'
-      showError(errorMessage)
+      // Проверяем тип ошибки
+      if (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
+        console.error('[CREATE TASK] Network error - check API_URL:', API_URL)
+        showError('Ошибка сети. Проверьте подключение к интернету.')
+      } else if (error.response) {
+        // Ошибка от сервера
+        const errorMessage = error.response?.data?.detail || error.response?.data?.message || 'Ошибка при создании задания'
+        console.error('[CREATE TASK] Server error:', errorMessage)
+        showError(errorMessage)
+      } else {
+        // Другая ошибка
+        console.error('[CREATE TASK] Unknown error:', error)
+        showError(error.message || 'Ошибка при создании задания')
+      }
     }
   }
 

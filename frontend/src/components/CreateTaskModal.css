@@ -132,25 +132,26 @@
 
 .form-label {
   display: block;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   color: #333;
+  line-height: 1.3;
 }
 
 .form-input {
   width: 100%;
-  padding: 12px;
+  padding: 10px 12px;
   border: 1px solid #ddd;
   border-radius: 10px;
-  font-size: 16px;
+  font-size: 14px;
   font-family: inherit;
   transition: all 0.2s;
   background: white;
   color: #333;
   caret-color: #333;
-  min-height: 44px;
-  height: 44px;
+  min-height: 40px;
+  height: 40px;
   box-sizing: border-box;
 }
 
@@ -211,24 +212,29 @@ textarea.form-input {
 
 .form-row-pricing {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 12px;
   margin-bottom: 12px;
+  align-items: end;
 }
 
 .budget-group {
-  grid-column: 1 / -1;
+  grid-column: auto;
 }
 
 .budget-display {
-  padding: 12px;
+  padding: 10px 12px;
   background: white;
   border-radius: 8px;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: #333;
   border: 1px solid #e0e0e0;
   text-align: center;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .average-price-hint {
