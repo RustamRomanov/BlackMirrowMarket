@@ -176,26 +176,38 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
   }
 
   function validateForm(): boolean {
+    console.log('[CreateTaskModal] Starting validation...')
+    console.log('[CreateTaskModal] Form data:', formData)
+    console.log('[CreateTaskModal] Price input:', priceInput, 'Price in TON:', priceInTon)
+    console.log('[CreateTaskModal] Slots:', slots)
+    console.log('[CreateTaskModal] User balance:', userBalance)
+    console.log('[CreateTaskModal] Campaign budget in TON:', campaignBudgetInTon)
+    
     const newErrors: Record<string, string> = {}
     
     const descTrim = formData.description.trim()
     if (!descTrim) {
       newErrors.description = 'Описание обязательно'
+      console.log('[CreateTaskModal] Validation error: description is empty')
     } else {
       const words = descTrim.split(/\s+/).filter(Boolean)
       if (words.length < 3) {
         newErrors.description = 'Минимум 3 слова'
+        console.log('[CreateTaskModal] Validation error: description has less than 3 words')
       }
     }
     
     if (!formData.price_per_slot_ton || priceInput <= 0) {
       newErrors.price_per_slot_ton = 'Цена должна быть больше 0'
+      console.log('[CreateTaskModal] Validation error: price is invalid', formData.price_per_slot_ton, priceInput)
     } else if (priceInput < 0.01) {
       newErrors.price_per_slot_ton = 'Цена должна быть не менее 0.01'
+      console.log('[CreateTaskModal] Validation error: price is less than 0.01')
     }
     
     if (!formData.total_slots || slots < 1) {
       newErrors.total_slots = 'Количество слотов должно быть не менее 1'
+      console.log('[CreateTaskModal] Validation error: slots is invalid', formData.total_slots, slots)
     }
 
     // Проверяем баланс в TON (конвертируем введенную цену в TON если нужно)
@@ -208,11 +220,13 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
         ? safeBudgetInTon.toFixed(4) + ' TON'
         : (isFinite(campaignBudgetDisplay) ? campaignBudgetDisplay.toFixed(2) : '0.00') + ` ${fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'}`
       newErrors.total_slots = `Недостаточно средств. Ваш баланс: ${balanceDisplay}, требуется: ${budgetDisplay}`
+      console.log('[CreateTaskModal] Validation error: insufficient funds', safeBudgetInTon, '>', userBalance)
     }
     
     
     if ((formData.task_type === 'comment' || formData.task_type === 'view') && !formData.telegram_post_id) {
       newErrors.telegram_post_id = 'Ссылка поста обязательна'
+      console.log('[CreateTaskModal] Validation error: post link is required for', formData.task_type)
     } else if ((formData.task_type === 'comment' || formData.task_type === 'view') && formData.telegram_post_id) {
       const postId = formData.telegram_post_id.trim()
       
@@ -225,16 +239,22 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
       
       if (!isPublicChannel && !isPrivateChannel) {
         newErrors.telegram_post_id = 'Ссылка должна быть из Telegram (https://t.me/channel/123 или https://t.me/c/ID/123)'
+        console.log('[CreateTaskModal] Validation error: invalid post link format', postId)
       }
     }
     
     if (formData.task_type === 'subscription' && !formData.telegram_channel_id) {
       newErrors.telegram_channel_id = 'Ссылка на канал обязательна'
+      console.log('[CreateTaskModal] Validation error: channel link is required for subscription')
     }
 
     if (!genderSelection.male && !genderSelection.female) {
       newErrors.target_gender = 'Выберите хотя бы один пол'
+      console.log('[CreateTaskModal] Validation error: gender not selected')
     }
+    
+    console.log('[CreateTaskModal] Validation result:', Object.keys(newErrors).length === 0 ? 'PASSED' : 'FAILED')
+    console.log('[CreateTaskModal] Validation errors:', newErrors)
     
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -242,10 +262,14 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    console.log('[CreateTaskModal] Form submitted')
     
     if (!validateForm()) {
+      console.log('[CreateTaskModal] Validation failed, not submitting')
       return
     }
+    
+    console.log('[CreateTaskModal] Validation passed, proceeding with submission')
 
     // Определяем target_gender на основе чекбоксов
     let finalGender = 'both'
