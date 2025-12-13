@@ -97,19 +97,17 @@ async def get_tasks(
     )
     
     # Исключаем примеры заданий (созданные тестовым пользователем)
-    # Исключаем примеры заданий (созданные тестовым пользователем) - ВРЕМЕННО ОТКЛЮЧЕНО
-    # if test_creator_id:
-    #     query = query.filter(models.Task.creator_id != test_creator_id)
-    print(f"[DEBUG] Test creator ID: {test_creator_id}")
+    # Исключаем примеры заданий (созданные тестовым пользователем)
+    if test_creator_id:
+        query = query.filter(models.Task.creator_id != test_creator_id)
     
-    # Дополнительная проверка: исключаем задания, созданные пользователями с telegram_id <= 0 - ВРЕМЕННО ОТКЛЮЧЕНО
-    # 
+    # Дополнительная проверка: исключаем задания, созданные пользователями с telegram_id <= 0
     # (на случай, если есть другие тестовые пользователи)
-    # test_users = db.query(models.User).filter(models.User.telegram_id <= 0).all()
-    # if test_users:
-    #     test_user_ids = [u.id for u in test_users]
-    #     query = query.filter(~models.Task.creator_id.in_(test_user_ids))
-    print(f"[DEBUG] Temporarily disabled test user filters")
+    # (на случай, если есть другие тестовые пользователи)
+    test_users = db.query(models.User).filter(models.User.telegram_id <= 0).all()
+    if test_users:
+        test_user_ids = [u.id for u in test_users]
+        query = query.filter(~models.Task.creator_id.in_(test_user_ids))
     
     # Фильтр по типу задания
     if task_type:
