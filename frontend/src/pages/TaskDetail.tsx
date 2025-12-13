@@ -26,9 +26,9 @@ function getChannelLink(channelId: string | undefined): string | null {
 
 // Функция для формирования ссылки на пост Telegram
 function getPostLink(channelId: string | undefined, postId: string | number | undefined): string | null {
-    // Если postId - это уже полная ссылка, используем её
-    if (postId && typeof postId === 'string' && (postId.startsWith('http://') || postId.startsWith('https://'))) {
-      return postId
+    // Если channelId - это уже полная ссылка (для приватных каналов), используем её
+    if (channelId && (channelId.startsWith('http://') || channelId.startsWith('https://'))) {
+      return channelId
     }
     
     // Если есть и channelId, и postId, формируем ссылку
