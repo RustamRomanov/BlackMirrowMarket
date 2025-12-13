@@ -356,15 +356,67 @@ export default function TaskDetail() {
       await axios.post(`${API_URL}/api/tasks/${task.id}/complete`, null, {
         params: { telegram_id: user.telegram_id }
       })
-      showSuccess('Задание выполнено! Средства зачислены на ваш баланс.')
       setShowModal(false)
       setShowCompletionModal(true)
-      setTimeout(() => { navigate('/earn') }, 1500)
+      // Не перенаправляем сразу, показываем модальное окно с кнопкой "Пожаловаться"
     } catch (error: any) {
       console.error('Error completing task:', error)
       showError(error.response?.data?.detail || 'Ошибка при завершении задания')
     } finally {
       setProcessing(false)
+    }
+  }
+
+  async function handleSubscribe() {
+    if (!user || !task) return
+    setShowChannelPreview(false)
+    setProcessing(true)
+    try {
+      await axios.post(`${API_URL}/api/tasks/${task.id}/start`, null, {
+        params: { telegram_id: user.telegram_id }
+      })
+      const channelLink = getChannelLink(task.telegram_channel_id)
+      if (channelLink) {
+        console.log('Opening channel link:', channelLink)
+        openTelegramLink(channelLink)
+      }
+      showSuccess('Задание начато! Средства переведены в эскроу. После проверки ботом они будут зачислены на ваш баланс.')
+      navigate('/earn')
+    } catch (error: any) {
+      console.error('Error starting subscription task:', error)
+      if (error.response?.data?.detail) {
+        const errorDetail = error.response.data.detail
+        if (errorDetail === 'Task already started') {
+          setUserTaskStarted(true)
+          const channelLink = getChannelLink(task.telegram_channel_id)
+          if (channelLink) {
+            openTelegramLink(channelLink)
+          }
+          showSuccess('Задание уже начато. После проверки ботом средства будут зачислены.')
+          setTimeout(() => { navigate('/earn') }, 2000)
+        } else {
+          showError(errorDetail)
+        }
+      } else {
+        showError('Ошибка при старте задания')
+      }
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  async function handleReportTask() {
+    if (!user || !task) return
+    try {
+      await axios.post(`${API_URL}/api/tasks/${task.id}/report`, null, {
+        params: { telegram_id: user.telegram_id }
+      })
+      showSuccess('Жалоба отправлена. Спасибо за обратную связь!')
+      setShowCompletionModal(false)
+      navigate('/earn')
+    } catch (error: any) {
+      console.error('Error reporting task:', error)
+      showError(error.response?.data?.detail || 'Ошибка при отправке жалобы')
     }
   }
 
