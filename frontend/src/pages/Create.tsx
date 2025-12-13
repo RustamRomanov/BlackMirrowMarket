@@ -325,8 +325,6 @@ export default function Create() {
         <CreateTaskModal
           onClose={() => setShowModal(false)}
           onSubmit={handleCreateTask}
-          fiatCurrency={fiatCurrency}
-          fiatRate={fiatRate}
         />
       )}
     </div>
