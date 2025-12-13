@@ -146,12 +146,10 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
 
 
   // Расчет бюджета и макс слотов
-  // Если валюта не TON, то пользователь вводит цену в выбранной валюте, нужно конвертировать в TON
+  // Пользователь всегда вводит цену в TON, показываем эквивалент в выбранной валюте в скобках
   const priceInput = parseFloat(formData.price_per_slot_ton) || 0
   const safeFiatRate = (fiatRate > 0 && isFinite(fiatRate)) ? fiatRate : 250 // Защита от деления на ноль и NaN/Infinity
-  const priceInTon = fiatCurrency === 'TON' 
-    ? priceInput 
-    : (safeFiatRate > 0 ? (priceInput / safeFiatRate) : 0) // Конвертируем из выбранной валюты в TON
+  const priceInTon = priceInput // Пользователь вводит в TON
   
   // Защита от NaN и Infinity
   const safePriceInTon = (isFinite(priceInTon) && priceInTon >= 0) ? priceInTon : 0
@@ -160,10 +158,9 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
   const campaignBudgetInTon = safePriceInTon * slots // Бюджет в TON
   const maxSlots = safePriceInTon > 0 ? Math.floor(userBalance / safePriceInTon) : 0
   
-  // Отображение бюджета в выбранной валюте
-  const campaignBudgetDisplay = fiatCurrency === 'TON' 
-    ? campaignBudgetInTon 
-    : (isFinite(campaignBudgetInTon * safeFiatRate) ? campaignBudgetInTon * safeFiatRate : 0)
+  // Эквивалент в выбранной валюте (для отображения)
+  const priceInFiat = safePriceInTon * safeFiatRate
+  const campaignBudgetInFiat = campaignBudgetInTon * safeFiatRate
 
   // Средняя стоимость за слот по типу задания
   const getAveragePrice = (taskType: string): string => {
@@ -217,15 +214,11 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
       console.log('[CreateTaskModal] Validation error: slots is invalid', formData.total_slots, slots)
     }
 
-    // Проверяем баланс в TON (конвертируем введенную цену в TON если нужно)
+    // Проверяем баланс в TON (пользователь вводит цену в TON)
     const safeBudgetInTon = isFinite(campaignBudgetInTon) ? campaignBudgetInTon : 0
     if (safeBudgetInTon > userBalance) {
-      const balanceDisplay = fiatCurrency === 'TON' 
-        ? userBalance.toFixed(4) + ' TON'
-        : (isFinite(userBalance * safeFiatRate) ? (userBalance * safeFiatRate).toFixed(2) : '0.00') + ` ${fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'}`
-      const budgetDisplay = fiatCurrency === 'TON'
-        ? safeBudgetInTon.toFixed(4) + ' TON'
-        : (isFinite(campaignBudgetDisplay) ? campaignBudgetDisplay.toFixed(2) : '0.00') + ` ${fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'}`
+      const balanceDisplay = userBalance.toFixed(4) + ' TON'
+      const budgetDisplay = safeBudgetInTon.toFixed(4) + ' TON'
       newErrors.total_slots = `Недостаточно средств. Ваш баланс: ${balanceDisplay}, требуется: ${budgetDisplay}`
       console.log('[CreateTaskModal] Validation error: insufficient funds', safeBudgetInTon, '>', userBalance)
     }
@@ -283,21 +276,17 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
     if (genderSelection.male && !genderSelection.female) finalGender = 'male'
     if (!genderSelection.male && genderSelection.female) finalGender = 'female'
 
-    // Конвертируем цену в TON если валюта не TON
-    const safeFiatRate = (fiatRate > 0 && isFinite(fiatRate)) ? fiatRate : 250 // Защита от деления на ноль и NaN/Infinity
+    // Пользователь вводит цену в TON, просто проверяем и отправляем
     const priceInputValue = parseFloat(formData.price_per_slot_ton) || 0
-    const priceInTon = fiatCurrency === 'TON' 
-      ? priceInputValue 
-      : (safeFiatRate > 0 ? (priceInputValue / safeFiatRate) : 0)
     
     // Защита от NaN и Infinity
-    const safePriceInTon = (isFinite(priceInTon) && priceInTon >= 0) ? priceInTon : 0
+    const safePriceInTon = (isFinite(priceInputValue) && priceInputValue >= 0) ? priceInputValue : 0
 
     const submissionData = {
       ...formData,
       title: formData.title.trim() || 'Задание',
       target_gender: finalGender,
-      price_per_slot_ton: safePriceInTon.toString() // Отправляем цену в TON
+      price_per_slot_ton: safePriceInTon.toString() // Отправляем цену в TON (пользователь ввел в TON)
     }
 
     setSubmitting(true)
@@ -371,12 +360,17 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
               {errors.description && <div className="form-error">{errors.description}</div>}
             </div>
 
-            {/* Цена, Слоты, Бюджет - новая логика */}
+            {/* Цена, Слоты, Бюджет - упрощенная логика: всегда в TON */}
             <div className="pricing-box">
               <div className="form-row-pricing">
                 <div className="form-field-group">
                   <label className="form-label">
-                    Стоимость слота ({fiatCurrency === 'TON' ? 'TON' : fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'})
+                    Стоимость слота (TON)
+                    {priceInFiat > 0 && (
+                      <span style={{ fontSize: '12px', color: '#666', marginLeft: '8px', fontWeight: 'normal' }}>
+                        ≈ {priceInFiat.toFixed(2)} {fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'}
+                      </span>
+                    )}
                   </label>
                   <input
                     type="number"
@@ -387,7 +381,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
                       if (errors.price_per_slot_ton) setErrors({ ...errors, price_per_slot_ton: '' })
                     }}
                     min="0.01"
-                    placeholder="" 
+                    placeholder="0.01" 
                     className={`form-input ${errors.price_per_slot_ton ? 'error' : ''}`}
                   />
                   {errors.price_per_slot_ton && <div className="form-error">{errors.price_per_slot_ton}</div>}
@@ -413,21 +407,31 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
 
                 <div className="form-field-group budget-group">
                   <label className="form-label">
-                    Бюджет кампании ({fiatCurrency === 'TON' ? 'TON' : fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'})
+                    Бюджет кампании
                   </label>
                   <div className="budget-display">
                     {campaignBudgetInTon > 0 
-                      ? (fiatCurrency === 'TON' 
-                          ? `${campaignBudgetInTon.toFixed(4)} TON`
-                          : `${isFinite(campaignBudgetDisplay) ? campaignBudgetDisplay.toFixed(2) : '0.00'} ${fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'}`)
-                      : `0 ${fiatCurrency === 'TON' ? 'TON' : fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'}`}
+                      ? (
+                        <>
+                          {campaignBudgetInTon.toFixed(4)} TON
+                          {campaignBudgetInFiat > 0 && (
+                            <span style={{ fontSize: '12px', color: '#666', marginLeft: '8px' }}>
+                              (≈ {campaignBudgetInFiat.toFixed(2)} {fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'})
+                            </span>
+                          )}
+                        </>
+                      )
+                      : '0 TON'}
                   </div>
                 </div>
               </div>
               <div className="average-price-hint">
-                Средняя стоимость за слот: {fiatCurrency === 'TON' 
-                  ? `${getAveragePrice(formData.task_type)} TON`
-                  : `${(parseFloat(getAveragePrice(formData.task_type)) * safeFiatRate).toFixed(2)} ${fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'} (${getAveragePrice(formData.task_type)} TON)`}
+                Средняя стоимость за слот: {getAveragePrice(formData.task_type)} TON
+                {safeFiatRate > 0 && (
+                  <span style={{ marginLeft: '8px', color: '#666' }}>
+                    (≈ {(parseFloat(getAveragePrice(formData.task_type)) * safeFiatRate).toFixed(2)} {fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : '₽'})
+                  </span>
+                )}
               </div>
             </div>
 
