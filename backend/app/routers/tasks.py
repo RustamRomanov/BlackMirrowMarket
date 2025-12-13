@@ -288,7 +288,14 @@ async def create_task(task: schemas.TaskCreate, telegram_id: int, db: Session = 
     new_balance_ton = nano_to_ton(Decimal(balance.ton_active_balance))
     print(f"[CREATE TASK] Balance after: {new_balance_ton} TON")
     print(f"[CREATE TASK] Task {db_task.id} created successfully")
-    print(f"[CREATE TASK] Saved task - telegram_channel_id={db_task.telegram_channel_id}, telegram_post_id={db_task.telegram_post_id}")
+    print(f"[CREATE TASK] Saved task - telegram_channel_id={db_task.telegram_channel_id}, telegram_post_id={db_task.telegram_post_id}, task_type={db_task.task_type}")
+    
+    # Убеждаемся, что для комментариев ссылка сохранена
+    if db_task.task_type == models.TaskType.COMMENT:
+        if not db_task.telegram_channel_id:
+            print(f"[CREATE TASK] WARNING: Comment task created without telegram_channel_id!")
+        else:
+            print(f"[CREATE TASK] Comment task link saved: {db_task.telegram_channel_id}")
     
     return db_task
 
