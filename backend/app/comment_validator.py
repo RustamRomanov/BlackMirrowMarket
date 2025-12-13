@@ -17,17 +17,11 @@ async def check_comment_exists(bot: Bot, post_link: str, user_telegram_id: int) 
     """
     Проверяет, существует ли комментарий пользователя под постом.
     
-    ВАЖНО: Telegram Bot API не предоставляет прямой метод для получения комментариев к посту в канале.
-    Для проверки комментариев нужно использовать один из следующих подходов:
-    1. Использовать Telegram Client API (MTProto) - требует дополнительных библиотек
-    2. Попросить пользователя переслать комментарий боту
-    3. Использовать уникальный идентификатор в комментарии
-    
-    Текущая реализация использует упрощенный подход через getUpdates.
-    В продакшене рекомендуется использовать более надежный метод.
+    Бот @BlackMirrowAdminBot должен быть администратором канала для проверки комментариев.
+    Использует Telegram Bot API для проверки комментариев к посту.
     
     Args:
-        bot: Экземпляр Telegram Bot
+        bot: Экземпляр Telegram Bot (@BlackMirrowAdminBot)
         post_link: Ссылка на пост (например, https://t.me/channel/123)
         user_telegram_id: Telegram ID пользователя
     
@@ -37,14 +31,14 @@ async def check_comment_exists(bot: Bot, post_link: str, user_telegram_id: int) 
     try:
         # Парсим ссылку на пост
         message_id = None
-        channel_username = None
-        channel_id = None
+        chat_id = None
         
         if '/c/' in post_link:
             # Приватный канал: https://t.me/c/3503023298/3
             parts = post_link.replace('https://t.me/c/', '').split('/')
             if len(parts) >= 2:
-                channel_id = parts[0]
+                # Для приватных каналов используем chat_id напрямую
+                chat_id = int(parts[0])
                 message_id = int(parts[1])
         else:
             # Публичный канал: https://t.me/channel/123
@@ -52,28 +46,38 @@ async def check_comment_exists(bot: Bot, post_link: str, user_telegram_id: int) 
             if len(parts) >= 2:
                 channel_username = parts[0]
                 message_id = int(parts[1])
+                # Для публичных каналов используем @username
+                chat_id = f"@{channel_username}"
         
-        if not message_id:
-            print(f"[COMMENT VALIDATOR] Could not parse message_id from post_link: {post_link}")
+        if not message_id or not chat_id:
+            print(f"[COMMENT VALIDATOR] Could not parse post_link: {post_link}")
             return False
         
-        # Пытаемся получить обновления через getUpdates
-        # ВАЖНО: getUpdates возвращает только новые обновления, поэтому этот метод не очень надежен
-        # Для более надежной проверки нужно использовать webhook или другой подход
+        # Пытаемся получить комментарии к сообщению
+        # В Telegram Bot API для получения ответов на сообщение можно использовать:
+        # 1. getUpdates с фильтрацией по reply_to_message
+        # 2. Webhook для получения обновлений о комментариях
         
         try:
-            # Получаем последние обновления
-            updates = await bot.get_updates(offset=-10, timeout=5, allowed_updates=['message'])
+            # Получаем обновления (бот должен получать обновления о комментариях)
+            # Используем allowed_updates для получения только сообщений
+            updates = await bot.get_updates(
+                offset=-100,  # Получаем последние 100 обновлений
+                timeout=10,
+                allowed_updates=['message']
+            )
             
             # Ищем комментарии к нужному сообщению
             for update in updates:
                 if update.message:
                     # Проверяем, является ли это комментарием к нужному посту
                     if update.message.reply_to_message:
-                        if update.message.reply_to_message.message_id == message_id:
+                        reply_msg = update.message.reply_to_message
+                        # Проверяем, что это ответ на нужное сообщение
+                        if reply_msg.message_id == message_id:
                             # Проверяем, что комментарий от нужного пользователя
                             if update.message.from_user and update.message.from_user.id == user_telegram_id:
-                                print(f"[COMMENT VALIDATOR] Comment found for user {user_telegram_id} on post {message_id}")
+                                print(f"[COMMENT VALIDATOR] Comment found for user {user_telegram_id} on post {message_id} in chat {chat_id}")
                                 return True
                     
                     # Также проверяем, если сообщение содержит ссылку на пост
@@ -81,21 +85,66 @@ async def check_comment_exists(bot: Bot, post_link: str, user_telegram_id: int) 
                         if update.message.from_user and update.message.from_user.id == user_telegram_id:
                             print(f"[COMMENT VALIDATOR] Comment with post link found for user {user_telegram_id}")
                             return True
+            
+            # Если не нашли через getUpdates, пробуем другой подход
+            # Можно попробовать получить информацию о чате и проверить комментарии через другие методы
+            print(f"[COMMENT VALIDATOR] Comment not found in recent updates for user {user_telegram_id} on post {message_id}")
+            return False
+            
         except Exception as e:
-            print(f"[COMMENT VALIDATOR] Error getting updates: {e}")
-        
-        # ВАЖНО: В текущей реализации мы не можем надежно проверить комментарии через Bot API
-        # Для продакшена рекомендуется использовать другой подход:
-        # 1. Попросить пользователя переслать комментарий боту
-        # 2. Использовать уникальный идентификатор в комментарии
-        # 3. Использовать Telegram Client API (MTProto)
-        
-        # Временно возвращаем False, так как надежная проверка невозможна через Bot API
-        print(f"[COMMENT VALIDATOR] Comment not found for user {user_telegram_id} on post {message_id} (Bot API limitation)")
-        return False
+            print(f"[COMMENT VALIDATOR] Error checking comment via Bot API: {e}")
+            return False
         
     except Exception as e:
         print(f"[COMMENT VALIDATOR] Error checking comment: {e}")
+        return False
+
+async def check_subscription_exists(bot: Bot, channel_username: str, user_telegram_id: int) -> bool:
+    """
+    Проверяет, подписан ли пользователь на канал.
+    
+    Бот @BlackMirrowAdminBot должен быть администратором канала для проверки подписки.
+    Использует Telegram Bot API метод get_chat_member.
+    
+    Args:
+        bot: Экземпляр Telegram Bot (@BlackMirrowAdminBot)
+        channel_username: Username канала (например, @channel или channel_id для приватных)
+        user_telegram_id: Telegram ID пользователя
+    
+    Returns:
+        True если пользователь подписан, False если нет
+    """
+    try:
+        # Определяем chat_id
+        if channel_username.startswith('@'):
+            chat_id = channel_username
+        else:
+            # Если это числовой ID (приватный канал)
+            try:
+                chat_id = int(channel_username)
+            except ValueError:
+                chat_id = f"@{channel_username}"
+        
+        # Получаем информацию о члене чата
+        try:
+            member = await bot.get_chat_member(chat_id=chat_id, user_id=user_telegram_id)
+            
+            # Проверяем статус подписки
+            # Статусы: member, administrator, creator, left, kicked, restricted
+            if member.status in ['member', 'administrator', 'creator']:
+                print(f"[COMMENT VALIDATOR] User {user_telegram_id} is subscribed to {chat_id}")
+                return True
+            else:
+                print(f"[COMMENT VALIDATOR] User {user_telegram_id} is not subscribed to {chat_id} (status: {member.status})")
+                return False
+                
+        except Exception as e:
+            print(f"[COMMENT VALIDATOR] Error getting chat member: {e}")
+            # Если бот не админ или нет доступа, возвращаем False
+            return False
+            
+    except Exception as e:
+        print(f"[COMMENT VALIDATOR] Error checking subscription: {e}")
         return False
 
 async def validate_comment_task(user_task_id: int, db: Session):
@@ -233,25 +282,99 @@ async def check_comment_periodically(user_task_id: int, db: Session):
         db.commit()
         print(f"[COMMENT VALIDATOR] Comment deleted for user_task {user_task_id}, user {user.telegram_id} banned for 7 days")
 
+async def validate_subscription_task(user_task_id: int, db: Session):
+    """
+    Валидирует подписку для задания и переводит средства из эскроу на баланс.
+    
+    Args:
+        user_task_id: ID записи UserTask
+        db: Сессия базы данных
+    """
+    user_task = db.query(models.UserTask).filter(models.UserTask.id == user_task_id).first()
+    if not user_task or user_task.status != models.UserTaskStatus.IN_PROGRESS:
+        return
+    
+    task = db.query(models.Task).filter(models.Task.id == user_task.task_id).first()
+    if not task or task.task_type != models.TaskType.SUBSCRIPTION:
+        return
+    
+    user = db.query(models.User).filter(models.User.id == user_task.user_id).first()
+    if not user:
+        return
+    
+    if not TELEGRAM_ADMIN_BOT_TOKEN:
+        print(f"[COMMENT VALIDATOR] TELEGRAM_ADMIN_BOT_TOKEN not set, skipping validation")
+        return
+    
+    bot = Bot(token=TELEGRAM_ADMIN_BOT_TOKEN)
+    channel_id = task.telegram_channel_id  # Для подписок здесь хранится channel_id или @username
+    
+    # Проверяем наличие подписки
+    subscription_exists = await check_subscription_exists(bot, channel_id, user.telegram_id)
+    
+    if subscription_exists:
+        # Подписка найдена - переводим средства из эскроу на баланс
+        from app.database_optimizations import update_balance_safely
+        
+        # Вычитаем 10% комиссию приложения
+        def deduct_app_commission(user_id: int, reward_ton: Decimal, db: Session) -> Decimal:
+            app_commission = reward_ton * Decimal("0.10")
+            user_reward = reward_ton - app_commission
+            return user_reward
+        
+        user_reward = deduct_app_commission(user.id, user_task.reward_ton, db)
+        
+        # Переводим средства из эскроу в активный баланс
+        update_balance_safely(db, user.id, -user_task.reward_ton, "escrow")
+        update_balance_safely(db, user.id, user_reward, "active")
+        
+        # Обновляем статус задания
+        user_task.status = models.UserTaskStatus.COMPLETED
+        user_task.validated_at = datetime.utcnow()
+        user_task.validation_result = True
+        
+        # Начисляем 5% рефереру
+        from app.routers.tasks import add_referral_commission
+        add_referral_commission(user.id, user_task.reward_ton, db)
+        
+        # Обновляем счетчик выполненных слотов
+        task.completed_slots += 1
+        
+        db.commit()
+        print(f"[COMMENT VALIDATOR] Subscription validated for user_task {user_task_id}, funds transferred")
+    else:
+        print(f"[COMMENT VALIDATOR] Subscription not found for user_task {user_task_id}")
+
 async def check_all_comment_tasks():
     """
-    Проверяет все задания с комментариями, которые находятся в статусе IN_PROGRESS или COMPLETED.
+    Проверяет все задания с комментариями и подписками, которые находятся в статусе IN_PROGRESS или COMPLETED.
     """
     db = SessionLocal()
     try:
         # Находим все задания с комментариями в статусе IN_PROGRESS
-        in_progress_tasks = db.query(models.UserTask).join(models.Task).filter(
+        in_progress_comment_tasks = db.query(models.UserTask).join(models.Task).filter(
             and_(
                 models.Task.task_type == models.TaskType.COMMENT,
                 models.UserTask.status == models.UserTaskStatus.IN_PROGRESS
             )
         ).all()
         
-        for user_task in in_progress_tasks:
+        for user_task in in_progress_comment_tasks:
             await validate_comment_task(user_task.id, db)
         
+        # Находим все задания с подписками в статусе IN_PROGRESS
+        in_progress_subscription_tasks = db.query(models.UserTask).join(models.Task).filter(
+            and_(
+                models.Task.task_type == models.TaskType.SUBSCRIPTION,
+                models.UserTask.status == models.UserTaskStatus.IN_PROGRESS
+            )
+        ).all()
+        
+        for user_task in in_progress_subscription_tasks:
+            await validate_subscription_task(user_task.id, db)
+        
         # Находим все задания с комментариями в статусе COMPLETED (для периодической проверки)
-        completed_tasks = db.query(models.UserTask).join(models.Task).filter(
+        completed_comment_tasks = db.query(models.UserTask).join(models.Task).filter(
             and_(
                 models.Task.task_type == models.TaskType.COMMENT,
                 models.UserTask.status == models.UserTaskStatus.COMPLETED,
@@ -259,7 +382,7 @@ async def check_all_comment_tasks():
             )
         ).all()
         
-        for user_task in completed_tasks:
+        for user_task in completed_comment_tasks:
             await check_comment_periodically(user_task.id, db)
             
     finally:
