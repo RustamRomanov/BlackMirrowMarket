@@ -334,7 +334,7 @@ export default function Create() {
                   const currencySymbol = fiatCurrency === 'USD' ? '$' : fiatCurrency === 'EUR' ? '€' : fiatCurrency === 'TON' ? 'TON' : '₽'
                   
                   return (
-                    <div key={task.id} className="example-task-card">
+                    <div key={task.id} className={`example-task-card task-type-${taskType}`}>
                       <div className="example-task-header">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                           <Icon size={16} color={config.color} />

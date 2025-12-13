@@ -26,10 +26,22 @@
   border-radius: 12px;
   padding: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  border-left: 4px solid #667eea;
+  border-left: 4px solid #667eea; /* Default color, will be overridden by task type */
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.example-task-card.task-type-subscription {
+  border-left-color: #4CAF50;
+}
+
+.example-task-card.task-type-comment {
+  border-left-color: #2196F3;
+}
+
+.example-task-card.task-type-view {
+  border-left-color: #FF9800;
 }
 
 .example-task-header {
@@ -172,6 +184,31 @@
   cursor: pointer;
   transition: all 0.3s;
   box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.create-task-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: shimmer 4s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+  50% {
+    left: 100%;
+  }
+  100% {
+    left: 100%;
+  }
 }
 
 .create-task-button:hover {
