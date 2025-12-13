@@ -79,16 +79,19 @@
   text-transform: uppercase;
   white-space: nowrap;
 }
-
 /* Строка 2-3: Описание + Кнопка */
 .task-row-2-3 {
   display: flex;
   align-items: center;
   justify-content: space-between;
   position: relative;
+  z-index: 1;
+  gap: 12px;
+  min-height: 40px;
   flex: 1;
   margin-top: -4px;
   margin-bottom: -4px;
+}
 
 .task-description {
   font-size: 12px;
