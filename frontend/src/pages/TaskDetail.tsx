@@ -121,9 +121,13 @@ export default function TaskDetail() {
         }
         return
       } else if (task.task_type === 'comment') {
+        console.log('Comment task, post_id:', task.telegram_post_id)
         if (task.telegram_post_id) {
           console.log('Opening post link:', task.telegram_post_id)
           openTelegramLink(task.telegram_post_id)
+        } else {
+          console.error('telegram_post_id is missing!')
+          showError('Ссылка на пост не найдена')
         }
         return
       }
@@ -153,53 +157,15 @@ export default function TaskDetail() {
         }
         setShowModal(true)
       } else if (task.task_type === 'comment') {
-        // СНАЧАЛА открываем ссылку на пост (до всех async операций)
+        console.log('Comment task, post_id:', task.telegram_post_id)
         if (task.telegram_post_id) {
           console.log('Opening post link:', task.telegram_post_id)
           openTelegramLink(task.telegram_post_id)
-        }
-        // Затем создаем UserTask
-        await axios.post(`${API_URL}/api/tasks/${task.id}/start`, null, {
-          params: { telegram_id: user.telegram_id }
-        })
-        showSuccess('Задание начато! После проверки ботом средства будут зачислены на ваш баланс.')
-        setTimeout(() => { navigate('/earn') }, 2000)
-      }
-    } catch (error: any) {
-      console.error('Error starting task:', error)
-      if (error.response?.data?.detail) {
-        const errorDetail = error.response.data.detail
-        if (errorDetail === 'Task already started') {
-          // Если задание уже начато, просто открываем ссылку
-          setUserTaskStarted(true)
-          if (task.task_type === 'subscription') {
-            const channelLink = getChannelLink(task.telegram_channel_id)
-            if (channelLink) {
-          console.log('Opening channel link:', channelLink)
-          openTelegramLink(channelLink)
-            }
-            setShowModal(true)
-          } else if (task.task_type === 'comment') {
-            if (task.telegram_post_id) {
-          console.log('Opening post link:', task.telegram_post_id)
-          openTelegramLink(task.telegram_post_id)
-            }
-            showSuccess('Задание уже начато. После проверки ботом средства будут зачислены.')
-            setTimeout(() => { navigate('/earn') }, 2000)
-          }
         } else {
-          showError(errorDetail)
+          console.error('telegram_post_id is missing!')
+          showError('Ссылка на пост не найдена')
         }
-      } else {
-        showError('Ошибка при старте задания')
-      }
-    } finally {
-      setProcessing(false)
-    }
-  }
-
-  async function handleComplete() {
-    if (!user || !task) return
+        return
     setProcessing(true)
     try {
       await axios.post(`${API_URL}/api/tasks/${task.id}/complete`, null, {
