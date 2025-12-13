@@ -473,10 +473,12 @@ async def start_task(task_id: int, telegram_id: int, db: Session = Depends(get_d
         return user_task
     
     # Для подписки и комментария - создаем запись со статусом IN_PROGRESS
+    # price_per_slot_ton в TON, нужно конвертировать в нано-TON для reward_ton
+    price_per_slot_nano = ton_to_nano(price_per_slot_ton)
     user_task = models.UserTask(
         user_id=user.id,
         task_id=task_id,
-        reward_ton=task.price_per_slot_ton,
+        reward_ton=price_per_slot_nano,  # reward_ton хранится в нано-TON
         status=models.UserTaskStatus.IN_PROGRESS,
         escrow_started_at=datetime.utcnow(),
         escrow_ends_at=datetime.utcnow() + timedelta(days=7)
@@ -484,9 +486,7 @@ async def start_task(task_id: int, telegram_id: int, db: Session = Depends(get_d
     db.add(user_task)
     
     # Резервируем средства в эскроу (безопасно, с блокировкой)
-    # price_per_slot_ton в TON, нужно конвертировать в нано-TON для резервирования
     from app.database_optimizations import update_balance_safely
-    price_per_slot_nano = ton_to_nano(price_per_slot_ton)
     update_balance_safely(db, user.id, -price_per_slot_nano, "active")
     update_balance_safely(db, user.id, price_per_slot_nano, "escrow")
     
