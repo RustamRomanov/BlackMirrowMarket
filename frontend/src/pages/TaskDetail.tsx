@@ -115,6 +115,75 @@ export default function TaskDetail() {
     // Если задача уже начата, просто открываем ссылку напрямую
     if (userTaskStarted) {
       if (task.task_type === 'subscription') {
+        const channelLink = getChannelLink(task.telegram_channel_id)
+        if (channelLink) {
+          console.log('Opening channel link:', channelLink)
+          openTelegramLink(channelLink)
+        }
+        return
+      } else if (task.task_type === 'comment') {
+        const postLink = task.telegram_post_id || task.telegram_channel_id
+        console.log('Comment task - post_id:', task.telegram_post_id, 'channel_id:', task.telegram_channel_id, 'postLink:', postLink)
+        if (postLink) {
+          console.log('Opening post link:', postLink)
+          openTelegramLink(postLink)
+        } else {
+          console.error('No post link found!')
+          showError('Ссылка на пост не найдена')
+        }
+        return
+      }
+    }
+    
+    setProcessing(true)
+    try {
+      if (task.task_type === 'view') {
+        await axios.post(`${API_URL}/api/tasks/${task.id}/start`, null, {
+          params: { telegram_id: user.telegram_id }
+        })
+        const channelLink = getChannelLink(task.telegram_channel_id)
+        if (channelLink) {
+          console.log('Opening channel link:', channelLink)
+          openTelegramLink(channelLink)
+        }
+        showSuccess('Задание выполнено! Средства зачислены на ваш баланс.')
+        setTimeout(() => { navigate('/earn') }, 2000)
+      } else if (task.task_type === 'subscription') {
+        await axios.post(`${API_URL}/api/tasks/${task.id}/start`, null, {
+          params: { telegram_id: user.telegram_id }
+        })
+        const channelLink = getChannelLink(task.telegram_channel_id)
+        if (channelLink) {
+          console.log('Opening channel link:', channelLink)
+          openTelegramLink(channelLink)
+        }
+        showSuccess('Задание начато! После проверки ботом средства будут зачислены на ваш баланс.')
+        setTimeout(() => { navigate('/earn') }, 2000)
+      } else if (task.task_type === 'comment') {
+        const postLink = task.telegram_post_id || task.telegram_channel_id
+        console.log('Starting comment task - post_id:', task.telegram_post_id, 'channel_id:', task.telegram_channel_id, 'postLink:', postLink)
+        if (postLink) {
+          console.log('Opening post link:', postLink)
+          openTelegramLink(postLink)
+        } else {
+          console.error('No post link found!')
+          showError('Ссылка на пост не найдена')
+          setProcessing(false)
+          return
+        }
+        await axios.post(`${API_URL}/api/tasks/${task.id}/start`, null, {
+          params: { telegram_id: user.telegram_id }
+        })
+        showSuccess('Задание начато! После проверки ботом средства будут зачислены на ваш баланс.')
+        setTimeout(() => { navigate('/earn') }, 2000)
+      }
+    } catch (error: any) {
+      console.error('Error starting task:', error)
+      if (error.response?.data?.detail) {
+        const errorDetail = error.response.data.detail
+        if (errorDetail === 'Task already started') {
+          setUserTaskStarted(true)
+          if (task.task_type === 'subscription') {
             const channelLink = getChannelLink(task.telegram_channel_id)
             if (channelLink) {
               console.log('Opening channel link:', channelLink)
@@ -123,28 +192,15 @@ export default function TaskDetail() {
             showSuccess('Задание уже начато. После проверки ботом средства будут зачислены.')
             setTimeout(() => { navigate('/earn') }, 2000)
           } else if (task.task_type === 'comment') {
-            // Проверяем оба возможных поля для ссылки на пост
             const postLink = task.telegram_post_id || task.telegram_channel_id
             console.log('Comment task - post_id:', task.telegram_post_id, 'channel_id:', task.telegram_channel_id, 'postLink:', postLink)
             if (postLink) {
               console.log('Opening post link:', postLink)
               openTelegramLink(postLink)
             } else {
-              console.error('No post link found! post_id:', task.telegram_post_id, 'channel_id:', task.telegram_channel_id)
+              console.error('No post link found!')
               showError('Ссылка на пост не найдена')
             }
-          }
-        } else {
-          showError(errorDetail)
-        }
-      } else {
-        showError('Ошибка при старте задания')
-      }
-    } finally {
-      setProcessing(false)
-          return
-        }
-        return
           }
         } else {
           showError(errorDetail)
