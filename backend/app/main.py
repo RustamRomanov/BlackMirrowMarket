@@ -301,9 +301,12 @@ async def startup_event():
     asyncio.create_task(update_ton_transactions_periodically())
     asyncio.create_task(check_deposits_periodically())
     
-    # Запускаем проверку комментариев
-    from app.comment_validator import run_comment_checker_periodically
+    # Запускаем проверку комментариев (каждые 5 минут)
+    from app.comment_validator import run_comment_checker_periodically, run_subscription_checker_daily
     asyncio.create_task(run_comment_checker_periodically())
+    
+    # Запускаем ежедневную проверку подписок (раз в день)
+    asyncio.create_task(run_subscription_checker_daily())
     
     print("✅ Фоновые задачи запущены")
 
