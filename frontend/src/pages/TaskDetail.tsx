@@ -99,7 +99,6 @@ export default function TaskDetail() {
   const [processing, setProcessing] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [showCompletionModal, setShowCompletionModal] = useState(false)
-  const [showChannelPreview, setShowChannelPreview] = useState(false)
   const [fiatCurrency, setFiatCurrency] = useState<string>('RUB')
   const [userTaskStarted, setUserTaskStarted] = useState(false)
 
@@ -195,8 +194,17 @@ export default function TaskDetail() {
         showSuccess('Задание выполнено! Средства зачислены на ваш баланс.')
         setTimeout(() => { navigate('/earn') }, 2000)
       } else if (task.task_type === 'subscription') {
-        // Для подписок сначала показываем предпросмотр канала
-        setShowChannelPreview(true)
+        // Для подписок сразу открываем канал и запускаем задание
+        await axios.post(`${API_URL}/api/tasks/${task.id}/start`, null, {
+          params: { telegram_id: user.telegram_id }
+        })
+        const channelLink = getChannelLink(task.telegram_channel_id)
+        if (channelLink) {
+          console.log('Opening channel link:', channelLink)
+          openTelegramLink(channelLink)
+        }
+        // Показываем модальное окно с информацией о задании
+        setShowCompletionModal(true)
       } else if (task.task_type === 'comment') {
         console.log('[TaskDetail] Starting comment task')
         console.log('[TaskDetail] task.telegram_channel_id:', task.telegram_channel_id)
@@ -220,21 +228,24 @@ export default function TaskDetail() {
         
         console.log('[TaskDetail] Starting comment task - postLink:', postLink)
         
-        if (postLink) {
-          console.log('[TaskDetail] Opening post link:', postLink)
-          openTelegramLink(postLink)
-        } else {
+        if (!postLink) {
           console.error('[TaskDetail] No post link found! channel_id:', task.telegram_channel_id, 'post_id:', task.telegram_post_id)
           showError('Ссылка на пост не найдена')
           setProcessing(false)
           return
         }
+        
+        // Запускаем задание
         await axios.post(`${API_URL}/api/tasks/${task.id}/start`, null, {
           params: { telegram_id: user.telegram_id }
         })
-        showSuccess('Задание начато! Средства переведены в эскроу. После проверки ботом они будут зачислены на ваш баланс.')
-        // Сразу перенаправляем на вкладку Заработок
-        navigate('/earn')
+        
+        // Открываем ссылку на пост
+        console.log('[TaskDetail] Opening post link:', postLink)
+        openTelegramLink(postLink)
+        
+        // Показываем модальное окно с информацией о задании
+        setShowCompletionModal(true)
       }
     } catch (error: any) {
       console.error('Error starting task:', error)
@@ -571,42 +582,23 @@ export default function TaskDetail() {
         </div>
       )}
 
-      {showChannelPreview && task.task_type === 'subscription' && (
-        <div className="modal-overlay" onClick={() => setShowChannelPreview(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>Предпросмотр канала</h2>
-            <p>Перед подпиской вы можете просмотреть канал и оценить его безопасность.</p>
-            <div style={{ margin: '20px 0' }}>
-              <button 
-                className="btn-primary" 
-                onClick={() => {
-                  const channelLink = getChannelLink(task.telegram_channel_id)
-                  if (channelLink) {
-                    openTelegramLink(channelLink)
-                  }
-                }}
-                style={{ marginRight: '10px' }}
-              >
-                Открыть канал
-              </button>
-            </div>
-            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-              <button className="btn-secondary" onClick={() => setShowChannelPreview(false)}>
-                Отмена
-              </button>
-              <button className="btn-primary" onClick={handleSubscribe}>
-                Подписаться
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {showCompletionModal && (
         <div className="modal-overlay" onClick={() => { setShowCompletionModal(false); navigate('/earn') }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>Задание выполнено!</h2>
-            <p>Средства переведены в эскроу. После проверки ботом они будут зачислены на ваш баланс.</p>
+            <h2>Задание начато!</h2>
+            <p style={{ marginBottom: '10px' }}>
+              Средства переведены в эскроу. После проверки ботом они будут зачислены на ваш баланс.
+            </p>
+            {task.task_type === 'subscription' && (
+              <p style={{ fontSize: '14px', color: '#666', marginBottom: '20px' }}>
+                Не отписывайтесь от канала в течение 7 дней, иначе средства не будут зачислены.
+              </p>
+            )}
+            {task.task_type === 'comment' && (
+              <p style={{ fontSize: '14px', color: '#666', marginBottom: '20px' }}>
+                Не удаляйте комментарий в течение часа, иначе вы будете забанены на 7 дней.
+              </p>
+            )}
             <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
               <button className="btn-secondary" onClick={handleReportTask}>
                 Пожаловаться
