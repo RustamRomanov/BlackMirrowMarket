@@ -3,12 +3,58 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import axios from 'axios'
-import { Bell, MessageSquare, Eye } from 'lucide-react'
+import { Bell, MessageSquare, Eye, AlertCircle, X } from 'lucide-react'
 import TaskCard from '../components/TaskCard'
 import { TaskCardSkeleton } from '../components/Skeleton'
 import './Earn.css'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
+function getChannelLink(channelId: string | undefined): string | null {
+  if (!channelId) return null
+  
+  if (channelId.startsWith('http://') || channelId.startsWith('https://')) {
+    return channelId
+  }
+  
+  const cleanId = channelId.replace(/^@/, '')
+  return `https://t.me/${cleanId}`
+}
+
+function getPostLink(channelId: string | undefined, postId: string | number | undefined): string | null {
+  if (channelId && (channelId.startsWith('http://') || channelId.startsWith('https://'))) {
+    return channelId
+  }
+  
+  if (channelId && postId) {
+    const cleanChannelId = channelId.replace(/^@/, '')
+    return `https://t.me/${cleanChannelId}/${postId}`
+  }
+  
+  if (channelId) {
+    return getChannelLink(channelId)
+  }
+  
+  return null
+}
+
+function openTelegramLink(url: string) {
+  if (!url) return
+  
+  const tg = (window as any).Telegram?.WebApp
+  if (tg) {
+    if (url.startsWith('https://t.me/') || url.startsWith('http://t.me/')) {
+      tg.openTelegramLink(url)
+    } else {
+      tg.openLink(url)
+    }
+  } else {
+    const newWindow = window.open(url, '_blank')
+    if (!newWindow) {
+      window.location.href = url
+    }
+  }
+}
 
 interface Task {
   id: number
@@ -23,17 +69,26 @@ interface Task {
   remaining_slots: number
   telegram_channel_id?: string
   comment_instruction?: string
+  telegram_post_id?: string | number
+}
+
+interface TaskDetail extends Task {
+  is_test?: boolean
 }
 
 export default function Earn() {
   const { user } = useAuth()
-  const { showError } = useToast()
+  const { showError, showSuccess } = useToast()
   const navigate = useNavigate()
   const [tasks, setTasks] = useState<Task[]>([])
   const [allTasks, setAllTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc')
   const [selectedTaskType, setSelectedTaskType] = useState<'subscription' | 'comment' | 'view' | null>(null)
+  const [selectedTask, setSelectedTask] = useState<TaskDetail | null>(null)
+  const [showTaskModal, setShowTaskModal] = useState(false)
+  const [loadingTaskDetail, setLoadingTaskDetail] = useState(false)
+  const [processing, setProcessing] = useState(false)
 
   // Debounce для оптимизации запросов
   const [updateCounter, setUpdateCounter] = useState(0)
@@ -59,6 +114,21 @@ export default function Earn() {
     if (!user || updateCounter === 0) return
     loadTasks()
   }, [updateCounter, user])
+
+  async function loadTaskDetail(taskId: number) {
+    if (!user) return
+    setLoadingTaskDetail(true)
+    try {
+      const response = await axios.get(`${API_URL}/api/tasks/${taskId}`)
+      setSelectedTask(response.data)
+      setShowTaskModal(true)
+    } catch (error: any) {
+      console.error('Error loading task detail:', error)
+      showError('Ошибка при загрузке задания')
+    } finally {
+      setLoadingTaskDetail(false)
+    }
+  }
 
   async function loadTasks() {
     if (!user) return
@@ -124,6 +194,78 @@ export default function Earn() {
       }
     } finally {
       setLoading(false)
+    }
+  }
+
+  function currencySymbol(currency?: string) {
+    switch (currency) {
+      case 'USD': return '$'
+      case 'EUR': return '€'
+      case 'TON': return 'TON'
+      default: return '₽'
+    }
+  }
+
+  async function handleStartTask() {
+    if (!user || !selectedTask) return
+    
+    setProcessing(true)
+    try {
+      if (selectedTask.task_type === 'view') {
+        await axios.post(`${API_URL}/api/tasks/${selectedTask.id}/start`, null, {
+          params: { telegram_id: user.telegram_id }
+        })
+        const channelLink = getChannelLink(selectedTask.telegram_channel_id)
+        if (channelLink) {
+          openTelegramLink(channelLink)
+        }
+        showSuccess('Задание выполнено! Средства зачислены на ваш баланс.')
+        setShowTaskModal(false)
+        loadTasks()
+      } else if (selectedTask.task_type === 'subscription') {
+        await axios.post(`${API_URL}/api/tasks/${selectedTask.id}/start`, null, {
+          params: { telegram_id: user.telegram_id }
+        })
+        const channelLink = getChannelLink(selectedTask.telegram_channel_id)
+        if (channelLink) {
+          openTelegramLink(channelLink)
+        }
+        showSuccess('Задание начато! После проверки ботом средства будут зачислены.')
+        setShowTaskModal(false)
+        loadTasks()
+      } else if (selectedTask.task_type === 'comment') {
+        let postLink: string | null = null
+        
+        if (selectedTask.telegram_channel_id) {
+          if (selectedTask.telegram_channel_id.startsWith('http://') || selectedTask.telegram_channel_id.startsWith('https://')) {
+            postLink = selectedTask.telegram_channel_id
+          } else {
+            postLink = getPostLink(selectedTask.telegram_channel_id, selectedTask.telegram_post_id)
+          }
+        } else {
+          postLink = getPostLink(selectedTask.telegram_channel_id, selectedTask.telegram_post_id)
+        }
+        
+        if (!postLink) {
+          showError('Ссылка на пост не найдена')
+          setProcessing(false)
+          return
+        }
+        
+        await axios.post(`${API_URL}/api/tasks/${selectedTask.id}/start`, null, {
+          params: { telegram_id: user.telegram_id }
+        })
+        
+        openTelegramLink(postLink)
+        showSuccess('Задание начато! После проверки ботом средства будут зачислены.')
+        setShowTaskModal(false)
+        loadTasks()
+      }
+    } catch (error: any) {
+      console.error('Error starting task:', error)
+      showError(error.response?.data?.detail || 'Ошибка при старте задания')
+    } finally {
+      setProcessing(false)
     }
   }
 
@@ -211,13 +353,99 @@ export default function Earn() {
                   navigate('/profile')
                   return
                 }
-                navigate(`/task/${task.id}`)
+                loadTaskDetail(task.id)
               }}
               onRefresh={loadTasks}
             />
           ))
         )}
       </div>
+
+      {/* Модальное окно с деталями задания */}
+      {showTaskModal && selectedTask && (
+        <div className="task-modal-overlay" onClick={() => setShowTaskModal(false)}>
+          <div className="task-modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="task-modal-close" onClick={() => setShowTaskModal(false)}>
+              <X size={20} />
+            </button>
+            
+            {loadingTaskDetail ? (
+              <div className="loading">Загрузка...</div>
+            ) : (
+              <>
+                <div className="task-modal-header">
+                  {selectedTask.task_type !== 'subscription' && selectedTask.task_type !== 'comment' && (
+                    <div className="task-type-badge">
+                      {selectedTask.task_type === 'comment' && <MessageSquare size={16} color="#2196F3" />}
+                      {selectedTask.task_type === 'view' && <Eye size={16} color="#FF9800" />}
+                      <span>
+                        {selectedTask.task_type === 'comment' && 'Комментарий'}
+                        {selectedTask.task_type === 'view' && 'Просмотр'}
+                      </span>
+                    </div>
+                  )}
+                  <h2 className={selectedTask.task_type === "subscription" || selectedTask.task_type === "comment" ? "task-modal-title-small" : "task-modal-title"}>
+                    {selectedTask.title}
+                  </h2>
+                  {selectedTask.description && (
+                    <p className="task-modal-description">{selectedTask.description}</p>
+                  )}
+                </div>
+
+                <div className="task-modal-rules">
+                  <div className="rules-header">
+                    <AlertCircle size={18} />
+                    <h3>Правила выполнения</h3>
+                  </div>
+                  <ul>
+                    {selectedTask.task_type === 'subscription' && (
+                      <>
+                        <li>Не отписывайтесь в течение 7 дней, иначе средства не поступят на ваш баланс</li>
+                        <li>Средства будут зачислены на ваш баланс через 7 дней после проверки</li>
+                        <li>Проверяйте канал, перед тем, как подписаться. Не подписывайтесь на сомнительные каналы.</li>
+                      </>
+                    )}
+                    {selectedTask.task_type === 'comment' && (
+                      <>
+                        <li>Не публиковать оскорбительные и нарушающие правила телеграма сообщения.</li>
+                        <li>Нельзя удалять комментарий после публикации, иначе бан.</li>
+                        <li>За невыполнения правил - бан.</li>
+                        <li>Проверяйте пост, перед тем, как оставлять в нем сообщения. Не оставляйте комментарии под сомнительными постами.</li>
+                      </>
+                    )}
+                    {selectedTask.task_type === 'view' && (
+                      <>
+                        <li>Откройте и просмотрите публикацию</li>
+                        <li>Средства будут зачислены автоматически</li>
+                      </>
+                    )}
+                  </ul>
+                </div>
+
+                {selectedTask.task_type !== "subscription" && selectedTask.task_type !== "comment" && (
+                  <div className="task-modal-price">
+                    <span className="price-label">Награда:</span>
+                    <span className="price-value">
+                      {parseFloat(selectedTask.price_per_slot_fiat).toFixed(2)} {currencySymbol(selectedTask.fiat_currency)}
+                    </span>
+                  </div>
+                )}
+
+                <button
+                  className="task-modal-button"
+                  onClick={handleStartTask}
+                  disabled={processing}
+                >
+                  {processing ? 'Обработка...' : 
+                    selectedTask.task_type === 'subscription' ? 'Подписаться' : 
+                    selectedTask.task_type === 'comment' ? 'Оставить комментарий' : 
+                    'Заработать'}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
