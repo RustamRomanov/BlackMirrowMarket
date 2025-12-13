@@ -215,10 +215,14 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
       const postId = formData.telegram_post_id.trim()
       
       // Проверяем, что это ссылка из Telegram
-      const isTelegramLink = /^https?:\/\/(?:www\.)?t\.me\/[^\/]+\/\d+/i.test(postId)
+      // Поддерживаем два формата:
+      // 1. Публичные каналы: https://t.me/channel/123
+      // 2. Приватные каналы/группы: https://t.me/c/3503023298/3
+      const isPublicChannel = /^https?:\/\/(?:www\.)?t\.me\/[^\/]+\/\d+/i.test(postId)
+      const isPrivateChannel = /^https?:\/\/(?:www\.)?t\.me\/c\/\d+\/\d+/i.test(postId)
       
-      if (!isTelegramLink) {
-        newErrors.telegram_post_id = 'Ссылка должна быть из Telegram (https://t.me/channel/123)'
+      if (!isPublicChannel && !isPrivateChannel) {
+        newErrors.telegram_post_id = 'Ссылка должна быть из Telegram (https://t.me/channel/123 или https://t.me/c/ID/123)'
       }
     }
     
@@ -430,7 +434,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
                     setFormData({ ...formData, telegram_post_id: e.target.value })
                     if (errors.telegram_post_id) setErrors({ ...errors, telegram_post_id: '' })
                   }}
-                  placeholder="https://t.me/channel/123"
+                  placeholder="https://t.me/channel/123 или https://t.me/c/ID/123"
                   className={`form-input ${errors.telegram_post_id ? 'error' : ''}`}
                 />
                 {errors.telegram_post_id && <div className="form-error">{errors.telegram_post_id}</div>}

@@ -107,9 +107,22 @@ export default function Create() {
   function parseTelegramPostId(postLink: string | undefined): number | null {
     if (!postLink) return null
     
-    // Парсим полную ссылку формата https://t.me/channel/123
-    const telegramLinkRegex = /^https?:\/\/(?:www\.)?t\.me\/[^\/]+\/(\d+)/i
-    const match = postLink.trim().match(telegramLinkRegex)
+    const trimmedLink = postLink.trim()
+    
+    // Парсим публичные каналы: https://t.me/channel/123
+    const publicChannelRegex = /^https?:\/\/(?:www\.)?t\.me\/[^\/]+\/(\d+)/i
+    let match = trimmedLink.match(publicChannelRegex)
+    
+    if (match && match[1]) {
+      const postId = parseInt(match[1])
+      if (!isNaN(postId) && postId > 0) {
+        return postId
+      }
+    }
+    
+    // Парсим приватные каналы/группы: https://t.me/c/3503023298/3
+    const privateChannelRegex = /^https?:\/\/(?:www\.)?t\.me\/c\/\d+\/(\d+)/i
+    match = trimmedLink.match(privateChannelRegex)
     
     if (match && match[1]) {
       const postId = parseInt(match[1])
