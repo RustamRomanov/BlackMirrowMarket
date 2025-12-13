@@ -5,7 +5,7 @@
   background: white;
   border-radius: 12px;
   padding: 12px 14px;
-  padding-bottom: 8px;
+  padding-bottom: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   transition: transform 0.2s, box-shadow 0.2s;
   gap: 8px;
@@ -111,7 +111,7 @@
   position: relative;
   z-index: 1;
   min-height: 16px;
-  margin-top: -4px;
+  margin-top: 0;
 }
 
 .task-available-compact {
