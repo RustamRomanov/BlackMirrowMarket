@@ -100,13 +100,14 @@ export default function TaskDetail() {
         }
         setShowModal(true)
       } else if (task.task_type === 'comment') {
-        await axios.post(`${API_URL}/api/tasks/${task.id}/start`, null, {
-          params: { telegram_id: user.telegram_id }
-        })
-        // Открываем ссылку на пост
+        // СНАЧАЛА открываем ссылку на пост (до всех async операций)
         if (task.telegram_post_id) {
           window.open(task.telegram_post_id, '_blank')
         }
+        // Затем создаем UserTask
+        await axios.post(`${API_URL}/api/tasks/${task.id}/start`, null, {
+          params: { telegram_id: user.telegram_id }
+        })
         showSuccess('Задание начато! После проверки ботом средства будут зачислены на ваш баланс.')
         setTimeout(() => { navigate('/earn') }, 2000)
       }
