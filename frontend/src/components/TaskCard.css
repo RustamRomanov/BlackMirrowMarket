@@ -5,7 +5,7 @@
   background: white;
   border-radius: 12px;
   padding: 12px 14px;
-  padding-bottom: 14px;
+  padding-bottom: 18px; /* Увеличен отступ снизу */
   
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   transition: transform 0.2s, box-shadow 0.2s;
@@ -14,7 +14,7 @@
   animation-fill-mode: both;
   overflow: hidden;
   min-height: auto;
-  max-height: 96px;
+  max-height: 104px; /* Увеличена высота карточки */
 }
 
 .task-card-bg {
