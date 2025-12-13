@@ -633,8 +633,8 @@ async def check_task_manually(task_id: int, telegram_id: int, db: Session = Depe
     }
 
 @router.post("/{task_id}/report")
-async def report_task(task_id: int, telegram_id: int, reason: str = None, db: Session = Depends(get_db)):
-    """Жалоба на задание (отправка сигнала модератору)"""
+async def report_task(task_id: int, telegram_id: int, db: Session = Depends(get_db)):
+    """Жалоба на задание (без описания, просто кнопка) - канал нарушает законы"""
     user = db.query(models.User).filter(models.User.telegram_id == telegram_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -643,19 +643,18 @@ async def report_task(task_id: int, telegram_id: int, reason: str = None, db: Se
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     
-    # Находим запись о выполнении задания
+    # Находим запись о выполнении задания (может быть в любом статусе)
     user_task = db.query(models.UserTask).filter(
         and_(
             models.UserTask.user_id == user.id,
-            models.UserTask.task_id == task_id,
-            models.UserTask.status == models.UserTaskStatus.IN_PROGRESS
+            models.UserTask.task_id == task_id
         )
     ).first()
     
     if not user_task:
         raise HTTPException(status_code=404, detail="User task not found")
     
-    # Помечаем задание как завершенное (пользователь пожаловался)
+    # Создаем жалобу с автоматической причиной
     user_task.status = models.UserTaskStatus.FAILED
     user_task.validation_result = False
     

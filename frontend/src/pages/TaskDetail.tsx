@@ -99,6 +99,7 @@ export default function TaskDetail() {
   const [processing, setProcessing] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [showCompletionModal, setShowCompletionModal] = useState(false)
+  const [showChannelPreview, setShowChannelPreview] = useState(false)
   const [fiatCurrency, setFiatCurrency] = useState<string>('RUB')
   const [userTaskStarted, setUserTaskStarted] = useState(false)
 
@@ -194,16 +195,8 @@ export default function TaskDetail() {
         showSuccess('Задание выполнено! Средства зачислены на ваш баланс.')
         setTimeout(() => { navigate('/earn') }, 2000)
       } else if (task.task_type === 'subscription') {
-        await axios.post(`${API_URL}/api/tasks/${task.id}/start`, null, {
-          params: { telegram_id: user.telegram_id }
-        })
-        const channelLink = getChannelLink(task.telegram_channel_id)
-        if (channelLink) {
-          console.log('Opening channel link:', channelLink)
-          openTelegramLink(channelLink)
-        }
-        showSuccess('Задание начато! После проверки ботом средства будут зачислены на ваш баланс.')
-        setTimeout(() => { navigate('/earn') }, 2000)
+        // Для подписок сначала показываем предпросмотр канала
+        setShowChannelPreview(true)
       } else if (task.task_type === 'comment') {
         console.log('[TaskDetail] Starting comment task')
         console.log('[TaskDetail] task.telegram_channel_id:', task.telegram_channel_id)
@@ -526,12 +519,50 @@ export default function TaskDetail() {
         </div>
       )}
 
-      {showCompletionModal && (
-        <div className="modal-overlay" onClick={() => setShowCompletionModal(false)}>
+      {showChannelPreview && task.task_type === 'subscription' && (
+        <div className="modal-overlay" onClick={() => setShowChannelPreview(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>Готово!</h2>
-            <p>Задание выполнено. Награда будет начислена после проверки.</p>
-            <button className="modal-close" onClick={() => setShowCompletionModal(false)}>Закрыть</button>
+            <h2>Предпросмотр канала</h2>
+            <p>Перед подпиской вы можете просмотреть канал и оценить его безопасность.</p>
+            <div style={{ margin: '20px 0' }}>
+              <button 
+                className="btn-primary" 
+                onClick={() => {
+                  const channelLink = getChannelLink(task.telegram_channel_id)
+                  if (channelLink) {
+                    openTelegramLink(channelLink)
+                  }
+                }}
+                style={{ marginRight: '10px' }}
+              >
+                Открыть канал
+              </button>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+              <button className="btn-secondary" onClick={() => setShowChannelPreview(false)}>
+                Отмена
+              </button>
+              <button className="btn-primary" onClick={handleSubscribe}>
+                Подписаться
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCompletionModal && (
+        <div className="modal-overlay" onClick={() => { setShowCompletionModal(false); navigate('/earn') }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Задание выполнено!</h2>
+            <p>Средства переведены в эскроу. После проверки ботом они будут зачислены на ваш баланс.</p>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+              <button className="btn-secondary" onClick={handleReportTask}>
+                Пожаловаться
+              </button>
+              <button className="btn-primary" onClick={() => { setShowCompletionModal(false); navigate('/earn') }}>
+                Понятно
+              </button>
+            </div>
           </div>
         </div>
       )}
