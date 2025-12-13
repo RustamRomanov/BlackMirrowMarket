@@ -241,7 +241,7 @@ export default function TaskDetail() {
             onClick={handleStart}
             disabled={processing}
           >
-            {processing ? \'Обработка...\' : userTaskStarted ? (task.task_type === \'subscription\' ? \'Перейти к каналу\' : \'Продолжить\') : (task.task_type === \'subscription\' ? \'Подписаться\' : \'Заработать\')}
+            {processing ? 'Обработка...' : userTaskStarted ? (task.task_type === \'subscription\' ? 'Перейти к каналу' : 'Продолжить') : (task.task_type === \'subscription\' ? 'Подписаться' : 'Заработать')}
           </button>
         )}
       </div>
