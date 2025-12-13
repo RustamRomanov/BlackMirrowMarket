@@ -112,7 +112,7 @@
   position: relative;
   z-index: 1;
   min-height: 16px;
-  margin-top: 10px;
+  margin-top: 2px; /* Поднято выше для видимости */
 }
 
 .task-available-compact {
