@@ -130,7 +130,6 @@ export default function TaskDetail() {
             showSuccess('Задание уже начато. После проверки ботом средства будут зачислены.')
             setTimeout(() => { navigate('/earn') }, 2000)
           }
-        }
         } else {
           showError(errorDetail)
         }
@@ -261,9 +260,7 @@ export default function TaskDetail() {
               task.task_type === 'comment' ? 'Перейти к посту' : 
               'Продолжить'
             ) : (
-              task.task_type === 'subscription' ? 'Подписаться' : 
-              task.task_type === 'comment' ? 'Оставить комментарий' : 
-              'Заработать'
+              task.task_type === 'subscription' ? 'Подписаться' : task.task_type === 'comment' ? 'Оставить комментарий' : 'Заработать'
             )}
           </button>
         )}
@@ -273,17 +270,7 @@ export default function TaskDetail() {
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h2>{task.title}</h2>
-            {task.task_type === 'comment' && (
-              <div className="modal-rules">
-                <h3>Правила выполнения:</h3>
-                <ul>
-                  <li>Не публиковать оскорбительные и нарушающие правила телеграма сообщения.</li>
-                  <li>Нельзя удалять комментарий после публикации, иначе бан.</li>
-                  <li>За невыполнения правил - бан.</li>
-                  <li>Проверяйте пост, перед тем, как оставлять в нем сообщения. Не оставляйте комментарии под сомнительными постами.</li>
-                </ul>
-              </div>
-            )}
+            
             {task.task_type === 'subscription' && (
               <div className="modal-rules">
                 <h3>Правила выполнения:</h3>
@@ -307,12 +294,8 @@ export default function TaskDetail() {
                 if (channelLink) {
                   window.open(channelLink, '_blank')
                 }
-              } : task.task_type === 'comment' ? () => {
-                if (task.telegram_post_id) {
-                  window.open(task.telegram_post_id, '_blank')
-                }
-              } : handleComplete} disabled={processing}>
-                {processing ? 'Отправка...' : task.task_type === 'subscription' ? 'Подписаться' : task.task_type === 'comment' ? 'Оставить комментарий' : 'Подтвердить выполнение'}
+              } :  handleComplete} disabled={processing}>
+                {processing ? 'Отправка...' : task.task_type === 'subscription' ? 'Подписаться' : 'Подтвердить выполнение'}
               </button>
             </div>
           </div>
