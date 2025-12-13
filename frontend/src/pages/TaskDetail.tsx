@@ -224,12 +224,7 @@ export default function TaskDetail() {
       {!isCreator && (
           <button
             className="earn-button-large"
-            onClick={task.task_type === 'subscription' ? () => {
-              const channelLink = getChannelLink(task.telegram_channel_id)
-        if (channelLink) {
-          window.open(channelLink, '_blank')
-              }
-            } : handleStart}
+            onClick={handleStart}
             disabled={processing}
           >
             {processing ? 'Обработка...' : task.task_type === 'subscription' ? 'Подписаться' : 'Заработать'}
