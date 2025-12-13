@@ -141,12 +141,11 @@ export default function TaskDetail() {
     <div className="task-detail-page">
       <div className="task-detail-card">
         <div className="task-header">
+          {task.task_type !== 'subscription' && (
           <div className="task-type-badge">
-            {task.task_type === 'subscription' && <Bell size={16} color="#4CAF50" />}
             {task.task_type === 'comment' && <MessageSquare size={16} color="#2196F3" />}
             {task.task_type === 'view' && <Eye size={16} color="#FF9800" />}
             <span>
-              {task.task_type === 'subscription' && 'Подписка'}
               {task.task_type === 'comment' && 'Комментарий'}
               {task.task_type === 'view' && 'Просмотр'}
             </span>
@@ -154,28 +153,26 @@ export default function TaskDetail() {
               <span className="task-demo-badge">ПРИМЕР</span>
             )}
           </div>
+        )}
           <div className="task-title-block">
-            <h1>{task.title}</h1>
+            <h1 className={task.task_type === "subscription" ? "task-title-small" : ""}>{task.title}</h1>
             {task.description && <p>{task.description}</p>}
           </div>
         </div>
-        <div className="task-meta">
-          <div className="meta-item">
-            <span>Всего слотов</span>
-            <strong>{task.telegram_channel_id ? '—' : '∞'}</strong>
-          </div>
-          <div className="meta-item">
-            <span>Опубликовано</span>
-            <strong>Сегодня</strong>
-          </div>
-        </div>
-
-        {task.task_type === 'subscription' && task.telegram_channel_id && (
-          <div className="task-channel-info">
-            <h3>Канал:</h3>
-            <p>@{task.telegram_channel_id.replace('@', '')}</p>
+        {task.task_type !== 'subscription' && (
+          <div className="task-meta">
+            <div className="meta-item">
+              <span>Всего слотов</span>
+              <strong>{task.telegram_channel_id ? '—' : '∞'}</strong>
+            </div>
+            <div className="meta-item">
+              <span>Опубликовано</span>
+              <strong>Сегодня</strong>
+            </div>
           </div>
         )}
+
+        
 
         <div className="task-rules">
           <div className="rules-header">
@@ -185,79 +182,12 @@ export default function TaskDetail() {
           <ul>
             {task.task_type === 'subscription' && (
               <>
-                <li>Подпишитесь на указанный канал</li>
-                <li>Не отписывайтесь в течение 7 дней</li>
-                <li>Средства будут зачислены через 7 дней после проверки</li>
-                <li>Не подписывайтесь на сомнительные каналы</li>
-              </>
-            )}
-            {task.task_type === 'comment' && (
-              <>
-                <li>Оставьте комментарий согласно инструкции</li>
-                <li>Не используйте ненормативную лексику</li>
-                <li>Комментарий должен быть уникальным</li>
-                <li>Средства будут зачислены после проверки ботом</li>
-              </>
-            )}
-            {task.task_type === 'view' && (
-              <>
-                <li>Откройте и просмотрите публикацию</li>
-                <li>Средства будут зачислены автоматически</li>
-              </>
-            )}
-          </ul>
-        </div>
-
-        <div className="task-price-large">
-          <span className="price-label">Награда:</span>
-          <span className="price-value">
-            {parseFloat(task.price_per_slot_fiat).toFixed(2)} {currencySymbol(task.fiat_currency || fiatCurrency)}
-          </span>
-        </div>
-
-        {!isCreator && (
-          <button
-            className="earn-button-large"
-            onClick={handleStart}
-            disabled={processing}
-          >
-            {processing ? 'Обработка...' : 'Заработать'}
-          </button>
-        )}
-      </div>
-
-      {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>{task.title}</h2>
-            {task.task_type === 'comment' && (
-              <>
-                <div className="modal-instruction">
-                  <h3>Инструкция от заказчика:</h3>
-                  <p>{task.comment_instruction || 'Оставьте комментарий'}</p>
-                </div>
                 <div className="modal-rules">
-                  <h3>Правила приложения:</h3>
+                  <h3>Правила выполнения:</h3>
                   <ul>
-                    <li>Комментарий должен соответствовать инструкции</li>
-                    <li>Запрещена ненормативная лексика</li>
-                    <li>Комментарий должен быть уникальным</li>
-                    <li>После оставления комментария средства будут зачислены после проверки</li>
-                  </ul>
-                </div>
-              </>
-            )}
-            {task.task_type === 'subscription' && (
-              <>
-                <div className="modal-instruction">
-                  <h3>Инструкция:</h3>
-                  <p>Подпишитесь на канал и не отписывайтесь в течение 7 дней.</p>
-                </div>
-                <div className="modal-rules">
-                  <h3>Правила приложения:</h3>
-                  <ul>
-                    <li>Не отписывайтесь 7 дней</li>
-                    <li>Средства начисляются после проверки</li>
+                    <li>Не отписывайтесь в течение 7 дней, иначе средства не поступят на ваш баланс</li>
+                    <li>Средства будут зачислены на ваш баланс через 7 дней после проверки</li>
+                    <li>Проверяйте канал, перед тем, как подписаться. Не подписывайтесь на сомнительные каналы.</li>
                   </ul>
                 </div>
               </>
@@ -270,8 +200,13 @@ export default function TaskDetail() {
             )}
             <div className="modal-actions">
               <button className="modal-close" onClick={() => setShowModal(false)}>Закрыть</button>
-              <button className="modal-complete" onClick={handleComplete} disabled={processing}>
-                {processing ? 'Отправка...' : 'Подтвердить выполнение'}
+              <button className="modal-complete" onClick={task.task_type === 'subscription' ? () => {
+                if (task.telegram_channel_id) {
+                  const channelId = task.telegram_channel_id.replace('@', '')
+                  window.open(`https://t.me/${channelId}`, '_blank')
+                }
+              } : handleComplete} disabled={processing}>
+                {processing ? 'Отправка...' : task.task_type === 'subscription' ? 'Подписаться' : 'Подтвердить выполнение'}
               </button>
             </div>
           </div>
