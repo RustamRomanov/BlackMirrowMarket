@@ -475,7 +475,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
                     setFormData({ ...formData, telegram_post_id: e.target.value })
                     if (errors.telegram_post_id) setErrors({ ...errors, telegram_post_id: '' })
                   }}
-                  placeholder="https://t.me/channel/123 или https://t.me/c/ID/123"
+                  placeholder="https://t.me/spooortiko/8"
                   className={`form-input ${errors.telegram_post_id ? 'error' : ''}`}
                 />
                 {errors.telegram_post_id && <div className="form-error">{errors.telegram_post_id}</div>}
