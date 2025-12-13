@@ -217,6 +217,11 @@ async def create_task(task: schemas.TaskCreate, telegram_id: int, db: Session = 
     Создание нового задания.
     Списание средств с баланса заказчика (total_slots * price_per_slot_ton).
     """
+    try:
+        print(f"[CREATE TASK] Received request: telegram_id={telegram_id}, task_type={task.task_type}, price={task.price_per_slot_ton}, slots={task.total_slots}")
+    except Exception as e:
+        print(f"[CREATE TASK] Error logging request: {e}")
+    
     user = db.query(models.User).filter(models.User.telegram_id == telegram_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -234,7 +239,13 @@ async def create_task(task: schemas.TaskCreate, telegram_id: int, db: Session = 
         return nano / Decimal(10**9)
     
     # Фронтенд отправляет цену в TON
-    price_per_slot_ton = Decimal(str(task.price_per_slot_ton))
+    try:
+        price_per_slot_ton = Decimal(str(task.price_per_slot_ton))
+        if price_per_slot_ton <= 0:
+            raise HTTPException(status_code=400, detail="Price per slot must be greater than 0")
+    except (ValueError, TypeError) as e:
+        print(f"[CREATE TASK] Error parsing price: {e}, received: {task.price_per_slot_ton}")
+        raise HTTPException(status_code=400, detail=f"Invalid price format: {task.price_per_slot_ton}")
     
     # Вычисляем бюджет кампании в TON: количество слотов × цена за слот
     total_budget_ton = Decimal(task.total_slots) * price_per_slot_ton

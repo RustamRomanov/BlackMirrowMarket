@@ -189,7 +189,17 @@ export default function Create() {
     } catch (error: any) {
       console.error('Error creating task:', error)
       console.error('Error response:', error.response)
-      showError(error.response?.data?.detail || 'Ошибка при создании задания')
+      console.error('Error data:', error.response?.data)
+      console.log('[CREATE TASK] Form data sent:', {
+        price_per_slot_ton: priceInTon,
+        total_slots: formData.total_slots,
+        task_type: formData.task_type,
+        telegram_post_id: parsedPostId
+      })
+      
+      // Показываем более детальное сообщение об ошибке
+      const errorMessage = error.response?.data?.detail || error.message || 'Ошибка при создании задания'
+      showError(errorMessage)
     }
   }
 
