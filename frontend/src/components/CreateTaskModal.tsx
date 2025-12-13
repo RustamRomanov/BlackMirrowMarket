@@ -238,7 +238,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: CreateTaskModalPr
       const isPrivateChannel = /^https?:\/\/(?:www\.)?t\.me\/c\/\d+\/\d+/i.test(postId)
       
       if (!isPublicChannel && !isPrivateChannel) {
-        newErrors.telegram_post_id = 'Ссылка должна быть из Telegram (https://t.me/channel/123 или https://t.me/c/ID/123)'
+        newErrors.telegram_post_id = 'Ссылка должна быть из Telegram (https://t.me/channel/123)'
         console.log('[CreateTaskModal] Validation error: invalid post link format', postId)
       }
     }

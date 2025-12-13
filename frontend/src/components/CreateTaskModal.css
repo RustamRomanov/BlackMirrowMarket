@@ -212,14 +212,15 @@ textarea.form-input {
 
 .form-row-pricing {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
   margin-bottom: 12px;
   align-items: end;
 }
 
 .budget-group {
-  grid-column: auto;
+  grid-column: 1 / -1;
+  margin-top: 0;
 }
 
 .budget-display {
