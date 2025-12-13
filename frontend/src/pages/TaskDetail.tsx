@@ -133,7 +133,15 @@ export default function TaskDetail() {
               console.error('No post link found! post_id:', task.telegram_post_id, 'channel_id:', task.telegram_channel_id)
               showError('Ссылка на пост не найдена')
             }
-          setProcessing(false)
+          }
+        } else {
+          showError(errorDetail)
+        }
+      } else {
+        showError('Ошибка при старте задания')
+      }
+    } finally {
+      setProcessing(false)
           return
         }
         return
@@ -187,7 +195,15 @@ export default function TaskDetail() {
               console.error('No post link found! post_id:', task.telegram_post_id, 'channel_id:', task.telegram_channel_id)
               showError('Ссылка на пост не найдена')
             }
-          setProcessing(false)
+          }
+        } else {
+          showError(errorDetail)
+        }
+      } else {
+        showError('Ошибка при старте задания')
+      }
+    } finally {
+      setProcessing(false)
           return
         }
         return
