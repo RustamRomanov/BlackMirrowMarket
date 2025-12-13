@@ -151,8 +151,22 @@ export default function TaskDetail() {
         console.log('[TaskDetail] task.telegram_channel_id:', task.telegram_channel_id)
         console.log('[TaskDetail] task.telegram_post_id:', task.telegram_post_id)
         
-        // Для комментариев ссылка должна быть в telegram_channel_id
-        const postLink = task.telegram_channel_id || getPostLink(task.telegram_channel_id, task.telegram_post_id)
+        // Для комментариев ссылка должна быть в telegram_channel_id (полная ссылка)
+        let postLink: string | null = null
+        
+        if (task.telegram_channel_id) {
+          // Если это уже полная ссылка, используем её
+          if (task.telegram_channel_id.startsWith('http://') || task.telegram_channel_id.startsWith('https://')) {
+            postLink = task.telegram_channel_id
+          } else {
+            // Иначе пытаемся сформировать из channelId и postId
+            postLink = getPostLink(task.telegram_channel_id, task.telegram_post_id)
+          }
+        } else {
+          // Если channelId пустой, пытаемся использовать postId как ссылку
+          postLink = getPostLink(task.telegram_channel_id, task.telegram_post_id)
+        }
+        
         console.log('[TaskDetail] Comment task - postLink:', postLink)
         
         if (postLink) {
@@ -195,8 +209,22 @@ export default function TaskDetail() {
         console.log('[TaskDetail] task.telegram_channel_id:', task.telegram_channel_id)
         console.log('[TaskDetail] task.telegram_post_id:', task.telegram_post_id)
         
-        // Для комментариев ссылка должна быть в telegram_channel_id
-        const postLink = task.telegram_channel_id || getPostLink(task.telegram_channel_id, task.telegram_post_id)
+        // Для комментариев ссылка должна быть в telegram_channel_id (полная ссылка)
+        let postLink: string | null = null
+        
+        if (task.telegram_channel_id) {
+          // Если это уже полная ссылка, используем её
+          if (task.telegram_channel_id.startsWith('http://') || task.telegram_channel_id.startsWith('https://')) {
+            postLink = task.telegram_channel_id
+          } else {
+            // Иначе пытаемся сформировать из channelId и postId
+            postLink = getPostLink(task.telegram_channel_id, task.telegram_post_id)
+          }
+        } else {
+          // Если channelId пустой, пытаемся использовать postId как ссылку
+          postLink = getPostLink(task.telegram_channel_id, task.telegram_post_id)
+        }
+        
         console.log('[TaskDetail] Starting comment task - postLink:', postLink)
         
         if (postLink) {
@@ -229,8 +257,21 @@ export default function TaskDetail() {
             showSuccess('Задание уже начато. После проверки ботом средства будут зачислены.')
             setTimeout(() => { navigate('/earn') }, 2000)
           } else if (task.task_type === 'comment') {
-            // Для комментариев ссылка должна быть в telegram_channel_id
-            const postLink = task.telegram_channel_id || getPostLink(task.telegram_channel_id, task.telegram_post_id)
+            // Для комментариев ссылка должна быть в telegram_channel_id (полная ссылка)
+            let postLink: string | null = null
+            
+            if (task.telegram_channel_id) {
+              // Если это уже полная ссылка, используем её
+              if (task.telegram_channel_id.startsWith('http://') || task.telegram_channel_id.startsWith('https://')) {
+                postLink = task.telegram_channel_id
+              } else {
+                // Иначе пытаемся сформировать из channelId и postId
+                postLink = getPostLink(task.telegram_channel_id, task.telegram_post_id)
+              }
+            } else {
+              postLink = getPostLink(task.telegram_channel_id, task.telegram_post_id)
+            }
+            
             console.log('[TaskDetail] Comment task (already started) - postLink:', postLink)
             if (postLink) {
               console.log('[TaskDetail] Opening post link:', postLink)
@@ -279,8 +320,21 @@ export default function TaskDetail() {
             showSuccess('Задание уже начато. После проверки ботом средства будут зачислены.')
             setTimeout(() => { navigate('/earn') }, 2000)
           } else if (task.task_type === 'comment') {
-            // Для комментариев ссылка должна быть в telegram_channel_id
-            const postLink = task.telegram_channel_id || getPostLink(task.telegram_channel_id, task.telegram_post_id)
+            // Для комментариев ссылка должна быть в telegram_channel_id (полная ссылка)
+            let postLink: string | null = null
+            
+            if (task.telegram_channel_id) {
+              // Если это уже полная ссылка, используем её
+              if (task.telegram_channel_id.startsWith('http://') || task.telegram_channel_id.startsWith('https://')) {
+                postLink = task.telegram_channel_id
+              } else {
+                // Иначе пытаемся сформировать из channelId и postId
+                postLink = getPostLink(task.telegram_channel_id, task.telegram_post_id)
+              }
+            } else {
+              postLink = getPostLink(task.telegram_channel_id, task.telegram_post_id)
+            }
+            
             console.log('[TaskDetail] Comment task (handleComplete error) - postLink:', postLink)
             if (postLink) {
               console.log('[TaskDetail] Opening post link:', postLink)
