@@ -80,3 +80,5 @@ Railway все еще пытается использовать Dockerfile, да
 - ✅ ЕСТЬ `backend/nixpacks.toml`
 - ✅ ЕСТЬ `backend/requirements.txt`
 
+
+

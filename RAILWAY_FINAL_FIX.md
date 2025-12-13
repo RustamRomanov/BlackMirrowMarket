@@ -64,3 +64,5 @@ Railway будет использовать Railpack, который:
 2. Установите Root Directory = `backend`
 3. Установите Dockerfile Path = `Dockerfile` (относительный путь)
 
+
+

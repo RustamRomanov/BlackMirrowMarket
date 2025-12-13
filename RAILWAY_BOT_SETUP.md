@@ -98,3 +98,5 @@ python3 run_bot.py
 - [ ] Деплой успешен
 - [ ] Бот отвечает на `/start` в Telegram
 
+
+

@@ -101,3 +101,5 @@
 - Обновите `MINI_APP_URL` на Frontend домен
 - Обновите Mini App в BotFather с новым URL
 
+
+

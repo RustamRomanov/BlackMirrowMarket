@@ -78,3 +78,5 @@ railway run --service BlackMirrowMarket python3 backend/init_db.py
 
 Ваш Backend успешно развернут на Railway и готов к работе!
 
+
+

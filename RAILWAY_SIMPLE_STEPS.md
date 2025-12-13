@@ -83,3 +83,5 @@ CORS_ORIGINS = https://t.me,https://web.telegram.org
 2. Проверьте логи в "Deployments" → выберите последний деплой → "View Logs"
 3. Убедитесь, что все переменные окружения добавлены
 
+
+

@@ -81,3 +81,5 @@
 2. Проверьте: https://blackmirrowmarket-production.up.railway.app/health
 3. Должно вернуть: `{"status":"healthy"}`
 
+
+

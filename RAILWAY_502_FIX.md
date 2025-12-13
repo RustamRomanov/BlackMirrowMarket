@@ -78,3 +78,5 @@ railway run --service BlackMirrowMarket python3 backend/init_db.py
 2. Проверьте: https://blackmirrowmarket-production.up.railway.app/health
 3. Должно вернуть: `{"status":"healthy"}`
 
+
+

@@ -35,3 +35,5 @@ if __name__ == "__main__":
         app.stop()
         print("✅ Бот остановлен")
 
+
+
