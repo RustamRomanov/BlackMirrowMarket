@@ -356,7 +356,7 @@ async def validate_subscription_task(user_task_id: int, db: Session):
 async def check_subscription_periodically(user_task_id: int, db: Session):
     """
     Периодически проверяет подписку (раз в день в течение 7 дней).
-    Если подписка отменена - банит пользователя и списывает средства.
+    Если подписка отменена - возвращает средства из эскроу в задание или заказчику.
     
     Args:
         user_task_id: ID записи UserTask
@@ -394,28 +394,44 @@ async def check_subscription_periodically(user_task_id: int, db: Session):
     subscription_exists = await check_subscription_exists(bot, channel_id, user.telegram_id)
     
     if not subscription_exists:
-        # Подписка отменена - баним пользователя и списываем средства
+        # Подписка отменена - возвращаем средства из эскроу
         from app.database_optimizations import update_balance_safely
+        from decimal import Decimal
         
-        # Списываем средства с баланса пользователя
-        balance = db.query(models.UserBalance).filter(models.UserBalance.user_id == user.id).first()
-        if balance:
-            if balance.ton_active_balance >= user_task.reward_ton:
-                update_balance_safely(db, user.id, -user_task.reward_ton, "active")
-            else:
-                update_balance_safely(db, user.id, -balance.ton_active_balance, "active")
+        # Списываем средства из эскроу пользователя
+        user_balance = db.query(models.UserBalance).filter(models.UserBalance.user_id == user.id).first()
+        if user_balance and user_balance.ton_escrow_balance >= user_task.reward_ton:
+            # Списываем из эскроу пользователя
+            update_balance_safely(db, user.id, -user_task.reward_ton, "escrow")
+            
+            # Получаем заказчика задания
+            creator = db.query(models.User).filter(models.User.id == task.creator_id).first()
+            if creator:
+                creator_balance = db.query(models.UserBalance).filter(models.UserBalance.user_id == creator.id).first()
+                
+                if task.status == models.TaskStatus.ACTIVE:
+                    # Задание еще активно - возвращаем средства в задание (увеличиваем completed_slots обратно)
+                    # Но на самом деле нужно вернуть средства заказчику, так как слот уже был засчитан
+                    # Возвращаем средства заказчику на активный баланс
+                    if creator_balance:
+                        update_balance_safely(db, creator.id, user_task.reward_ton, "active")
+                        print(f"[COMMENT VALIDATOR] Subscription cancelled for user_task {user_task_id}, funds returned to creator (task active)")
+                else:
+                    # Задание завершено - возвращаем средства заказчику
+                    if creator_balance:
+                        update_balance_safely(db, creator.id, user_task.reward_ton, "active")
+                        print(f"[COMMENT VALIDATOR] Subscription cancelled for user_task {user_task_id}, funds returned to creator (task completed)")
+                
+                # Уменьшаем счетчик выполненных слотов (возвращаем слот обратно)
+                if task.completed_slots > 0:
+                    task.completed_slots -= 1
         
-        # Баним пользователя на 7 дней
-        user.is_banned = True
-        user.ban_until = datetime.utcnow() + timedelta(days=7)
-        user.ban_reason = "Отменена подписка после валидации"
-        
-        # Обновляем статус задания
+        # Обновляем статус задания пользователя
         user_task.status = models.UserTaskStatus.FAILED
         user_task.validation_result = False
         
         db.commit()
-        print(f"[COMMENT VALIDATOR] Subscription cancelled for user_task {user_task_id}, user {user.telegram_id} banned for 7 days")
+        print(f"[COMMENT VALIDATOR] Subscription cancelled for user_task {user_task_id}, funds returned to creator")
 
 async def check_all_comment_tasks():
     """
