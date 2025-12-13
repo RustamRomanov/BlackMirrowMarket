@@ -88,7 +88,7 @@
   z-index: 1;
   gap: 12px;
   min-height: 40px;
-  margin-bottom: -12px; /* Кнопка отцентрована относительно верхнего и нижнего края */
+  flex: 1;
   margin-bottom: -6px; /* Кнопка отцентрована - одинаковое расстояние сверху и снизу */
 }
 
@@ -112,8 +112,8 @@
   align-items: flex-end;
   position: relative;
   z-index: 1;
-  margin-top: -2px; /* Поднято ВЫШЕ для видимости */
-  margin-bottom: 4px; /* Отступ снизу чтобы видно было */
+  margin-top: 0;
+  margin-bottom: 0; /* Помещено к нижнему краю окна задания */
 }
 
 .task-available-compact {
