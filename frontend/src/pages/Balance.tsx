@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
-import { Copy, Users, TrendingUp, Info } from 'lucide-react'
+import { Info, Copy } from 'lucide-react'
 import { useToast } from '../context/ToastContext'
 import './Balance.css'
 
@@ -16,45 +16,31 @@ interface Balance {
   subscriptions_used_24h: number
 }
 
-interface ReferralInfo {
-  referral_link: string
-  total_referrals: number
-  total_earned_fiat: string
-}
 
-interface ReferralDetail {
-  referred_username?: string
-  referred_first_name?: string
-  total_earned_ton: string
-  commission_earned_ton: string
-  created_at: string
-}
 
 export default function Balance() {
   const { user } = useAuth()
   const { showSuccess } = useToast()
   const [balance, setBalance] = useState<Balance | null>(null)
   const [loading, setLoading] = useState(true)
-  const [fiatCurrency, setFiatCurrency] = useState<string>(() => {
-    if (typeof window === 'undefined') return 'RUB'
-    return localStorage.getItem('fiatCurrency') || 'RUB'
-  })
+  const [fiatCurrency, setFiatCurrency] = useState<string>('RUB')
   const [showDepositInfo, setShowDepositInfo] = useState(false)
   const [showWithdrawForm, setShowWithdrawForm] = useState(false)
   const [depositInfo, setDepositInfo] = useState<{service_wallet_address: string, telegram_id?: number, username?: string, note?: string} | null>(null)
   const [withdrawAddress, setWithdrawAddress] = useState('')
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [withdrawLoading, setWithdrawLoading] = useState(false)
-  const [referralInfo, setReferralInfo] = useState<ReferralInfo | null>(null)
-  const [referrals, setReferrals] = useState<ReferralDetail[]>([])
+  const [transactions, setTransactions] = useState<any[]>([])
+  const [deposits, setDeposits] = useState<any[]>([])
+  const [loadingTransactions, setLoadingTransactions] = useState(false)
 
   useEffect(() => {
     if (user) {
       loadBalance()
-      loadReferralInfo()
+      loadTransactions()
       const interval = setInterval(() => {
         loadBalance()
-        loadReferralInfo()
+        loadTransactions()
       }, 5000)
       return () => clearInterval(interval)
     } else {
@@ -74,13 +60,22 @@ export default function Balance() {
     try {
       const response = await axios.get(`${API_URL}/api/balance/${user.telegram_id}`)
       setBalance(response.data)
-      // Если пользователь ещё не выбирал валюту, возьмём с бэка (только один раз)
-      if (typeof window !== 'undefined') {
-        const stored = localStorage.getItem('fiatCurrency')
-        if (!stored && response.data?.fiat_currency) {
-          setFiatCurrency(response.data.fiat_currency)
-          localStorage.setItem('fiatCurrency', response.data.fiat_currency)
-        }
+      
+      // Загружаем валюту из localStorage, если есть, иначе из бэкенда
+      const storedCurrency = localStorage.getItem('fiatCurrency')
+      if (storedCurrency && ['RUB', 'USD', 'EUR', 'TON'].includes(storedCurrency)) {
+        setFiatCurrency(storedCurrency)
+      } else if (response.data?.fiat_currency) {
+        setFiatCurrency(response.data.fiat_currency)
+        localStorage.setItem('fiatCurrency', response.data.fiat_currency)
+      }
+      
+      // Сохраняем курс конвертации
+      if (response.data) {
+        const tonActive = parseFloat(response.data.ton_active_balance || '0') / 10**9
+        const fiatActive = parseFloat(response.data.fiat_balance || '0')
+        const fiatRate = tonActive > 0 ? fiatActive / tonActive : 250
+        localStorage.setItem('fiatRatePerTon', fiatRate.toString())
       }
     } catch (error: any) {
       console.error('Error loading balance:', error)
@@ -110,42 +105,68 @@ export default function Balance() {
     }
   }
 
-  async function loadReferralInfo() {
+
+  async function loadTransactions() {
     if (!user) return
     
+    setLoadingTransactions(true)
     try {
-      const [infoResponse, referralsResponse] = await Promise.all([
-        axios.get(`${API_URL}/api/users/${user.telegram_id}/referral-info`),
-        axios.get(`${API_URL}/api/users/${user.telegram_id}/referrals`)
+      const [withdrawalsResponse, depositsResponse] = await Promise.all([
+        axios.get(`${API_URL}/api/ton/transactions/user/${user.telegram_id}`),
+        axios.get(`${API_URL}/api/balance/${user.telegram_id}/deposits`)
       ])
-      setReferralInfo(infoResponse.data)
-      setReferrals(referralsResponse.data)
+      
+      // Объединяем транзакции: депозиты и выводы
+      const allTransactions = [
+        ...depositsResponse.data.map((d: any) => ({
+          ...d,
+          type: 'deposit',
+          to_address: null,
+          from_address: d.from_address
+        })),
+        ...withdrawalsResponse.data.map((w: any) => ({
+          ...w,
+          type: 'withdrawal',
+          from_address: null,
+          to_address: w.to_address
+        }))
+      ].sort((a, b) => {
+        const dateA = new Date(a.created_at).getTime()
+        const dateB = new Date(b.created_at).getTime()
+        return dateB - dateA // Сначала новые
+      })
+      
+      setTransactions(allTransactions)
+      setDeposits(depositsResponse.data)
     } catch (error) {
-      console.error('Error loading referral info:', error)
-    }
-  }
-
-  async function copyReferralLink() {
-    if (!referralInfo) return
-    try {
-      await navigator.clipboard.writeText(referralInfo.referral_link)
-      showSuccess('Реферальная ссылка скопирована!')
-    } catch (error) {
-      console.error('Failed to copy:', error)
+      console.error('Error loading transactions:', error)
+    } finally {
+      setLoadingTransactions(false)
     }
   }
 
   async function changeCurrency(currency: string) {
     if (!user || !balance) return
-    setFiatCurrency(currency)
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('fiatCurrency', currency)
-    }
-    if (currency === 'TON') return
+    
     try {
+      // Обновляем валюту на бэкенде
       await axios.patch(`${API_URL}/api/balance/${user.telegram_id}/currency`, null, {
         params: { currency }
       })
+      setFiatCurrency(currency)
+      
+      // Сохраняем валюту и курс в localStorage
+      const tonActive = parseFloat(balance.ton_active_balance) / 10**9
+      const fiatActive = parseFloat(balance.fiat_balance)
+      const fiatRate = tonActive > 0 ? fiatActive / tonActive : 250
+      
+      localStorage.setItem('fiatCurrency', currency)
+      localStorage.setItem('fiatRatePerTon', fiatRate.toString())
+      
+      // Отправляем событие для синхронизации в других вкладках
+      window.dispatchEvent(new Event('storage'))
+      window.dispatchEvent(new CustomEvent('currencyChanged', { detail: { currency, rate: fiatRate } }))
+      
       loadBalance()
     } catch (error) {
       console.error('Error changing currency:', error)
@@ -194,6 +215,7 @@ export default function Balance() {
       setWithdrawAddress('')
       setWithdrawAmount('')
       loadBalance()
+      loadTransactions()
     } catch (error: any) {
       showSuccess(error.response?.data?.detail || 'Ошибка при выводе средств')
     } finally {
@@ -227,24 +249,8 @@ export default function Balance() {
   const tonActive = parseFloat(balance.ton_active_balance) / 10**9
   const tonEscrow = parseFloat(balance.ton_escrow_balance) / 10**9
   const fiatActive = parseFloat(balance.fiat_balance)
-  const fiatRate = tonActive > 0 ? fiatActive / tonActive : (() => {
-    if (typeof window !== 'undefined') {
-      const stored = parseFloat(localStorage.getItem('fiatRatePerTon') || '0')
-      if (stored > 0) return stored
-    }
-    return 250
-  })()
-  const isTonCurrency = fiatCurrency === 'TON'
-
-  // Сохраняем актуальный курс и базовую валюту для использования на других страницах
-  if (typeof window !== 'undefined') {
-    if (fiatRate > 0) {
-      localStorage.setItem('fiatRatePerTon', fiatRate.toString())
-    }
-    if (balance.fiat_currency) {
-      localStorage.setItem('fiatBaseCurrency', balance.fiat_currency)
-    }
-  }
+  const storedRate = typeof window !== 'undefined' ? localStorage.getItem('fiatRatePerTon') : null
+  const fiatRate = storedRate ? parseFloat(storedRate) : (tonActive > 0 ? fiatActive / tonActive : 250)
   
   // Показываем реальные значения (0 если 0, без виртуальных сумм)
   const displayTonActive = Math.max(0, tonActive)  // Убеждаемся, что не отрицательное
@@ -270,44 +276,58 @@ export default function Balance() {
       <div className="balance-card">
         <div className="balance-section">
           <div className="balance-label">Общий Баланс</div>
-          <div className="balance-value-primary">
-            {isTonCurrency
-              ? `${displayTonActive.toFixed(4)} TON`
-              : `${displayFiatActive.toFixed(2)} ${fiatCurrency}`}
-          </div>
-          <div className="balance-value-secondary">
-            {isTonCurrency
-              ? `${displayTonActive.toFixed(4)} TON`
-              : `${displayTonActive.toFixed(4)} TON`}
-          </div>
+          {fiatCurrency === 'TON' ? (
+            <>
+              <div className="balance-value-primary">
+                {displayTonActive.toFixed(4)} TON
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="balance-value-primary">
+                {displayFiatActive.toFixed(2)} {fiatCurrency}
+              </div>
+              <div className="balance-value-secondary">
+                {displayTonActive.toFixed(4)} TON
+              </div>
+            </>
+          )}
         </div>
 
         <div className="balance-section">
           <div className="balance-label">В эскроу (в проверке)</div>
-          <div className="balance-value-secondary">
-            {isTonCurrency
-              ? `${displayTonEscrow.toFixed(4)} TON`
-              : `${(displayTonEscrow * fiatRate).toFixed(2)} ${fiatCurrency}`}
-          </div>
-          <div className="balance-value-tertiary">
-            {isTonCurrency
-              ? `${displayTonEscrow.toFixed(4)} TON`
-              : `${displayTonEscrow.toFixed(4)} TON`}
-          </div>
+          {fiatCurrency === 'TON' ? (
+            <div className="balance-value-secondary">
+              {displayTonEscrow.toFixed(4)} TON
+            </div>
+          ) : (
+            <>
+              <div className="balance-value-secondary">
+                {(displayTonEscrow * fiatRate).toFixed(2)} {fiatCurrency}
+              </div>
+              <div className="balance-value-tertiary">
+                {displayTonEscrow.toFixed(4)} TON
+              </div>
+            </>
+          )}
         </div>
 
         <div className="balance-section">
           <div className="balance-label">Доступно для вывода</div>
-          <div className="balance-value-secondary">
-            {isTonCurrency
-              ? `${displayTonActive.toFixed(4)} TON`
-              : `${displayFiatActive.toFixed(2)} ${fiatCurrency}`}
-          </div>
-          <div className="balance-value-tertiary">
-            {isTonCurrency
-              ? `${displayTonActive.toFixed(4)} TON`
-              : `${displayTonActive.toFixed(4)} TON`}
-          </div>
+          {fiatCurrency === 'TON' ? (
+            <div className="balance-value-secondary">
+              {displayTonActive.toFixed(4)} TON
+            </div>
+          ) : (
+            <>
+              <div className="balance-value-secondary">
+                {displayFiatActive.toFixed(2)} {fiatCurrency}
+              </div>
+              <div className="balance-value-tertiary">
+                {displayTonActive.toFixed(4)} TON
+              </div>
+            </>
+          )}
         </div>
 
         {displayTonActive < 0 && (
@@ -528,68 +548,117 @@ export default function Balance() {
         </div>
       )}
 
-      {/* Реферальная программа */}
-      {referralInfo && (
-        <div className="referral-section-balance">
-          <h2>Реферальная программа</h2>
-          <p className="referral-description">
-            Приглашайте друзей и получайте 5% от их заработка!
-          </p>
-
-          <div className="referral-info-card">
-            <div className="referral-link-section">
-              <label>Ваша реферальная ссылка:</label>
-              <div className="referral-link-input">
-                <input
-                  type="text"
-                  value={referralInfo.referral_link}
-                  readOnly
-                />
-                <button
-                  className="copy-button"
-                  onClick={copyReferralLink}
-                  title="Копировать"
+      {/* Список транзакций */}
+      {transactions.length > 0 && (
+        <div className="transactions-section" style={{ marginTop: '20px' }}>
+          <h2 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '10px', color: '#333' }}>
+            История транзакций
+          </h2>
+          <div className="transactions-list">
+            {transactions.map((tx) => {
+              const amountTon = parseFloat(tx.amount_nano) / 10**9
+              const isDeposit = tx.type === 'deposit'
+              const date = new Date(tx.created_at)
+              const formattedDate = date.toLocaleString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+              
+              // Правильное определение статуса: для депозитов "processed" = завершено, для выводов "completed" = завершено
+              const isCompleted = isDeposit 
+                ? (tx.status === 'processed') 
+                : (tx.status === 'completed')
+              const isPending = tx.status === 'pending'
+              const isFailed = tx.status === 'failed'
+              
+              return (
+                <div
+                  key={`${tx.type}-${tx.id}`}
+                  className="transaction-item"
+                  style={{
+                    background: 'white',
+                    borderRadius: '8px',
+                    padding: '8px 10px',
+                    marginBottom: '6px',
+                    border: `1px solid ${isDeposit ? '#c8e6c9' : '#ffccbc'}`,
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                    fontSize: '11px',
+                    lineHeight: '1.4'
+                  }}
                 >
-                  <Copy size={18} />
-                </button>
-              </div>
-            </div>
-
-            <div className="referral-stats">
-              <div className="stat-item">
-                <Users size={20} color="#667eea" />
-                <div className="stat-value">{referralInfo.total_referrals}</div>
-                <div className="stat-label">Рефералов</div>
-              </div>
-              <div className="stat-item">
-                <TrendingUp size={20} color="#4CAF50" />
-                <div className="stat-value">
-                  {parseFloat(referralInfo.total_earned_fiat).toFixed(2)} {fiatCurrency}
-                </div>
-                <div className="stat-label">Заработано</div>
-              </div>
-            </div>
-
-            {referrals.length > 0 && (
-              <div className="referrals-list">
-                <h3>Ваши рефералы:</h3>
-                {referrals.map((ref, index) => (
-                  <div key={index} className="referral-item">
-                    <div className="referral-name">
-                      {ref.referred_first_name || ref.referred_username || 'Пользователь'}
+                  {/* Первая строка: Тип, сумма, статус */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
+                      <span style={{ fontSize: '14px' }}>
+                        {isDeposit ? '📥' : '📤'}
+                      </span>
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        color: isDeposit ? '#2e7d32' : '#d84315'
+                      }}>
+                        {isDeposit ? 'Пополнение' : 'Вывод'}
+                      </span>
+                      <span style={{
+                        fontSize: '9px',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        background: isCompleted
+                          ? '#e8f5e9' 
+                          : isPending
+                          ? '#fff3e0' 
+                          : '#ffebee',
+                        color: isCompleted
+                          ? '#2e7d32'
+                          : isPending
+                          ? '#f57c00'
+                          : '#c62828',
+                        fontWeight: '600'
+                      }}>
+                        {isCompleted ? '✓' : isPending ? '⏳' : '✗'}
+                      </span>
                     </div>
-                    <div className="referral-earnings">
-                      Заработано: {parseFloat(ref.total_earned_ton) / 10**9} TON
-                      <br />
-                      Ваша комиссия: {parseFloat(ref.commission_earned_ton) / 10**9} TON
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        color: isDeposit ? '#2e7d32' : '#d84315'
+                      }}>
+                        {isDeposit ? '+' : '-'}{amountTon.toFixed(4)} TON
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                  
+                  {/* Вторая строка: Дата и хеш/адрес */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', color: '#666' }}>
+                    <span>{formattedDate}</span>
+                    {tx.tx_hash && (
+                      <span style={{ fontFamily: 'monospace', fontSize: '9px', color: '#999' }}>
+                        {tx.tx_hash.slice(0, 8)}...{tx.tx_hash.slice(-6)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
+
+      {loadingTransactions && transactions.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+          Загрузка транзакций...
+        </div>
+      )}
+
+      {!loadingTransactions && transactions.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '20px', color: '#999', fontSize: '14px', marginTop: '24px' }}>
+          Транзакций пока нет
+        </div>
+      )}
+
     </div>
   )
 }

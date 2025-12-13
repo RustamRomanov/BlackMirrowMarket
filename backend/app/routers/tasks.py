@@ -213,26 +213,51 @@ async def create_task(task: schemas.TaskCreate, telegram_id: int, db: Session = 
     if not balance:
         raise HTTPException(status_code=404, detail="Balance not found")
     
-    # Вычисляем общую стоимость задания
-    total_cost = task.total_slots * task.price_per_slot_ton
+    # Вспомогательные функции для работы с TON (БД хранит в нано-TON)
+    def ton_to_nano(ton: Decimal) -> Decimal:
+        return ton * Decimal(10**9)
+    
+    def nano_to_ton(nano: Decimal) -> Decimal:
+        return nano / Decimal(10**9)
+    
+    # Фронтенд отправляет цену в TON
+    price_per_slot_ton = Decimal(str(task.price_per_slot_ton))
+    
+    # Вычисляем бюджет кампании в TON: количество слотов × цена за слот
+    total_budget_ton = Decimal(task.total_slots) * price_per_slot_ton
+    
+    # Получаем текущий баланс в TON
+    balance_ton = nano_to_ton(Decimal(balance.ton_active_balance))
+    
+    print(f"[CREATE TASK] User {user.id}: {task.total_slots} slots × {price_per_slot_ton} TON = {total_budget_ton} TON budget")
+    print(f"[CREATE TASK] Balance before: {balance_ton} TON")
     
     # Проверяем достаточность средств
-    if balance.ton_active_balance < total_cost:
-        required_ton = float(total_cost) / 10**9
-        available_ton = float(balance.ton_active_balance) / 10**9
+    if balance_ton < total_budget_ton:
         raise HTTPException(
             status_code=400,
-            detail=f"Insufficient funds. Required: {required_ton:.4f} TON, Available: {available_ton:.4f} TON"
+            detail=f"Insufficient funds. Required: {total_budget_ton:.4f} TON, Available: {balance_ton:.4f} TON"
         )
     
-    # Списываем средства с баланса заказчика
-    balance.ton_active_balance -= total_cost
+    # Списываем бюджет кампании с баланса (конвертируем в нано-TON только для БД)
+    balance.ton_active_balance -= ton_to_nano(total_budget_ton)
+    
+    # Сохраняем цену в нано-TON в базе данных (для совместимости)
+    task_dict = task.dict()
+    task_dict['price_per_slot_ton'] = str(int(ton_to_nano(price_per_slot_ton)))
     
     # Создаем задание
-    db_task = models.Task(creator_id=user.id, **task.dict())
+    db_task = models.Task(creator_id=user.id, **task_dict)
     db.add(db_task)
+    
+    # Коммитим изменения
     db.commit()
+    db.refresh(balance)
     db.refresh(db_task)
+    
+    new_balance_ton = nano_to_ton(Decimal(balance.ton_active_balance))
+    print(f"[CREATE TASK] Balance after: {new_balance_ton} TON")
+    print(f"[CREATE TASK] Task {db_task.id} created successfully")
     
     return db_task
 
@@ -304,23 +329,76 @@ async def cancel_task(task_id: int, telegram_id: int, db: Session = Depends(get_
     if task.status == models.TaskStatus.COMPLETED:
         raise HTTPException(status_code=400, detail="Задание уже завершено")
     
+    # Получаем баланс заказчика
+    balance = db.query(models.UserBalance).filter(models.UserBalance.user_id == user.id).first()
+    if not balance:
+        raise HTTPException(status_code=404, detail="Balance not found")
+    
+    # Вспомогательные функции для работы с TON (БД хранит в нано-TON)
+    def ton_to_nano(ton: Decimal) -> Decimal:
+        return ton * Decimal(10**9)
+    
+    def nano_to_ton(nano: Decimal) -> Decimal:
+        return nano / Decimal(10**9)
+    
     # Вычисляем остаток (невыполненные слоты)
     remaining_slots = task.total_slots - task.completed_slots
-    refund_amount = remaining_slots * task.price_per_slot_ton
     
-    # Возвращаем средства на баланс
-    balance = db.query(models.UserBalance).filter(models.UserBalance.user_id == user.id).first()
-    if balance:
-        balance.ton_active_balance += refund_amount
+    # Цена за слот в БД хранится в нано-TON, конвертируем в TON
+    price_per_slot_ton = nano_to_ton(Decimal(task.price_per_slot_ton))
+    
+    # Вычисляем сумму возврата в TON
+    refund_amount_ton = Decimal(remaining_slots) * price_per_slot_ton
+    
+    balance_ton = nano_to_ton(Decimal(balance.ton_active_balance))
+    
+    print(f"[CANCEL TASK] Task {task_id}: {remaining_slots} remaining slots × {price_per_slot_ton} TON = {refund_amount_ton} TON refund")
+    print(f"[CANCEL TASK] Balance before: {balance_ton} TON")
+    
+    # Возвращаем средства на баланс заказчика (конвертируем в нано-TON для БД)
+    if refund_amount_ton > 0:
+        balance.ton_active_balance += ton_to_nano(refund_amount_ton)
+    
+    # Также нужно вернуть средства из эскроу исполнителей, если они есть
+    # Находим все активные UserTask для этого задания
+    active_user_tasks = db.query(models.UserTask).filter(
+        and_(
+            models.UserTask.task_id == task_id,
+            models.UserTask.status == models.UserTaskStatus.IN_PROGRESS
+        )
+    ).all()
+    
+    # Возвращаем средства из эскроу исполнителей обратно на активный баланс заказчика
+    for user_task in active_user_tasks:
+        # Списываем средства из эскроу исполнителя
+        executor_balance = db.query(models.UserBalance).filter(
+            models.UserBalance.user_id == user_task.user_id
+        ).first()
+        if executor_balance:
+            executor_balance.ton_escrow_balance -= user_task.reward_ton
+        
+        # Возвращаем средства заказчику (из эскроу исполнителя на активный баланс заказчика)
+        balance.ton_active_balance += user_task.reward_ton
+        
+        # Обновляем статус UserTask
+        user_task.status = models.UserTaskStatus.REFUNDED
     
     # Останавливаем задание
     task.status = models.TaskStatus.CANCELLED
+    
+    # Коммитим все изменения
     db.commit()
+    db.refresh(balance)
+    
+    new_balance_ton = nano_to_ton(Decimal(balance.ton_active_balance))
+    print(f"[CANCEL TASK] Balance after: {new_balance_ton} TON")
+    print(f"[CANCEL TASK] Task {task_id} cancelled, refunded {len(active_user_tasks)} active user tasks")
     
     return {
         "status": "cancelled",
         "message": "Задание остановлено",
-        "refund_amount": str(refund_amount / 10**9) + " TON"
+        "refund_amount": f"{refund_amount_ton:.4f} TON",
+        "refunded_user_tasks": len(active_user_tasks)
     }
 
 @router.post("/{task_id}/start", response_model=schemas.UserTaskResponse)

@@ -1,104 +1,460 @@
-.profile-page { padding: 16px; max-width: 600px; margin: 0 auto; background: #0b0c11; color: #e6e9f0; }
-.profile-page h1 { font-size: 24px; font-weight: 700; margin-bottom: 16px; color: #f6f7fb; }
-
-.profile-card { background: #0f1117; border-radius: 16px; padding: 20px; box-shadow: 0 10px 32px rgba(0,0,0,0.35); border: 1px solid #1d2230; }
-.profile-info { margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #1f2432; }
-.info-item { display: flex; justify-content: space-between; margin-bottom: 10px; }
-.info-item label { font-weight: 700; color: #9aa0b2; }
-.info-item span { color: #f6f7fb; }
-
-.profile-status { font-size: 14px; padding: 10px; border-radius: 8px; text-align: center; }
-.profile-status.ok { background: #10221a; color: #4CAF50; border: 1px solid rgba(76, 175, 80, 0.35); font-weight: 700; }
-.profile-status.muted { background: #1a1d24; color: #9aa0b2; border: 1px solid #222835; }
-
-.profile-form h2 { font-size: 18px; font-weight: 700; margin-bottom: 8px; color: #f6f7fb; }
-.form-note { font-size: 14px; color: #9aa0b2; margin-bottom: 20px; }
-.form-group { margin-bottom: 16px; }
-.form-group label { display: block; font-size: 14px; font-weight: 700; margin-bottom: 8px; color: #dfe4f3; }
-.form-group input, .form-group select, .form-select { width: 100%; padding: 12px; border: 1px solid #262c39; border-radius: 10px; font-size: 16px; background: #0b0c11; color: #f6f7fb; }
-.form-group select:focus, .form-select:focus, .form-group input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2); }
-.form-select option { background: #0b0c11; color: #f6f7fb; }
-.form-row-age-gender { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px; }
-
-.save-button { width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #4CAF50 100%); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.3s; margin-top: 8px; box-shadow: 0 10px 28px rgba(102, 126, 234, 0.35); }
-.save-button:hover:not(:disabled) { transform: translateY(-2px); }
-.save-button:disabled { opacity: 0.6; cursor: not-allowed; }
-
-.terms-section { margin: 20px 0; padding: 16px; background: #12141b; border-radius: 10px; border: 1px solid #1f2432; }
-.terms-checkbox-label { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.5; color: #dfe4f3; cursor: pointer; }
-.terms-link { background: none; border: none; color: #667eea; text-decoration: underline; cursor: pointer; font-size: 12px; padding: 0; font-family: inherit; }
-.inline-links { margin-top: 8px; font-size: 12px; color: #9aa0b2; display: flex; align-items: center; gap: 6px; justify-content: center; flex-wrap: wrap; }
-.inline-sep { color: #777; }
-
-.referral-section { margin-top: 24px; }
-.referral-section h2 { font-size: 18px; font-weight: 700; margin-bottom: 8px; color: #f6f7fb; }
-.referral-description { font-size: 14px; color: #d7dae4; margin-bottom: 20px; }
-.referral-info-card { background: #0f1117; border-radius: 12px; padding: 18px; border: 1px solid #1f2432; }
-.referral-link-input input { background: #0b0c11; color: #f6f7fb; border: 1px solid #262c39; }
-.copy-button { background: #667eea; color: white; }
-.copy-button:hover { background: #5568d3; }
-
-.task-stats-blocks-container { display: flex; gap: 12px; margin: 16px 0 20px; }
-.task-stat-block { flex: 1; border-radius: 12px; padding: 10px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25); display: flex; flex-direction: column; align-items: center; text-align: center; color: white; }
-.task-stat-block-subscription { background: #4CAF50; }
-.task-stat-block-comment { background: #a855f7; }
-.task-stat-block-view { background: #f59e0b; }
-.task-stat-title { font-size: 12px; font-weight: 700; margin-bottom: 6px; }
-.task-stat-today { font-size: 10px; opacity: 0.9; margin-bottom: 2px; }
-.task-stat-total { font-size: 10px; opacity: 0.9; margin-top: 6px; margin-bottom: 2px; }
-.task-stat-value { font-size: 16px; font-weight: 800; }
-
-/* Статистика заданий в профиле */
-.profile-task-stats {
-  margin-top: 20px;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+.profile-page {
+  padding: 8px;
+  max-width: 600px;
+  margin: 0 auto;
 }
 
-.profile-task-stat {
-  background: #0f1117;
-  border: 1px solid #1d2230;
+.profile-page h1 {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+.profile-compact-card {
+  background: #e8f2ff;
+  border: none;
   border-radius: 12px;
   padding: 16px;
+  margin-bottom: 16px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
 }
 
-.profile-task-stat-view {
-  border-left: 3px solid #FF9800;
-}
-
-.profile-task-stat-subscription {
-  border-left: 3px solid #4CAF50;
-}
-
-.profile-task-stat-comment {
-  border-left: 3px solid #2196F3;
-}
-
-.profile-task-stat .stat-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #e8eaed;
-  margin-bottom: 8px;
-}
-
-.profile-task-stat .stat-row {
+.profile-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.profile-row .label {
+  font-weight: 600;
+  color: #1976d2;
+}
+
+.profile-row .value {
+  font-weight: 600;
+  color: #0d47a1;
+}
+
+.profile-row .mono {
+  font-family: monospace;
+}
+
+.profile-status {
+  font-size: 14px;
+  padding: 10px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.profile-status.ok {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #c8e6c9;
+  font-weight: 600;
+}
+
+.inline-links {
+  margin-top: 8px;
   font-size: 12px;
-  color: #9ca3af;
+  color: #555;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
-.profile-task-stat .stat-row span {
-  color: #9ca3af;
+.inline-sep {
+  color: #777;
 }
 
-.profile-task-stat .stat-row strong {
-  color: #10b981;
-  font-weight: 700;
+.profile-status.muted {
+  background: #f5f5f5;
+  color: #777;
+  border: 1px solid #eee;
+}
+
+.profile-card {
+  background: white;
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.profile-info {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.info-item label {
+  font-weight: 600;
+  color: #666;
+  font-size: 12px;
+}
+
+.info-item span {
+  color: #333;
+  font-size: 12px;
+}
+
+.profile-form h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.form-note {
+  font-size: 14px;
+  color: #999;
+  margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.form-group input,
+.form-group select,
+.form-select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
   font-size: 16px;
+  transition: border-color 0.2s;
+  background: white;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 40px;
+  color: #333;
 }
+
+.form-group select:focus,
+.form-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-select option {
+  padding: 8px;
+  color: #333;
+  background: white;
+}
+
+/* Стилизация для выпадающих списков */
+.form-select {
+  max-height: none;
+}
+
+/* Возраст и пол в одну строку - одинаковой ширины */
+.form-row-age-gender {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.age-select {
+  width: 100% !important;
+  max-width: 100%;
+  min-width: 100%;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.save-button {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-top: 8px;
+}
+
+.save-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.save-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.profile-complete-badge {
+  margin-bottom: 24px;
+  padding: 12px;
+  background: #E8F5E9;
+  color: #4CAF50;
+  border-radius: 8px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.profile-filled {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.terms-section {
+  margin: 20px 0;
+  padding: 16px;
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+
+.terms-checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #333;
+  cursor: pointer;
+}
+
+.terms-checkbox-label input[type="checkbox"] {
+  margin-top: 2px;
+  cursor: pointer;
+}
+
+.terms-link {
+  background: none;
+  border: none;
+  color: #2196F3;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: inherit;
+  padding: 0;
+  font-family: inherit;
+}
+
+.terms-link:hover {
+  color: #1976D2;
+}
+
+.terms-section-filled {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #e0e0e0;
+  text-align: center;
+  font-size: 14px;
+  color: #666;
+}
+
+.referral-section {
+  margin-top: 12px;
+}
+
+.referral-section h2 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #333;
+}
+
+.referral-description {
+  font-size: 11px;
+  color: #666;
+  margin-bottom: 10px;
+}
+
+.referral-info-card {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+}
+
+.referral-link-section {
+  margin-bottom: 10px;
+}
+
+.referral-link-section label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #333;
+}
+
+.referral-link-input {
+  display: flex;
+  gap: 6px;
+}
+
+.referral-link-input input {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 11px;
+  background: white;
+}
+
+.copy-button {
+  padding: 6px 10px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+}
+
+.copy-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.4);
+}
+
+.referral-stats {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.stat-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  background: white;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.stat-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: #333;
+}
+
+.stat-label {
+  font-size: 10px;
+  color: #666;
+  margin-top: 1px;
+}
+
+.referrals-list {
+  margin-top: 10px;
+}
+
+.referrals-list h3 {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #333;
+}
+
+.referral-item {
+  padding: 6px;
+  background: white;
+  border-radius: 6px;
+  margin-bottom: 4px;
+  border: 1px solid #e0e0e0;
+}
+
+.referral-name {
+  font-weight: 600;
+  color: #333;
+  font-size: 11px;
+  margin-bottom: 2px;
+}
+
+.referral-earnings {
+  font-size: 10px;
+  color: #666;
+  line-height: 1.4;
+}
+
+/* Статистика выполненных заданий */
+.task-stats-blocks-container {
+  display: flex;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.task-stat-block {
+  flex: 1;
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  color: white;
+}
+
+.task-stat-block-subscription {
+  background: #4CAF50;
+}
+
+.task-stat-block-comment {
+  background: #a855f7;
+}
+
+.task-stat-block-view {
+  background: #f59e0b;
+}
+
+.task-stat-title {
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.task-stat-today {
+  font-size: 10px;
+  opacity: 0.9;
+  margin-bottom: 2px;
+}
+
+.task-stat-total {
+  font-size: 10px;
+  opacity: 0.9;
+  margin-top: 6px;
+  margin-bottom: 2px;
+}
+
+.task-stat-value {
+  font-size: 16px;
+  font-weight: 800;
+}
+

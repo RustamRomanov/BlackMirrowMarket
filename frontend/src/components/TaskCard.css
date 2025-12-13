@@ -7,10 +7,24 @@
   transition: transform 0.2s, box-shadow 0.2s;
   display: flex;
   flex-direction: column;
+<<<<<<< HEAD
   gap: 10px;
   min-height: 140px;
   animation: slideInUp 0.3s ease-out;
   animation-fill-mode: both;
+=======
+  background: white;
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s, box-shadow 0.2s;
+  gap: 8px;
+  animation: slideInUp 0.3s ease-out;
+  animation-fill-mode: both;
+  overflow: hidden;
+  min-height: auto;
+  max-height: 120px;
+>>>>>>> 9a42998934b9c436c76999cc9b35ec17f5c454bd
 }
 
 /* Subtle glow for each task type */
@@ -49,9 +63,16 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
+<<<<<<< HEAD
 .task-card-header {
+=======
+/* Строка 1: Иконка + тип задания */
+.task-row-1 {
+>>>>>>> 9a42998934b9c436c76999cc9b35ec17f5c454bd
   display: flex;
+  align-items: center;
   justify-content: space-between;
+<<<<<<< HEAD
   align-items: center;
 }
 
@@ -65,11 +86,31 @@
 
 .test-badge {
   margin-left: 6px;
+=======
+  position: relative;
+  z-index: 1;
+  gap: 8px;
+  min-height: 18px;
+}
+
+.task-type-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.task-test-chip {
+>>>>>>> 9a42998934b9c436c76999cc9b35ec17f5c454bd
   padding: 2px 6px;
   background: #ff9800;
   color: white;
   border-radius: 4px;
   font-size: 9px;
+<<<<<<< HEAD
   font-weight: 600;
 }
 
@@ -88,10 +129,28 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+=======
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Строка 2-3: Описание + Кнопка */
+.task-row-2-3 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  position: relative;
+  z-index: 1;
+  gap: 12px;
+  min-height: 40px;
+  flex: 1;
+>>>>>>> 9a42998934b9c436c76999cc9b35ec17f5c454bd
 }
 
 .task-description {
   font-size: 12px;
+<<<<<<< HEAD
   color: #9ca3af;
   line-height: 1.3;
   display: -webkit-box;
@@ -140,11 +199,56 @@
 }
 
 .earn-button {
+=======
+  color: #4a4a4a;
+  line-height: 1.4;
+  margin: 0;
+  flex: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* Строка 4: Доступно (внизу) */
+.task-row-4 {
+  display: flex;
+  align-items: flex-end;
+  position: relative;
+  z-index: 1;
+  min-height: 16px;
+}
+
+.task-available-compact {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  flex: 1;
+}
+
+.task-available-label-compact {
+  font-size: 9px;
+  color: #666;
+  font-weight: 500;
+}
+
+.task-available-value-compact {
+  font-size: 11px;
+  font-weight: 700;
+  color: #d32f2f;
+}
+
+.earn-button-compact {
+  position: relative;
+  overflow: hidden;
+>>>>>>> 9a42998934b9c436c76999cc9b35ec17f5c454bd
   padding: 8px 16px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
   border-radius: 8px;
+<<<<<<< HEAD
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -157,9 +261,80 @@
 .earn-button:hover {
   transform: scale(1.03);
   box-shadow: 0 2px 6px rgba(102, 126, 234, 0.35);
+=======
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 90px;
+  min-height: 40px;
+  white-space: nowrap;
+  align-self: center;
 }
 
-.earn-button:active {
-  transform: scale(0.98);
+.earn-button-text-compact {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  position: relative;
+  z-index: 1;
 }
 
+.earn-button-price-compact {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  position: relative;
+  z-index: 1;
+  opacity: 0.95;
+  margin-top: 3px;
+}
+
+.earn-button-compact:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(102, 126, 234, 0.45);
+>>>>>>> 9a42998934b9c436c76999cc9b35ec17f5c454bd
+}
+
+.earn-button-compact:active {
+  transform: translateY(0);
+}
+
+<<<<<<< HEAD
+=======
+/* Эффект пробегающего блика */
+.earn-button-compact.sheen::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.6),
+    transparent
+  );
+  animation: shimmer 3s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+  50% {
+    left: 100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+
+>>>>>>> 9a42998934b9c436c76999cc9b35ec17f5c454bd

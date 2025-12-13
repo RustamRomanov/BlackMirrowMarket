@@ -8,7 +8,9 @@ export default defineConfig({
     host: true
   },
   build: {
-    outDir: 'dist'
+    outDir: 'dist',
+    target: 'esnext',
+    minify: 'esbuild'
   }
 })
 
