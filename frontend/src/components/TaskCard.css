@@ -13,6 +13,7 @@
   overflow: hidden;
   min-height: auto;
   max-height: 101px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .task-card-bg {
@@ -20,6 +21,7 @@
   inset: 0;
   opacity: 0.6;
   pointer-events: none;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 @keyframes slideInUp {
@@ -31,6 +33,7 @@
     opacity: 1;
     transform: translateY(0);
   }
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .task-card:nth-child(1) { animation-delay: 0.05s; }
@@ -43,6 +46,7 @@
 .task-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 /* Строка 1: Иконка + тип задания */
@@ -54,6 +58,7 @@
   z-index: 1;
   gap: 8px;
   min-height: 18px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .task-type-label {
@@ -64,17 +69,19 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .task-test-chip {
   padding: 2px 6px;
   background: #ff9800;
-  color: #333;
+  color: white;
   border-radius: 4px;
   font-size: 9px;
   font-weight: 700;
   text-transform: uppercase;
   white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 /* Строка 2-3: Описание + Кнопка */
@@ -88,6 +95,7 @@
   min-height: 40px;
   flex: 1;
   margin-bottom: -5px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .task-description {
@@ -101,6 +109,7 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   min-width: 0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 /* Строка 4: Доступно (внизу) */
@@ -110,6 +119,7 @@
   position: relative;
   z-index: 1;
   min-height: 16px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .task-available-compact {
@@ -117,18 +127,21 @@
   align-items: baseline;
   gap: 4px;
   flex: 1;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .task-available-label-compact {
   font-size: 9px;
   color: #666;
   font-weight: 500;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .task-available-value-compact {
   font-size: 11px;
   font-weight: 700;
   color: #d32f2f;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .earn-button-compact {
@@ -136,7 +149,7 @@
   overflow: hidden;
   padding: 8px 16px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #333;
+  color: white;
   border: none;
   border-radius: 8px;
   font-size: 12px;
@@ -152,6 +165,7 @@
   min-height: 40px;
   white-space: nowrap;
   align-self: flex-end;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .earn-button-text-compact {
@@ -160,6 +174,7 @@
   line-height: 1.2;
   position: relative;
   z-index: 1;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .earn-button-price-compact {
@@ -170,15 +185,18 @@
   z-index: 1;
   opacity: 0.95;
   margin-top: 3px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .earn-button-compact:hover {
   transform: translateY(-1px);
   box-shadow: 0 3px 10px rgba(102, 126, 234, 0.45);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .earn-button-compact:active {
   transform: translateY(0);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 /* Эффект пробегающего блика */
@@ -196,6 +214,7 @@
     transparent
   );
   animation: shimmer 3s infinite;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 @keyframes shimmer {
@@ -208,4 +227,5 @@
   100% {
     left: 100%;
   }
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
